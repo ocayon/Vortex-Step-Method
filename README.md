@@ -19,6 +19,9 @@ The coordinates are defined so that the first point is the LE position of the fi
 
 # References
 
-[1] Maximilian Ranneberg: "Direct Wing Design and Inverse Airfoil Identification with the Nonlinear Weissinger Method". arXiv:1501.04983 [physics.flu-dyn], June 2015. https://arxiv.org/abs/1501.04983
+[1] Cayon, O. Fast aeroelastic model of a leading-edge inflatable kite for the design phase of airborne wind energy systems. Master’s
+thesis, Delft University of Technology, 2022. http://resolver.tudelft.nl/uuid:aede2a25-4776-473a-8a75-fb6b17b1a690
 
-[1] Rick Damiani, Fabian F. Wendt, Jason M. Jonkman, Jerome Sicard: "A Vortex Step Method for Nonlinear Airfoil Polar Data as Implemented in KiteAeroDyn". AIAA Scitech 2019 Forum, San Diego, California, 7-11 January 2019. https://doi.org/10.2514/6.2019-0804
+[2] Maximilian Ranneberg: "Direct Wing Design and Inverse Airfoil Identification with the Nonlinear Weissinger Method". arXiv:1501.04983 [physics.flu-dyn], June 2015. https://arxiv.org/abs/1501.04983
+
+[3] Rick Damiani, Fabian F. Wendt, Jason M. Jonkman, Jerome Sicard: "A Vortex Step Method for Nonlinear Airfoil Polar Data as Implemented in KiteAeroDyn". AIAA Scitech 2019 Forum, San Diego, California, 7-11 January 2019. https://doi.org/10.2514/6.2019-0804
