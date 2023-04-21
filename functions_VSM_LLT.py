@@ -1,7 +1,19 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-
+#%%
+def run_VSM(coord, Uinf, Gamma0,data_airf,conv_crit, A,rho = 1.225):
+    
+    # Generate geometry
+    controlpoints,rings,bladepanels,ringvec,coord_L = create_geometry_general(
+        coord, Uinf, int(len(coord)/2),'5fil','VSM')
+    # Run VSM to solve the Gamma distribution
+    Fmag, Gamma,aero_coeffs = solve_lifting_line_system_matrix_approach_art_visc(
+        ringvec, controlpoints, rings,Uinf,Gamma0,data_airf,conv_crit,'VSM',rho =rho)
+    # Process VSM results to calculate global coefficients and forces
+    F_rel,F_gl,Ltot,Dtot,CL,CD,CS = output_results(Fmag,aero_coeffs,ringvec,Uinf,controlpoints,A,rho =rho)
+    
+    return F_rel,CL,CD,CS,Gamma,aero_coeffs
 #%% MATHEMATICAL FUNCTIONS
 
 def interp1d(xnew,xarray,yarray):
@@ -281,14 +293,315 @@ def velocity_induced_bound_2D(ringvec):
     return ind_vel
     
 
-
+def find_stall_angle(polar):
+    # polar should be a two-dimensional numpy array with columns for angle of attack and coefficient of lift
+    # get the angle of attack and coefficient of lift data from the polar
+    aoa = polar[:,0]
+    cl = polar[:,1]
+    # use numpy's gradient function to find the rate of change of coefficient of lift with respect to angle of attack
+    dcl_daoa = np.gradient(cl, aoa)
+    # find the index where the gradient crosses zero
+    zero_crossings = np.where(np.diff(np.sign(dcl_daoa)))[0]
+    if zero_crossings.size == 0:
+        # if no zero crossings are found, the airfoil may not have a distinct stall angle
+        return 50
+    else:
+        stall_index = zero_crossings[0]
+        # return the corresponding angle of attack
+        aoa_stall = aoa[stall_index+1]
+        return aoa_stall
 
 
                
-#%% SOLVER and ITERATION FUNCTIONS        
+#%% SOLVER and ITERATION FUNCTIONS       
+ 
+def get_circulation_distribution_elliptical_wing(Gamma0, b, N):
+    """
+    Calculates the circulation distribution for an elliptical wing.
+
+    Args:
+    L (float): Total lift (in Newtons).
+    b (float): Wing span (in meters).
+    N (int): Number of points.
+
+    Returns:
+    Gamma0 (array): Circulation distribution for each section of the wing.
+    """
+    
+    y = np.linspace(-b/2, b/2, N-1)
+    
+    Gamma_i = Gamma0 * np.sqrt(1 - (2*y/b)**2)
+    
+    return Gamma_i
+
+
+def solve_lifting_line_system_matrix_approach_art_visc(ringvec,controlpoints,
+                                                           rings,Uinf,Gamma0,data_airf,
+                                                           conv_crit,model,rho=1.225):
+    """
+    Solve the VSM or LLM by finding the distribution of Gamma
+
+    Parameters
+    ----------
+    ringvec : List of dictionaries containing the vectors that define each ring
+    controlpoints :List of dictionaries with the variables needed to define each wing section
+    rings : List of list with the definition of each vortex filament
+    Uinf : Wind speed velocity vector
+    data_airf : 2D airfoil data with alpha, Cl, Cd, Cm
+    recalc_alpha : True if you want to recalculate the induced angle of attack at 1/4 of the chord (VSM)
+    Gamma0 : Initial Guess of Gamma
+    model : VSM: Vortex Step method/ LLT: Lifting Line Theory
+
+    Returns
+    -------
+    F: Lift, Drag and Moment at each section
+    Gamma: Gamma at each section
+    aero_coeffs: alpha, cl, cd, cm at each wing section
+
+    """
+           
+    nocore = False  # To shut down core corrections input True
+    # Initialization of the parameters
+    velocity_induced = []
+    u = 0; v = 0; w = 0
+    N = len(rings)
+    Gammaini = Gamma0
+    Gamma = np.zeros(N)
+    GammaNew = Gammaini
+    Lift = np.zeros(N)
+    Drag = np.zeros(N)
+    Ma = np.zeros(N)
+    alpha = np.zeros(N)
+    cl = np.zeros(N)
+    cd = np.zeros(N)
+    cm = np.zeros(N)
+    MatrixU = np.empty((N,N))
+    MatrixV = np.empty((N,N))
+    MatrixW = np.empty((N,N))  
+    U_2D = np.zeros((N,3))
+    
+    #Number of iterations and convergence criteria
+    Niterations = conv_crit['Niterations']
+    errorlimit = conv_crit['error']
+    relax = conv_crit['Relax_factor']
+    k2 = conv_crit['k2']
+    k4 = conv_crit['k4']
+    converged = False
+    rho = 1.225
+    
+    # Look-up airfoil 2D coefficients
+    if data_airf.ndim == 3:
+        aoa_stall = find_stall_angle(data_airf[:,:,int(N/2)])*np.pi/180
+    else:
+        aoa_stall = find_stall_angle(data_airf)*np.pi/180
+
+    
+    coord_cp = [controlpoints[icp]['coordinates'] for icp in range(N)]
+    chord = [controlpoints[icp]['chord'] for icp in range(N)]
+    airf_coord = [controlpoints[icp]['airf_coord'] for icp in range(N)]
+    
+    for icp in range(N):
         
+        if model == 'VSM':
+            # Velocity induced by a infinte bound vortex with Gamma = 1
+            U_2D[icp]= velocity_induced_bound_2D(ringvec[icp])
+                
+        
+        for jring in range(N):
+            rings[jring] = update_Gamma_single_ring(rings[jring], 1, 1)
+            # Calculate velocity induced by a ring to a control point
+            velocity_induced = velocity_induced_single_ring_semiinfinite(rings[jring],
+                                                                          coord_cp[icp],
+                                                                        model,vec_norm(Uinf))
+            # If CORE corrections are deactivated
+            if nocore == True:
+                # Calculate velocity induced by a ring to a control point
+                velocity_induced = velocity_induced_single_ring_semiinfinite_nocore(rings[jring],
+                                                                         coord_cp[icp],
+                                                                        model)
+            
+            # AIC Matrix
+            MatrixU[icp,jring] = velocity_induced[0]
+            MatrixV[icp,jring] = velocity_induced[1]
+            MatrixW[icp,jring] = velocity_induced[2]
+      
+    # Start solving iteratively
+    for kiter in range(Niterations):
+
+        for ig in range(len(Gamma)):
+            Gamma[ig] = GammaNew[ig]
+        
+        for icp in range(N):
+            # Initialize induced velocity to 0
+            u = 0; v = 0; w = 0; 
+            # Compute induced velocities with previous Gamma distribution
+            for jring in range(N):
+                u = u + MatrixU[icp][jring]*Gamma[jring]; # x-component of velocity
+                v= v + MatrixV[icp][jring]*Gamma[jring]; # y-component of velocity
+                w= w + MatrixW[icp][jring]*Gamma[jring]; # z-component of velocity    
+                
+            u = u - U_2D[icp,0]*Gamma[icp]   
+            v = v - U_2D[icp,1]*Gamma[icp] 
+            w = w - U_2D[icp,2]*Gamma[icp]
+            
+            # Calculate terms of induced corresponding to the airfoil directions
+            norm_airf = airf_coord[icp][:,0]
+            tan_airf = airf_coord[icp][:,1]
+            z_airf = airf_coord[icp][:,2]
+            
+            # Calculate relative velocity and angle of attack         
+            Urel = [Uinf[0]+u,Uinf[1]+v,Uinf[2]+w]
+            vn = dot_product(norm_airf,Urel)
+            vtan = dot_product(tan_airf,Urel)
+            alpha[icp] = np.arctan(vn/vtan)
+
+
+            Urelcrossz = np.cross(Urel, z_airf)
+            Umag = np.linalg.norm(Urelcrossz)
+            Uinfcrossz = np.cross(Uinf, z_airf)
+            Umagw = np.linalg.norm(Uinfcrossz)
+            
+            # Look-up airfoil 2D coefficients
+            if data_airf.ndim == 3:
+                cl[icp],cd[icp],cm[icp] = airfoil_coeffs(alpha[icp],data_airf[:,:,icp]) 
+            else:
+                cl[icp],cd[icp],cm[icp] = airfoil_coeffs(alpha[icp], data_airf)
+            
+            
+            # Retrieve forces and moments
+            Lift[icp] = 0.5*rho*Umag**2*cl[icp]*chord[icp]
+            Drag[icp] = 0.5*rho*Umag**2*cd[icp]*chord[icp]
+            Ma[icp] = 0.5*rho*Umag**2*cm[icp]*chord[icp]**2
+            
+            # Find the new gamma using Kutta-Joukouski law            
+            GammaNew[icp] = 0.5*Umag**2/Umagw*cl[icp]*chord[icp]
+            
+        
+        # stall = []
+        
+        # for i,aoa in enumerate(alpha): 
+        #     if aoa>aoa_stall:
+        #         stall = np.arange(i-3, len(alpha)-i+3)
+        #         break
+        npan = len(Gamma)
+        stall = [] 
+        
+        # threshold = 2/180*np.pi            
+        # Loop through the array, checking each pair of adjacent items to see if damping is needed
+        # for i in range(len(alpha) - 1):
+        #     if abs(alpha[i+1] - alpha[i]) > threshold and alpha[i]>aoa_stall:
+        #        stall = np.arange(i-4, len(alpha)-i+4)
+        #        break
+        # Loop through the array, checking each pair of adjacent items to see if damping is needed
+        stall = False 
+        for i in range(len(alpha) - 1):
+           if alpha[i]>aoa_stall:
+              stall = True
+              break
+        # If not converged, apply convergence weighting and continue the iteration
+        for ig in range(len(Gamma)):
+            if ig == 0:
+                Gim2 = Gamma[0]
+                Gim1 = Gamma[0]
+                Gi = Gamma[0]
+                Gip1 = Gamma[1]
+                Gip2 = Gamma[2]
+            elif ig == 1:
+                Gim2 = Gamma[0]
+                Gim1 = Gamma[0]
+                Gi = Gamma[1]
+                Gip1 = Gamma[2]
+                Gip2 = Gamma[3]
+            elif ig == npan-2:
+                Gim2 = Gamma[npan-4]
+                Gim1 = Gamma[npan-3]
+                Gi = Gamma[npan-2]
+                Gip1 = Gamma[npan-1]
+                Gip2 = Gamma[npan-1]
+            elif ig == npan-1:
+                Gim2 = Gamma[npan-3]
+                Gim1 = Gamma[npan-2]
+                Gi = Gamma[npan-1]
+                Gip1 = Gamma[npan-1]
+                Gip2 = Gamma[npan-1]
+            else:
+                Gim2 = Gamma[ig-2]
+                Gim1 = Gamma[ig-1]
+                Gi = Gamma[ig]
+                Gip1 = Gamma[ig+1]
+                Gip2 = Gamma[ig+2]
+                
+            dif2 = (Gip1 - Gi) - (Gi - Gim1)
+            dif4 = (Gip2 - 3.*Gip1 + 3.*Gi - Gim1) - (Gip1 - 3.*Gi + 3.*Gim1 - Gim2) 
+        
+            if stall is False:
+                damp = 0
+            # elif ig <1 or ig >npan-2:
+            #     damp =0
+            else: 
+                damp = k2*dif2 - k4*dif4
+            # damp = k2*dif2 - k4*dif4
+            GammaNew[ig] = (1-relax)*Gamma[ig] + relax*GammaNew[ig]+damp    
+                
+        
+        
+        # check convergence of solution
+        refererror =np.amax(np.abs(GammaNew));
+        refererror =np.amax([refererror,0.001]); # define scale of bound circulation
+        error =np.amax(np.abs(GammaNew- Gamma)); # difference betweeen iterations
+        error= error/refererror; # relative error
+        if (error < errorlimit):
+          # if error smaller than limit, stop iteration cycle  
+          converged = True
+          
+          break
+    if converged == False:
+        print('Not converged after '+str(Niterations)+' iterations')
+              
+    # In case VSM, calculate the effective angle of attack at a 1/4 chord
+    if model=='VSM':
+
+        for ig in range(len(Gamma)):
+            Gamma[ig] = GammaNew[ig]
+        for icp in range(N):
+            # Compute induced velocities at 1/4 chord
+            for jring in range(N):
+                rings[jring] = update_Gamma_single_ring(rings[jring], 1, 1)
+                velocity_induced = velocity_induced_single_ring_semiinfinite(rings[jring],
+                                                                          controlpoints[icp]['coordinates_aoa'],
+                                                                          'LLT',vec_norm(Uinf))
+                if nocore == True:
+                    velocity_induced = velocity_induced_single_ring_semiinfinite_nocore(rings[jring],
+                                                                         controlpoints[icp]['coordinates_aoa'],
+                                                                        model)
+                MatrixU[icp,jring] = velocity_induced[0]
+                MatrixV[icp,jring] = velocity_induced[1]
+                MatrixW[icp,jring] = velocity_induced[2]
+            
+        for icp in range(N):
+            u = 0; v = 0; w = 0;            
+            for jring in range(N):
+                u = u + MatrixU[icp][jring]*Gamma[jring]; # x-component of velocity
+                v= v + MatrixV[icp][jring]*Gamma[jring]; # y-component of velocity
+                w= w + MatrixW[icp][jring]*Gamma[jring]; # z-component of velocity    
+            
+            # Calculate terms of induced corresponding to the airfoil directions
+            norm_airf = airf_coord[icp][:,0]
+            tan_airf = airf_coord[icp][:,1]
+            z_airf = airf_coord[icp][:,2]
+            
+            Urel = [Uinf[0]+u,Uinf[1]+v,Uinf[2]+w]
+            vn = np.dot(norm_airf,Urel)
+            vtan = np.dot(tan_airf,Urel)
+            # New relative angle of attack
+            alpha[icp] = np.arctan(vn/vtan) 
+    
+    aero_coeffs = np.column_stack([alpha,cl,cd,cm])
+    F = np.column_stack([Lift,Drag,Ma])
+    return F, Gamma,aero_coeffs
+
 def solve_lifting_line_system_matrix_approach_semiinfinite(ringvec,controlpoints,
-                                                           rings,Uinf,data_airf,
+                                                           rings,Uinf,Gamma0,data_airf,
                                                            conv_crit,model):
     """
     Solve the VSM or LLM by finding the distribution of Gamma
@@ -316,61 +629,68 @@ def solve_lifting_line_system_matrix_approach_semiinfinite(ringvec,controlpoints
     # Initialization of the parameters
     velocity_induced = []
     u = 0; v = 0; w = 0
-    Gamma = np.zeros(len(rings))
-    GammaNew = np.zeros(len(rings))
-    Lift = np.zeros(len(rings))
-    Drag = np.zeros(len(rings))
-    Ma = np.zeros(len(rings))
-    alpha = np.zeros(len(rings))
-    cl = np.zeros(len(rings))
-    cd = np.zeros(len(rings))
-    cm = np.zeros(len(rings))
-    MatrixU = np.empty((len(controlpoints),len(rings)))
-    MatrixV = np.empty((len(controlpoints),len(rings)))
-    MatrixW = np.empty((len(controlpoints),len(rings)))  
-    U_2D = np.zeros((len(controlpoints),3))
+    N = len(rings)
+    Gammaini = Gamma0
+    Gamma = np.zeros(N)
+    GammaNew = Gammaini
+    Lift = np.zeros(N)
+    Drag = np.zeros(N)
+    Ma = np.zeros(N)
+    alpha = np.zeros(N)
+    cl = np.zeros(N)
+    cd = np.zeros(N)
+    cm = np.zeros(N)
+    MatrixU = np.empty((N,N))
+    MatrixV = np.empty((N,N))
+    MatrixW = np.empty((N,N))  
+    U_2D = np.zeros((N,3))
     
     #Number of iterations and convergence criteria
     Niterations = conv_crit['Niterations']
     errorlimit = conv_crit['error']
-    ConvWeight = conv_crit['Conv_weight']
+    relax = conv_crit['Relax_factor']
+    converged = False
+    rho = 1.225
     
+    coord_cp = [controlpoints[icp]['coordinates'] for icp in range(N)]
+    chord = [controlpoints[icp]['chord'] for icp in range(N)]
+    airf_coord = [controlpoints[icp]['airf_coord'] for icp in range(N)]
     
-    for icp in range(len(controlpoints)):
+    for icp in range(N):
         
         if model == 'VSM':
             # Velocity induced by a infinte bound vortex with Gamma = 1
             U_2D[icp]= velocity_induced_bound_2D(ringvec[icp])
                 
         
-        for jring in range(len(rings)):
+        for jring in range(N):
             rings[jring] = update_Gamma_single_ring(rings[jring], 1, 1)
             # Calculate velocity induced by a ring to a control point
             velocity_induced = velocity_induced_single_ring_semiinfinite(rings[jring],
-                                                                          controlpoints[icp]['coordinates'],
+                                                                          coord_cp[icp],
                                                                         model,vec_norm(Uinf))
             # If CORE corrections are deactivated
             if nocore == True:
                 # Calculate velocity induced by a ring to a control point
                 velocity_induced = velocity_induced_single_ring_semiinfinite_nocore(rings[jring],
-                                                                         controlpoints[icp]['coordinates'],
+                                                                         coord_cp[icp],
                                                                         model)
             
             # AIC Matrix
             MatrixU[icp,jring] = velocity_induced[0]
             MatrixV[icp,jring] = velocity_induced[1]
             MatrixW[icp,jring] = velocity_induced[2]
-                  
+       
     # Start solving iteratively
     for kiter in range(Niterations):
         for ig in range(len(Gamma)):
             Gamma[ig] = GammaNew[ig]
         
-        for icp in range(len(controlpoints)):
+        for icp in range(N):
             # Initialize induced velocity to 0
             u = 0; v = 0; w = 0; 
             # Compute induced velocities with previous Gamma distribution
-            for jring in range(len(rings)):
+            for jring in range(N):
                 u = u + MatrixU[icp][jring]*Gamma[jring]; # x-component of velocity
                 v= v + MatrixV[icp][jring]*Gamma[jring]; # y-component of velocity
                 w= w + MatrixW[icp][jring]*Gamma[jring]; # z-component of velocity    
@@ -379,17 +699,21 @@ def solve_lifting_line_system_matrix_approach_semiinfinite(ringvec,controlpoints
             v = v - U_2D[icp,1]*Gamma[icp] 
             w = w - U_2D[icp,2]*Gamma[icp]
             
+            # Calculate terms of induced corresponding to the airfoil directions
+            norm_airf = airf_coord[icp][:,0]
+            tan_airf = airf_coord[icp][:,1]
+            z_airf = airf_coord[icp][:,2]
+            
             # Calculate relative velocity and angle of attack         
             Urel = [Uinf[0]+u,Uinf[1]+v,Uinf[2]+w]
-            vn = dot_product(controlpoints[icp]['normal'],Urel)
-            vtan = dot_product(controlpoints[icp]['tangential'],Urel)
+            vn = dot_product(norm_airf,Urel)
+            vtan = dot_product(tan_airf,Urel)
             alpha[icp] = np.arctan(vn/vtan)
 
-            # Calculate terms of induced corresponding to the z-airfoil direction
-            z_airf = controlpoints[icp]['airf_coord'][:,2]
+
             Urelcrossz = np.cross(Urel, z_airf)
             Umag = np.linalg.norm(Urelcrossz)
-            Uinfcrossz = np.cross(Uinf, ringvec[icp]['r0']/np.linalg.norm(ringvec[icp]['r0']))
+            Uinfcrossz = np.cross(Uinf, z_airf)
             Umagw = np.linalg.norm(Uinfcrossz)
             
             # Look-up airfoil 2D coefficients
@@ -398,13 +722,14 @@ def solve_lifting_line_system_matrix_approach_semiinfinite(ringvec,controlpoints
             else:
                 cl[icp],cd[icp],cm[icp] = airfoil_coeffs(alpha[icp], data_airf)
             
+            
             # Retrieve forces and moments
-            Lift[icp] = 0.5*Umag**2*cl[icp]*controlpoints[icp]['chord']
-            Drag[icp] = 0.5*Umag**2*cd[icp]*controlpoints[icp]['chord']
-            Ma[icp] = 0.5*Umag**2*cm[icp]*controlpoints[icp]['chord']**2
+            Lift[icp] = 0.5*rho*Umag**2*cl[icp]*chord[icp]
+            Drag[icp] = 0.5*rho*Umag**2*cd[icp]*chord[icp]
+            Ma[icp] = 0.5*rho*Umag**2*cm[icp]*chord[icp]**2
             
             # Find the new gamma using Kutta-Joukouski law            
-            GammaNew[icp] = 0.5*Umag**2/Umagw*cl[icp]*controlpoints[icp]['chord']
+            GammaNew[icp] = 0.5*Umag**2/Umagw*cl[icp]*chord[icp]
             
         # check convergence of solution
         refererror =np.amax(np.abs(GammaNew));
@@ -413,22 +738,29 @@ def solve_lifting_line_system_matrix_approach_semiinfinite(ringvec,controlpoints
         error= error/refererror; # relative error
         if (error < errorlimit):
           # if error smaller than limit, stop iteration cycle  
-          print('Converged N = '+str(kiter))
+          converged = True
           break
-       
+        # if kiter % 100 == 0:
+        #     plt.figure()
+        #     plt.plot(Gamma)
+        #     plt.plot(GammaNew)
+        #     print(kiter)
+
         # If not converged, apply convergence weighting and continue the iteration
         for ig in range(len(Gamma)):
-            GammaNew[ig] = (1-ConvWeight)*Gamma[ig] + ConvWeight*GammaNew[ig]
+            GammaNew[ig] = (1-relax)*Gamma[ig] + relax*GammaNew[ig]
             
-                    
+    if converged == False:
+        print('Not converged after '+str(Niterations)+' iterations')
+              
     # In case VSM, calculate the effective angle of attack at a 1/4 chord
     if model=='VSM':
 
         for ig in range(len(Gamma)):
             Gamma[ig] = GammaNew[ig]
-        for icp in range(len(controlpoints)):
+        for icp in range(N):
             # Compute induced velocities at 1/4 chord
-            for jring in range(len(rings)):
+            for jring in range(N):
                 rings[jring] = update_Gamma_single_ring(rings[jring], 1, 1)
                 velocity_induced = velocity_induced_single_ring_semiinfinite(rings[jring],
                                                                           controlpoints[icp]['coordinates_aoa'],
@@ -441,16 +773,21 @@ def solve_lifting_line_system_matrix_approach_semiinfinite(ringvec,controlpoints
                 MatrixV[icp,jring] = velocity_induced[1]
                 MatrixW[icp,jring] = velocity_induced[2]
             
-        for icp in range(len(controlpoints)):
+        for icp in range(N):
             u = 0; v = 0; w = 0;            
-            for jring in range(len(rings)):
+            for jring in range(N):
                 u = u + MatrixU[icp][jring]*Gamma[jring]; # x-component of velocity
                 v= v + MatrixV[icp][jring]*Gamma[jring]; # y-component of velocity
                 w= w + MatrixW[icp][jring]*Gamma[jring]; # z-component of velocity    
             
+            # Calculate terms of induced corresponding to the airfoil directions
+            norm_airf = airf_coord[icp][:,0]
+            tan_airf = airf_coord[icp][:,1]
+            z_airf = airf_coord[icp][:,2]
+            
             Urel = [Uinf[0]+u,Uinf[1]+v,Uinf[2]+w]
-            vn = np.dot(controlpoints[icp]['normal'],Urel)
-            vtan = np.dot(controlpoints[icp]['tangential'],Urel)
+            vn = np.dot(norm_airf,Urel)
+            vtan = np.dot(tan_airf,Urel)
             # New relative angle of attack
             alpha[icp] = np.arctan(vn/vtan) 
     
@@ -460,7 +797,7 @@ def solve_lifting_line_system_matrix_approach_semiinfinite(ringvec,controlpoints
     return F, Gamma,aero_coeffs
 
 
-def output_results(Fmag,aero_coeffs,ringvec,Uinf,controlpoints,Atot):
+def output_results(Fmag,aero_coeffs,ringvec,Uinf,controlpoints,Atot,rho=1.225):
     """
     Post-process results to get global forces and aerodynamic coefficients
 
@@ -483,13 +820,14 @@ def output_results(Fmag,aero_coeffs,ringvec,Uinf,controlpoints,Atot):
     CD : Global CD
 
     """
-    
     alpha = aero_coeffs[:,0]
     F_rel = []
     F_gl = []
     Fmag_gl = []
+    SideF = []
     Ltot = 0
     Dtot = 0
+    SFtot = 0
     for i in range(len(alpha)):
                
         r0 = ringvec[i]['r0'] 
@@ -515,18 +853,20 @@ def output_results(Fmag,aero_coeffs,ringvec,Uinf,controlpoints,Atot):
         F_gl.append([L_gl,D_gl])
         Fmag_gl.append([dot_product(L_rel, dir_L_gl)+dot_product(D_rel,dir_L_gl)\
                         ,dot_product(L_rel, Uinf/vec_norm(Uinf))+dot_product(D_rel,Uinf/vec_norm(Uinf))])
+        SideF.append(dot_product(L_rel, [0,1,0])+dot_product(D_rel,[0,1,0]))
     
     # Calculate total aerodynamic forces    
     for i in range(len(Fmag_gl)):
         Ltot += Fmag_gl[i][0]*np.linalg.norm(ringvec[i]['r0'])
         Dtot += Fmag_gl[i][1]*np.linalg.norm(ringvec[i]['r0'])
-
+        SFtot += SideF[i]*np.linalg.norm(ringvec[i]['r0'])
         
     Umag = np.linalg.norm(Uinf)
-    CL = Ltot/(0.5*Umag**2*Atot)
-    CD = Dtot/(0.5*Umag**2*Atot)
+    CL = Ltot/(0.5*Umag**2*Atot*rho)
+    CD = Dtot/(0.5*Umag**2*Atot*rho)
+    CS = SFtot/(0.5*Umag**2*Atot*rho)
         
-    return F_rel,F_gl,Ltot,Dtot,CL,CD
+    return F_rel,F_gl,Ltot,Dtot,CL,CD,CS
 
 def create_geometry_general(coordinates, Uinf, N,ring_geo,model):
    """

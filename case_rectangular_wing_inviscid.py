@@ -86,7 +86,7 @@ plt.ylabel(r'$\alpha$')
 plt.legend()
 plt.show()
 
-fig = plt.figure(2, figsize = (6,5))
+fig = plt.figure(3, figsize = (6,5))
 plt.plot(coord_L[:,1]/max(coord_L[:,1]),aero_coeffs[:,2], label = model) 
 plt.title('Rectangular wing AR =' + str(AR)+r'$, \alpha = $' + str(aoa*180/np.pi))    
 plt.xlabel(r'$y/s$')
