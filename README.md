@@ -25,3 +25,11 @@ thesis, Delft University of Technology, 2022. http://resolver.tudelft.nl/uuid:ae
 [2] Maximilian Ranneberg: "Direct Wing Design and Inverse Airfoil Identification with the Nonlinear Weissinger Method". arXiv:1501.04983 [physics.flu-dyn], June 2015. https://arxiv.org/abs/1501.04983
 
 [3] Rick Damiani, Fabian F. Wendt, Jason M. Jonkman, Jerome Sicard: "A Vortex Step Method for Nonlinear Airfoil Polar Data as Implemented in KiteAeroDyn". AIAA Scitech 2019 Forum, San Diego, California, 7-11 January 2019. https://doi.org/10.2514/6.2019-0804
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+### Copyright
+
+Copyright (c) 2022 Oriol Cayon
