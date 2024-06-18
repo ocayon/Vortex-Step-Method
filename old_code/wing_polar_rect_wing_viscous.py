@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import time
 import sys
 sys.path.insert(0, '../functions/')
-import functions_VSM_LLT as VSM
+import src.functions_VSM_LLT as VSM
 
 
     
@@ -36,7 +36,7 @@ conv_crit_damp = {
     'Niterations': 3000,
     'error' : 1e-6,
     'Relax_factor': 0.01,  
-    'k2': 0.05,
+    'k2': 0.0,
     'k4': 0.0   
     }
 
