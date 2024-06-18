@@ -15,13 +15,7 @@ Created on Mon Jan 10 18:09:16 2022
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-import sys
-sys.path.insert(0, '../functions/')
-import functions_VSM_LLT as VSM
-
-
-    
-    
+import src.functions_VSM_LLT as VSM
     
 plt.close('all')
 #%%  Input DATA
