@@ -1552,31 +1552,6 @@ def refine_LEI_mesh(coord,N_sect,N_split):
  
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
 # %% FUNCTIONS NOT CURRENTLY USED
 
 def velocity_3D_from_vortex_filament(XV1,XV2,XVP,GAMMA,CORE):
