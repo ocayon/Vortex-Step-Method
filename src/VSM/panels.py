@@ -1,4 +1,4 @@
-class Panels(Panel):
+class PanelDistribution:
     """
     This class is responsible for creating a list of Panel objects
     Args:
@@ -17,6 +17,9 @@ class Panels(Panel):
         panels (list of Panel objects)
 
     """
+
+    def __init__(self, Panel) -> None:
+        pass
 
     def main(self, wing_properties):
         """
