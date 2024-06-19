@@ -1,4 +1,5 @@
 import numpy as np
+from VSM.HorshoeVortex import HorshoeVortex
 
 class Panel:
     def __init__(self,section_1,section_2):

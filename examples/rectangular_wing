@@ -1,0 +1,45 @@
+from VSM.WingAerodynamicModel import WingAerodynamics
+from VSM.WingGeometry import Wing, Section
+from VSM.Solver import Solver
+
+# Use example
+################# CAREFULL WITH REFERENCE FRAMES, CHANGING FROM ORIGINAL CODE #################
+# Aircraft reference frame
+# x: forward
+# y: right
+# z: down
+# Create a wing object
+wing = Wing()
+wing.add_section(Section([0, -1, 0], [-1, -1, 0], "inviscid"))
+wing.add_section(Section([0, 1, 0], [-1, 1, 0], "inviscid"))
+
+# Initialize wing aerodynamics
+# Default parameters are used (elliptic circulation distribution, 5 filaments per ring)
+wing_aero = WingAerodynamics([wing])
+
+# Initialize solver
+# Default parameters are used (VSM, no artificial damping)
+VSM = Solver()
+
+# Define inflow conditions
+wing_aero.set_va(va=[-10, 0, 0], yaw_rate=0)
+
+# Solve the aerodynamics
+wing_aero = VSM.solve(wing_aero)
+
+#%% Retrieve Results
+# Retrieve aerodynamic coefficients
+wing_coeffs = wing_aero.get_wing_coefficients()  # can be a dictionary or a list
+print(wing_coeffs)
+# Retrieve aerodynamic forces
+wing_forces = wing_aero.get_wing_forces()  # can be a dictionary or a list
+print(wing_forces)
+# Retrieve aerodynamic moments
+wing_moments = wing_aero.get_wing_moments()  # can be a dictionary or a list
+print(wing_moments)
+# Retrieve gamma distribution
+gamma = wing_aero.get_gamma_distribution()  # can be a list or a numpy array
+print(gamma)
+# Retrieve angle of attack distribution
+aero_coeffs = wing_aero.get_spanwise_distribution()  # dictionary with alpha, cl, cd, cm
+print(aero_coeffs)

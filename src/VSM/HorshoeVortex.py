@@ -10,7 +10,6 @@ class HorshoeVortex:
     a horshoe vortex object
 
     """
-
     def __init__(self):
         self.horshoe_vortex: list = []
         
