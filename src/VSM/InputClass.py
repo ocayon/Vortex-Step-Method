@@ -1,13 +1,16 @@
 import dataclasses
 import numpy as np
+from typing import List
 
 @dataclasses
 class Wing:
     n_panels: int
     spanwise_panel_distribution: str = "linear"
-    Section: list  # child-class
+    Section: List[Section]  # child-class
 
     def refine_aerodynamic_mesh(self):
+        #3 user defined Section
+        #to 25
         return refined_sections #list of updated sections
 
 @dataclasses
@@ -20,6 +23,10 @@ class Section:
 
 
 
+
+######################
+#### IDEATION ON FUNCTIONS THAT WILL BE USEFULL FOR THE REFINE_AERODYNAMIC_MESH FUNCTION
+######################
 
     def calculate_panel_distribution(self):
         """

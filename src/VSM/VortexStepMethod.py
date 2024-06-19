@@ -1,8 +1,14 @@
 import numpy as np
 
 from VSM.functions_needed_for_solve import *
-from VSM.PanelDistribution import PanelDistribution
+from VSM.Panel import Panel
 from VSM.HorshoeVortex import HorshoeVortex
+
+# Maurits-tips :)
+# call the methods of child-classes, inhereted or composed of
+# do not call the attributes of child-classes, call them through getter methods
+# only pass the attributes that you need to pass, not the whole object
+# only use the methods of level higher/lower, not grabbing methods from higher/lower
 
 class VortexStepMethod:
     def __init__(
@@ -43,7 +49,7 @@ class VortexStepMethod:
         self.allowed_error = allowed_error
         self.relaxation_factor = relaxation_factor
         self.artificial_damping = artificial_damping
-        self.__horshoe_vortices = []
+        self.__panels = []
 
 
     # va,yaw_rate are input here such that one can easily run loops over different va values
@@ -58,7 +64,7 @@ class VortexStepMethod:
             None
         """
         # 0. Instantiate the horshoe vortices
-        self.instantiate_horshoe_vortices(self.wings)
+        self.instantiate_panels(self.wings)
 
         # 2. Update the horshoe vortices for the given va
         self.update_horshoe_vortices_for_va(va)
@@ -73,8 +79,9 @@ class VortexStepMethod:
         self.calculate_global_output()
 
 
+    #TODO: Define this outside of the class?
     # 1. Instantiate the horshoe vortices
-    def instantiate_horshoe_vortices(self):
+    def instantiate_panels(self, wings: list):
         """Instantiates the horshoe vortices for the given wing properties.
 
         Args:
@@ -84,7 +91,7 @@ class VortexStepMethod:
             None
         """
         # Loop through the list of wings
-        for wing_instance in self.wings:
+        for wing_instance in wings:
 
             # Distribute the panels of the wing_instance
 
@@ -100,11 +107,13 @@ class VortexStepMethod:
             for i in range(len(sections)-1):
                 self.panels.append(Panel(section[i],section[i+1]))
 
+            #TODO: Create a seperate method for this
             # Update the horshoe vortices for the initial gamma distribution
             self.update_horshoe_vortices_for_gamma_distribution(
                 self.initial_gamma_distribution
             )
 
+    #TODO: Define this outside of the class?
     def update_horshoe_vortices_for_gamma_distribution(
         self, gamma_distribution: np.ndarray = "elliptic"
     ):
@@ -124,6 +133,7 @@ class VortexStepMethod:
         else:
             #update the horshoe vortices for the given distribution
 
+    #TODO: Also part of vortex system, define outside of the class?
     # 2. Update the horshoe vortices for the given va
     def update_horshoe_vortices_for_va(self, va: list):
         """Updates the horshoe vortices for the given va.
@@ -145,13 +155,18 @@ class VortexStepMethod:
                 "The number of va values should be either 1 or equal to the number of horshoe vortices."
             )
 
+    # Also part of vortex system, define outside of the class?
     # 3. Calculate the AIC matrix
     def __calculate_AIC_matrix(self):
         """Calculates the AIC matrix for the given horshoe vortices."""
         pass
-
+    
     # 4. Iteratively find the gamma distribution
-    def solve_lifting_line_system_matrix_approach_art_visc(self, va: list, yaw_rate: float = 0):
+    def solve_lifting_line_system_matrix_approach_art_visc(self,
+                                                           vortex_system (which includes va,yaw_rate)
+                                                            va: list, 
+                                                            yaw_rate: float = 0):
+    
         """
         Solves the lifting line system using the matrix approach with artificial viscosity.
 
@@ -196,3 +211,37 @@ class VortexStepMethod:
         self.CD = "CD"
         
         pass
+
+
+
+class solve_VSM(Solver)
+    
+class solve_LLM(Solver)
+
+
+#make abstract class
+class Solver
+
+    def global_output
+
+class VorticitySystem
+    of multiple wings
+
+class Panel
+    self.corner_points
+    self.aerodynamic_properties
+    self.local_reference_frame
+    self.horshoe_vortex = HorshoeVortex(self.corner_points)
+    self.control_point
+    self.aerodynamic_center
+
+class HorshoeVortex
+
+
+## OUTSIDE OF THE CLASS
+def solve(vortex_system)
+
+def vortex_system(wing_geometry)
+
+def nargierngeg
+
