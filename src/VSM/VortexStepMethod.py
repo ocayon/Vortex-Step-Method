@@ -212,7 +212,15 @@ class VortexStepMethod:
         
         pass
 
-
+###
+# a user would call
+vorticitySsstem = vorticitySystem(wings)
+vsm_results = solve_VSM(VorticitySystem)
+# or 
+vsm_results = solve_LLM(vorticitySystem)
+# or
+VorticitySystem.update()
+print(vsm_results.cl)
 
 class solve_VSM(Solver)
     
