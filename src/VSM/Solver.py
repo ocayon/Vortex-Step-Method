@@ -40,7 +40,7 @@ class Solver:
 
         # Solve the circulation distribution
         wing_aero = self.solve_iterative_loop(wing_aero)
-        
+
         # Calculate effective angle of attack at the aerodynamic center
         # This can go inside update_aerodynamics but to remember to correct it (It is always at the aerodynamic center)
         wing_aero.update_effective_angle_of_attack()
@@ -48,15 +48,9 @@ class Solver:
         # Calculate aerodynamic coefficients in the panel reference frame and store them in the panel object
         wing_aero.update_aerodynamics()
 
-
         return wing_aero
 
-    def solve_iterative_loop(self, wing_aero, AIC_x, AIC_y, AIC_z, U_2D, panels):
-        N = len(panels)
-        alpha = np.zeros(N)
-        Lift = np.zeros(N)
-        Drag = np.zeros(N)
-        Ma = np.zeros(N)
+    def solve_iterative_loop(self, wing_aero, AIC_x, AIC_y, AIC_z, U_2D):
         if self.aerodynamic_model_type == "VSM":
             AIC_x, AIC_y, AIC_z, U_2D = wing_aero.calculate_AIC_matrices(
                 control_point="three_quarter_chord"
@@ -67,22 +61,19 @@ class Solver:
             )
         else:
             raise ValueError("Invalid aerodynamic model type")
-
-        panels = wing_aero.get_panels()
+        
         GammaNew = wing_aero.get_gamma_distribution()
-        Gamma = np.zeros(len(GammaNew))
         for _ in self.max_iterations:
 
-            for ig in range(len(Gamma)):
-                Gamma[ig] = GammaNew[ig]
+            Gamma = GammaNew  # I used to do this in a loop, not sure if
 
-            for icp in range(N):
+            for icp,panel in enumerate(wing_aero.get_panels()):
                 # Initialize induced velocity to 0
                 u = 0
                 v = 0
                 w = 0
                 # Compute induced velocities with previous Gamma distribution
-                for jring in range(N):
+                for jring in range(len(Gamma)):
                     u = u + AIC_x[icp][jring] * Gamma[jring]
                     # x-component of velocity
                     v = v + AIC_y[icp][jring] * Gamma[jring]
@@ -95,17 +86,17 @@ class Solver:
                 w = w - U_2D[icp, 2] * Gamma[icp]
 
                 # Calculate terms of induced corresponding to the airfoil directions
-                dcm = panels[icp].get_reference_frame()
+                dcm = panel.get_reference_frame()
                 norm_airf = dcm[:, 0]
                 tan_airf = dcm[:, 1]
                 z_airf = dcm[:, 2]
 
                 # Calculate relative velocity and angle of attack
-                Uinf = wing_aero.get_apparent_velocity(panel = icp)
+                Uinf = panel.get_apparent_velocity
                 Urel = Uinf + np.array([u, v, w])
                 vn = dot_product(norm_airf, Urel)
                 vtan = dot_product(tan_airf, Urel)
-                alpha[icp] = np.arctan(vn / vtan)
+                alpha = np.arctan(vn / vtan)
 
                 Urelcrossz = np.cross(Urel, z_airf)
                 Umag = np.linalg.norm(Urelcrossz)
@@ -113,39 +104,80 @@ class Solver:
                 Umagw = np.linalg.norm(Uinfcrossz)
 
                 # Look-up airfoil 2D coefficients
-                cl, cd, cm = panels[icp].get_aerodynamic_properties(alpha[icp])
+                cl = panel.get_cl(alpha)
 
-                chord = panels[icp].get_chord()
-                # Retrieve forces and moments
-                Lift[icp] = 0.5 * self.rho * Umag**2 * cl * chord
-                Drag[icp] = 0.5 * self.rho * Umag**2 * cd * chord
-                Ma[icp] = 0.5 * self.rho * Umag**2 * cm * chord**2
+                chord = panel.get_chord()
 
                 # Find the new gamma using Kutta-Joukouski law
-                GammaNew[icp] = 0.5 * Umag**2 / Umagw * cl[icp] * chord
+                GammaNew[icp] = 0.5 * Umag**2 / Umagw * cl * chord
 
-            # check convergence of solution
-            refererror = np.amax(np.abs(GammaNew))
-            refererror = np.amax([refererror, 0.001])
-            # define scale of bound circulation
+
+            reference_error = np.amax(np.abs(GammaNew))
+            reference_error = max(reference_error, 0.001)
             error = np.amax(np.abs(GammaNew - Gamma))
-            # difference betweeen iterations
-            error = error / refererror
+            normalized_error = error / reference_error
             # relative error
-            if error < self.allowed_error:
+            if normalized_error < self.allowed_error:
                 # if error smaller than limit, stop iteration cycle
                 converged = True
                 break
-            for ig in range(len(Gamma)):
-                GammaNew[ig] = (1 - self.relaxation_factor) * Gamma[
-                    ig
-                ] + self.relaxation_factor * GammaNew[ig]
+
+            GammaNew = (
+                1 - self.relaxation_factor
+            ) * Gamma + self.relaxation_factor * GammaNew
+
+            if self.artificial_damping is not None:
+                GammaNew = self.apply_artificial_damping(GammaNew, alpha)
+
 
         if converged == False:
             print("Not converged after " + str(self.max_iterations) + " iterations")
 
         wing_aero.set_gamma_distribution(Gamma)
+
         return wing_aero
 
+    def apply_artificial_damping(self, Gamma):
+        N = len(Gamma)
+        Gamma_damped = np.zeros(N)
+        for ig in range(N):
+            if ig == 0:
+                Gim2 = Gamma[0]
+                Gim1 = Gamma[0]
+                Gi = Gamma[0]
+                Gip1 = Gamma[1]
+                Gip2 = Gamma[2]
+            elif ig == 1:
+                Gim2 = Gamma[0]
+                Gim1 = Gamma[0]
+                Gi = Gamma[1]
+                Gip1 = Gamma[2]
+                Gip2 = Gamma[3]
+            elif ig == N-2:
+                Gim2 = Gamma[N-4]
+                Gim1 = Gamma[N-3]
+                Gi = Gamma[N-2]
+                Gip1 = Gamma[N-1]
+                Gip2 = Gamma[N-1]
+            elif ig == N-1:
+                Gim2 = Gamma[N-3]
+                Gim1 = Gamma[N-2]
+                Gi = Gamma[N-1]
+                Gip1 = Gamma[N-1]
+                Gip2 = Gamma[N-1]
+            else:
+                Gim2 = Gamma[ig-2]
+                Gim1 = Gamma[ig-1]
+                Gi = Gamma[ig]
+                Gip1 = Gamma[ig+1]
+                Gip2 = Gamma[ig+2]
+                
+            dif2 = (Gip1 - Gi) - (Gi - Gim1)
+            dif4 = (Gip2 - 3.*Gip1 + 3.*Gi - Gim1) - (Gip1 - 3.*Gi + 3.*Gim1 - Gim2) 
+        
+            k2, k4 = self.artificial_damping["k2"], self.artificial_damping["k4"]
+            Gamma_damped[i] = k2*dif2 - k4*dif4
+        
+        GammaNew = Gamma+Gamma_damped
 
-
+        return GammaNew
