@@ -1,6 +1,6 @@
 import numpy as np
 from VSM.functions_needed_for_solve import *
-from VSM.panel_properties import PanelProperties
+from VSM.panels import Panels
 from VSM.horshoe_vortex import HorshoeVortex
 
 
@@ -54,10 +54,10 @@ class VortexStepMethod:
             None
         """
         self.__horshoe_vortices = []
-        for wing in wing_properties:
-            panel_properties = PanelProperties(wing)
-            for panel in panel_properties:
-                self.__horshoe_vortices.append(HorshoeVortex(panel))
+        for wing_properties in self.wings:
+            panels = Panels(wing_properties)
+            for panel_properties in panels:
+                self.__horshoe_vortices.append(HorshoeVortex(panel_properties))
 
             self.__horshoe_vortices.update_horshoe_vortices_for_gamma_distribution(
                 self.__initial_gamma_distribution
