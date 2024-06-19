@@ -87,11 +87,18 @@ class VortexStepMethod:
         for wing_instance in self.wings:
 
             # Distribute the panels of the wing_instance
-            panels = PanelDistribution.instantiate(wing_instance)
-            
-            # For each panel, instantiate a horshoe vortex, and add it to the list of horshoe vortices
-            for panel in panels:
-                self.__horshoe_vortices.append(HorshoeVortex(panel))
+
+            # Panel Object
+                # 4 corner_points
+                # aerodynamic properties
+                # tangential, normal and the other vector
+                # horshoe vortex
+                # control point
+                # aerodynamic center
+
+            sections = wing_instance.refine_aerodynamic_mesh()
+            for i in range(len(sections)-1):
+                self.panels.append(Panel(section[i],section[i+1]))
 
             # Update the horshoe vortices for the initial gamma distribution
             self.update_horshoe_vortices_for_gamma_distribution(

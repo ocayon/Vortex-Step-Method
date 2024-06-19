@@ -13,6 +13,7 @@ class HorshoeVortex:
 
     def __init__(self):
         self.horshoe_vortex: list = []
+        
 
     def update_for_va(self, va: list):
         """
