@@ -13,24 +13,43 @@ class HorshoeVortex:
 
     """
 
-    def __init__(self, LE_point_1, TE_point_1, LE_point_2, TE_point_2, aerodynamic_center = 0.25):
+    def __init__(self, LE_point_1, TE_point_1, LE_point_2, TE_point_2, aerodynamic_center_location = 0.25):
         
         self.filaments = []
-        bound_point_1 = LE_point_1*(1-aerodynamic_center)+TE_point_1*aerodynamic_center
-        bound_point_2 = LE_point_2*(1-aerodynamic_center)+TE_point_2*aerodynamic_center      
+        bound_point_1 = LE_point_1*(1-aerodynamic_center_location)+TE_point_1*aerodynamic_center_location
+        bound_point_2 = LE_point_2*(1-aerodynamic_center_location)+TE_point_2*aerodynamic_center_location      
         self.filaments.append(BoundFilament(x1 = bound_point_1, x2 = bound_point_2))
         self.filaments.append(BoundFilament(x1 = TE_point_1, x2 = bound_point_1))
         self.filaments.append(BoundFilament(x1 = bound_point_2, x2 = TE_point_2))
 
+
     
 
+<<<<<<< HEAD
     def calculate_velocity_induced_bound_2D(self, control_point):
+=======
+    def calculate_velocity_induced_bound_2D(self, control_point, gamma = None):
+>>>>>>> develop
         """"
         This function calculates the 2D induced velocity at the control point due to the bound vortex filaments
         """
+        if gamma is None:
+            gamma = self.gamma
+            
+
         pass
 
+<<<<<<< HEAD
     def calculate_velocity_induced(self, control_point):
+=======
+    def calculate_velocity_induced_horseshoe(self, control_point, gamma = None):
+        """"
+        This function calculates the 3D induced velocity at the control point due to the horseshoe vortex filaments
+        """
+        pass
+
+    
+>>>>>>> develop
     
 
 class Filament(ABC):
