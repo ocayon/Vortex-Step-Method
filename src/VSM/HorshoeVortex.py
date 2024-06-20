@@ -29,6 +29,10 @@ class HorshoeVortex:
         """"
         This function calculates the 2D induced velocity at the control point due to the bound vortex filaments
         """
+        if gamma is None:
+            gamma = self.gamma
+            
+
         pass
 
     def calculate_velocity_induced_horseshoe(self, control_point, gamma = None):

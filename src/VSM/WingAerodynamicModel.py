@@ -7,8 +7,7 @@ class WingAerodynamics:
     def __init__(
         self,
         wings: list,  # List of Wing object instances
-        initial_gamma_distribution: str = "elliptic",
-        ring_geometry: str = "5fil",
+        initial_gamma_distribution: str = "elliptic"
     ):
         """
         A class to represent a vortex system.
@@ -29,6 +28,7 @@ class WingAerodynamics:
         self.cl = np.empty(n_panels)
         self.cd = np.empty(n_panels)
         self.cm = np.empty(n_panels)
+        self.set_gamma_distribution(initial_gamma_distribution)
 
     def calculate_AIC_matrices(self, model: str = "VSM"):
         """Calculates the AIC matrices for the given aerodynamic model
