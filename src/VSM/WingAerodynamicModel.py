@@ -142,18 +142,6 @@ class WingAerodynamics:
         return self.panels
 
     @property
-    def z_airf_array(self):
-        return np.array([panel.z_airf for panel in self.panels])
-
-    @property
-    def va_array(self):
-        return np.array([panel.va for panel in self.panels])
-
-    @property
-    def chord_array(self):
-        return np.array([panel.chord for panel in self.panels])
-
-    @property
     def spanwise_panel_distribution(self):
         return {
             "alpha_aerodynamic_center": self.alpha_aerodynamic_center,

@@ -58,9 +58,9 @@ class Solver:
 
         # TODO: CPU optimization: instantiate non-changing (geometric dependent) attributes here
         panels = wing_aero.panels()
-        z_airf_array = wing_aero.z_airf_array()
-        va_array = wing_aero.va_array()
-        chord_array = wing_aero.chord_array()
+        z_airf_array = np.array([panel.z_airf for panel in panels])
+        va_array = np.array([panel.va for panel in panels])
+        chord_array = np.array([panel.chord for panel in panels])
 
         for _ in self.max_iterations:
 
