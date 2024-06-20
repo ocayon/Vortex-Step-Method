@@ -24,11 +24,13 @@ class HorshoeVortex:
 
     
 
-    def get_velocity_induced_bound_2D(self, control_point):
+    def calculate_velocity_induced_bound_2D(self, control_point):
         """"
         This function calculates the 2D induced velocity at the control point due to the bound vortex filaments
         """
         pass
+
+    def calculate_velocity_induced(self, control_point):
     
 
 class Filament(ABC):
