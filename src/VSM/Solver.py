@@ -50,8 +50,7 @@ class Solver:
 
         return wing_aero
 
-    # TODO: Why are the AIC matrices and U2D input here? To allow for an update method?
-    def solve_iterative_loop(self, wing_aero, AIC_x, AIC_y, AIC_z, U_2D):
+    def solve_iterative_loop(self, wing_aero):
         if self.aerodynamic_model_type == "VSM":
             AIC_x, AIC_y, AIC_z, U_2D = wing_aero.calculate_AIC_matrices(
                 control_point="three_quarter_chord"
@@ -74,12 +73,12 @@ class Solver:
                 v = 0
                 w = 0
                 # Compute induced velocities with previous Gamma distribution
-                for jring in range(len(Gamma)):
-                    u = u + AIC_x[icp][jring] * Gamma[jring]
+                for jring, gamma in enumerate(Gamma):
+                    u = u + AIC_x[icp][jring] * gamma
                     # x-component of velocity
-                    v = v + AIC_y[icp][jring] * Gamma[jring]
+                    v = v + AIC_y[icp][jring] * gamma
                     # y-component of velocity
-                    w = w + AIC_z[icp][jring] * Gamma[jring]
+                    w = w + AIC_z[icp][jring] * gamma
                     # z-component of velocity
 
                 u = u - U_2D[icp, 0] * Gamma[icp]
@@ -95,9 +94,11 @@ class Solver:
                 # Calculate relative velocity and angle of attack
                 Uinf = panel.get_apparent_velocity
                 Urel = Uinf + np.array([u, v, w])
-                vn = dot_product(norm_airf, Urel)
-                vtan = dot_product(tan_airf, Urel)
+                vn = np.dot(norm_airf, Urel)
+                vtan = np.dot(tan_airf, Urel)
                 alpha = np.arctan(vn / vtan)
+                if alpha > panel.stall_aoa:
+                    stall = True
 
                 Urelcrossz = np.cross(Urel, z_airf)
                 Umag = np.linalg.norm(Urelcrossz)
@@ -127,9 +128,11 @@ class Solver:
             ) * Gamma + self.relaxation_factor * GammaNew
 
             if self.artificial_damping is not None:
-                GammaNew = self.apply_artificial_damping(GammaNew, alpha)
+                if stall:
+                    GammaNew = self.apply_artificial_damping(GammaNew)
+                    stall = False
 
-        if converged == False:
+        if not converged:
             print("Not converged after " + str(self.max_iterations) + " iterations")
 
         wing_aero.set_gamma_distribution(Gamma)

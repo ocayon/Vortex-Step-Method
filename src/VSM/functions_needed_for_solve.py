@@ -554,6 +554,7 @@ def solve_lifting_line_system_matrix_approach_art_visc(
     chord = [controlpoints[icp]["chord"] for icp in range(N)]
     airf_coord = [controlpoints[icp]["airf_coord"] for icp in range(N)]
 
+    # TODO: take this as AIC matrix
     for icp in range(N):
 
         if model == "VSM":

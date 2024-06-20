@@ -17,13 +17,37 @@ class WingAerodynamics:
             sections = wing_instance.refine_aerodynamic_mesh()
             for i in range(len(sections)-1):
                 np.append(self.panels,Panel(sections[i],sections[i+1]))
-                
+
         self.va = None
 
-        #TODO: return wingaero?
-
     def calculate_AIC_matrices(self):
-        pass
+        """
+        Calculates the AIC matrices for the VSM model.
+        """
+        for icp in range(N):
+
+        if model == "VSM":
+            # Velocity induced by a infinte bound vortex with Gamma = 1
+            U_2D[icp] = velocity_induced_bound_2D(ringvec[icp])
+
+        for jring in range(N):
+            rings[jring] = update_Gamma_single_ring(rings[jring], 1, 1)
+            # Calculate velocity induced by a ring to a control point
+            velocity_induced = velocity_induced_single_ring_semiinfinite(
+                rings[jring], coord_cp[icp], model, vec_norm(Uinf)
+            )
+            # If CORE corrections are deactivated
+            if nocore == True:
+                # Calculate velocity induced by a ring to a control point
+                velocity_induced = velocity_induced_single_ring_semiinfinite_nocore(
+                    rings[jring], coord_cp[icp], model
+                )
+
+            # AIC Matrix
+            MatrixU[icp, jring] = velocity_induced[0]
+            MatrixV[icp, jring] = velocity_induced[1]
+            MatrixW[icp, jring] = velocity_induced[2]
+        
 
     def calculate_U2D_matrix(self):
         pass
