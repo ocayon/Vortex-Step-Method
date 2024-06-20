@@ -13,14 +13,16 @@ class WingAerodynamics:
         A class to represent a vortex system.
         """
         self.panels = np.array([])
+        self._n_panels_per_wing = np.empty(len(wings))
         n_panels = 0
-        for wing_instance in wings:
+        for i, wing_instance in enumerate(wings):
             sections = wing_instance.refine_aerodynamic_mesh()
-            for i in range(len(sections) - 1):
-                np.append(self.panels, Panel(sections[i], sections[i + 1]))
+            for j in range(len(sections) - 1):
+                np.append(self.panels, Panel(sections[j], sections[j + 1]))
             # adding the number of panels of each wing
             n_panels += wing_instance.get_n_panels()
-
+            # calculating the number of panels per wing
+            self._n_panels_per_wing[i] = len(sections)
         self.n_panels = n_panels
         self.va = None
         self.alpha_aerodynamic_center = np.empty(n_panels)
@@ -28,8 +30,17 @@ class WingAerodynamics:
         self.cl = np.empty(n_panels)
         self.cd = np.empty(n_panels)
         self.cm = np.empty(n_panels)
-        self.set_gamma_distribution(initial_gamma_distribution)
+        self.initial_gamma_distribution = (
+            self.calculate_circulation_distribution_elliptical_wing(
+                initial_gamma_distribution
+            )
+        )
 
+    ###########################
+    ## CALCULATE FUNCTIONS
+    ###########################
+
+    # TODO: this method should be properly tested against the old code and analytics
     def calculate_AIC_matrices(self, model: str = "VSM"):
         """Calculates the AIC matrices for the given aerodynamic model
 
@@ -44,34 +55,120 @@ class WingAerodynamics:
         """
 
         n_panels = self.n_panels
-        U_2D = np.empty((n_panels, 3))
+        U_2D = U_2D = np.array([0, 0, 0])
         MatrixU = np.empty((n_panels, n_panels))
         MatrixV = np.empty((n_panels, n_panels))
         MatrixW = np.empty((n_panels, n_panels))
 
-        # TODO: Should be able to include U_2D inside the AIC matrices
+        if model == "VSM":
+            evaluation_point = "control_point"
+        elif model == "LLT":
+            evaluation_point = "aerodynamic_center"
+        else:
+            raise ValueError("Invalid aerodynamic model type, should be VSM or LLT")
+
         for icp, panel_icp in enumerate(self.panels):
 
-            if model == "VSM":
-                # Velocity induced by a infinite bound vortex with Gamma = 1
-                U_2D[icp] = panel_icp.calculate_velocity_induced_bound_2D()
-
-            elif model != "LLT":
-                raise ValueError("Invalid aerodynamic model type, should be LLT or VSM")
-
             for jring, panel_jring in enumerate(self.panels):
-                # TODO: verify that calculate_velocity_induced contains CORE correction
                 velocity_induced = panel_jring.calculate_velocity_induced(
-                    panel_icp.control_point, strength=1
+                    getattr(panel_icp, evaluation_point), strength=1
                 )
+                if icp == jring:
+                    U_2D = panel_jring.calculate_velocity_induced_bound_2D(
+                        getattr(panel_icp, evaluation_point), strength=1
+                    )
                 # AIC Matrix
-                MatrixU[icp, jring] = velocity_induced[0]
-                MatrixV[icp, jring] = velocity_induced[1]
-                MatrixW[icp, jring] = velocity_induced[2]
+                MatrixU[icp, jring] = velocity_induced[0] + U_2D[0]
+                MatrixV[icp, jring] = velocity_induced[1] + U_2D[1]
+                MatrixW[icp, jring] = velocity_induced[2] + U_2D[2]
 
         return MatrixU, MatrixV, MatrixW, U_2D
 
+    def calculate_circulation_distribution_elliptical_wing(self, gamma_0: float = 1):
+        """
+        Calculates the circulation distribution for an elliptical wing.
+
+        Args:
+            gamma_0 (float): The circulation at the wing root
+
+        Returns:
+            np.array: The circulation distribution
+        """
+        gamma_i = np.array([])
+        # Calculating the wing_span from the panels
+        for i, (wing_instance, n_panels) in enumerate(
+            zip(self.wings, self._n_panels_per_wing)
+        ):
+            # calculating the wing-span of each wing
+            wing_span = wing_instance.calculate_wing_span()
+
+            y = np.linspace(-wing_span / 2, wing_span / 2, n_panels - 1)
+            gamma_i_wing = gamma_0 * np.sqrt(1 - (2 * y / wing_span) ** 2)
+            gamma_i = np.append(gamma_i, gamma_i_wing)
+
+        return gamma_i
+
+    def calculate_gamma_distribution(self, gamma_distribution=None):
+        """Calculates the circulation distribution for the wing
+
+        Args:
+            gamma_distribution (np.array): The circulation distribution to be used
+
+        Returns:
+            np.array: The circulation distribution
+        """
+        if gamma_distribution is None and self.initial_gamma_distribution == "elliptic":
+            return self.calculate_circulation_distribution_elliptical_wing()
+        elif len(gamma_distribution) == self.n_panels:
+            return gamma_distribution
+        else:
+            raise ValueError(
+                f"Invalid gamma distribution, len(gamma_distribution) :{len(gamma_distribution)} != self.n_panels:{self.n_panels}"
+            )
+
+    def calculate_relative_alpha_and_relative_velocity(
+        self, induced_velocity: np.array
+    ):
+        return self.panels.calculate_relative_alpha_and_relative_velocity(
+            self, induced_velocity
+        )
+
+    ###########################
+    ## GETTER FUNCTIONS
+    ###########################
+
+    @property
+    def panels(self):
+        return self.panels
+
+    @property
+    def z_airf_array(self):
+        return np.array([panel.z_airf for panel in self.panels])
+
+    @property
+    def va_array(self):
+        return np.array([panel.va for panel in self.panels])
+
+    @property
+    def chord_array(self):
+        return np.array([panel.chord for panel in self.panels])
+
+    @property
+    def spanwise_panel_distribution(self):
+        return {
+            "alpha_aerodynamic_center": self.alpha_aerodynamic_center,
+            "alpha_control_point": self.alpha_control_point,
+            "cl": self.cl,
+            "cd": self.cd,
+            "cm": self.cm,
+        }
+
+    ###########################
+    ## SETTER FUNCTIONS
+    ###########################
+
     # TODO: needs work
+    @setter.va
     def set_va(self, va, yaw_rate):
         self.va = va
         self.yaw_rate = yaw_rate
@@ -123,23 +220,18 @@ class WingAerodynamics:
         induced_velocity = np.array([0, 0, 0])
         return induced_velocity
 
-    # TODO: needs work
-    def calculate_aerodynamic_coefficients(self, alpha):
-        # Placeholder for actual implementation
+    # TODO: Needs Work
+    def update_global_aerodynamics(self):
         pass
 
+    # TODO: Needs Work
     def update_wake(self, va_distribution):
         # Placeholder for actual implementation
         pass
 
-    def get_panels(self):
-        pass
-
-    def get_gamma_distribution(self):
-        pass
-
-    def set_gamma_distribution(self, gamma):
-        pass
+    ###########################
+    ## below is not yet needed?
+    ###########################
 
     def calculate_aerodynamic_forces(self, alpha, cl, cd, cm):
         # Placeholder for actual implementation
@@ -148,16 +240,3 @@ class WingAerodynamics:
     def get_wing_coefficients(self):
         # Placeholder for actual implementation
         return {"CL": 0.0, "CD": 0.0, "CS": 0.0, "CM": 0.0}
-
-    ###########################
-    ## GETTER FUNCTIONS
-    ###########################
-
-    def get_spanwise_panel_distribution(self):
-        return {
-            "alpha_aerodynamic_center": self.alpha_aerodynamic_center,
-            "alpha_control_point": self.alpha_control_point,
-            "cl": self.cl,
-            "cd": self.cd,
-            "cm": self.cm,
-        }
