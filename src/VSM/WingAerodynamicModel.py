@@ -49,21 +49,20 @@ class WingAerodynamics:
         MatrixV = np.empty((n_panels, n_panels))
         MatrixW = np.empty((n_panels, n_panels))
 
+        # TODO: Should be able to include U_2D inside the AIC matrices
         for icp, panel_icp in enumerate(self.panels):
 
             if model == "VSM":
-                # Velocity induced by a infinte bound vortex with Gamma = 1
-                U_2D[icp] = panel_icp.velocity_induced_bound_2D(strength = 1)
+                # Velocity induced by a infinite bound vortex with Gamma = 1
+                U_2D[icp] = panel_icp.calculate_velocity_induced_bound_2D()
 
             elif model != "LLT":
-                raise ValueError("Invalid aerodynamic model type, should be LTT or VSM")
+                raise ValueError("Invalid aerodynamic model type, should be LLT or VSM")
 
             for jring, panel_jring in enumerate(self.panels):
-
-                # TODO: verify that calculate_induced velocity contains CORE correction
-                # TODO: verify that get_control_point is defined within Panel
-                velocity_induced = panel_jring.calculate_induced_velocity(
-                    panel_icp.get_control_point(), strength=1
+                # TODO: verify that calculate_velocity_induced contains CORE correction
+                velocity_induced = panel_jring.calculate_velocity_induced(
+                    panel_icp.control_point, strength=1
                 )
                 # AIC Matrix
                 MatrixU[icp, jring] = velocity_induced[0]
@@ -79,7 +78,7 @@ class WingAerodynamics:
         # Make n panels, 3 array of the list va
         va_distribution = np.repeat([va], len(self.panels), axis=0)
         for i, panel in enumerate(self.panels):
-            panel.update_va(va_distribution[i])
+            panel.va = va_distribution[i]
         self.update_wake(va_distribution)  # Define the trailing wake filaments
 
     def update_effective_angle_of_attack(self):
@@ -92,11 +91,10 @@ class WingAerodynamics:
         Returns:
             None
         """
-
         for i, panel_i in enumerate(self.panels):
             induced_velocity = self.wing_induced_velocity(panel_i.aerodynamic_center)
             self.alpha_aerodynamic_center[i], _ = (
-                panel_i.get_relative_alpha_and_relative_velocity(induced_velocity)
+                panel_i.calculate_relative_alpha_and_relative_velocity(induced_velocity)
             )
 
     def update_aerodynamic_coefficients_and_alpha(self):
@@ -110,9 +108,9 @@ class WingAerodynamics:
             None
         """
         for i, panel_i in enumerate(self.panels):
-            induced_velocity = self.wing_induced_velocity(panel_i.get_control_point())
+            induced_velocity = self.wing_induced_velocity(panel_i.control_point)
             alpha_i, _ = (
-                panel_i.get_relative_alpha_and_relative_velocity(induced_velocity)
+                panel_i.calculate_relative_alpha_and_relative_velocity(induced_velocity)
             )
             self.cl[i], self.cd[i], self.cm[i] = (
                 panel_i.calculate_aerodynamic_coefficients(alpha_i)
