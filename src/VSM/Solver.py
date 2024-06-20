@@ -42,7 +42,7 @@ class Solver:
         wing_aero = self.solve_iterative_loop(wing_aero)
 
         # Calculate effective angle of attack at the aerodynamic center
-        # This can go inside update_aerodynamics but to remember to correct it (It is always at the aerodynamic center)
+        # This can go inside update_aerodynamicgit ss but to remember to correct it (It is always at the aerodynamic center)
         wing_aero.update_effective_angle_of_attack()
 
         # Calculate aerodynamic coefficients in the panel reference frame and store them in the Panel object
@@ -95,8 +95,8 @@ class Solver:
                 # Calculate relative velocity and angle of attack
                 Uinf = panel.get_apparent_velocity
                 Urel = Uinf + np.array([u, v, w])
-                vn = dot_product(norm_airf, Urel)
-                vtan = dot_product(tan_airf, Urel)
+                vn = np.dot(norm_airf, Urel)
+                vtan = np.dot(tan_airf, Urel)
                 alpha = np.arctan(vn / vtan)
 
                 Urelcrossz = np.cross(Urel, z_airf)

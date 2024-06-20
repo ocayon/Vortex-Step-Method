@@ -2,6 +2,7 @@ import dataclasses
 import numpy as np
 from typing import List
 
+
 @dataclasses
 class Wing:
     n_panels: int
@@ -14,6 +15,7 @@ class Wing:
         pass
         # return refined_sections #list of updated sections
 
+
 @dataclasses
 class Section:
     LE_point: np.array
@@ -23,11 +25,10 @@ class Section:
     CM_alpha: np.array
 
 
-
-
 ######################
 #### IDEATION ON FUNCTIONS THAT WILL BE USEFULL FOR THE REFINE_AERODYNAMIC_MESH FUNCTION
 ######################
+
 
 def calculate_panel_distribution(self):
     """
@@ -42,6 +43,7 @@ def calculate_panel_distribution(self):
     wing_panel_corner_points = self.__compute_wing_panel_distribution()
     return self.__compute_panel_aerodynamic_coefficients(wing_panel_corner_points)
 
+
 def __compute_wing_panel_corner_points(self):
     """
     Computes the chordwise section of the wing
@@ -50,15 +52,18 @@ def __compute_wing_panel_corner_points(self):
     - self.spanwise_panel_distribution
     - self.sections
     """
-    wing_panel_corner_points = ["panel_corner_points_1","panel_corner_points_2"]
+    wing_panel_corner_points = ["panel_corner_points_1", "panel_corner_points_2"]
     return wing_panel_corner_points
 
-def __compute_panel_aerodynamic_coefficients(self,sections):
+
+def __compute_panel_aerodynamic_coefficients(self, sections):
     """
     Computes the aerodynamic properties of each panel
     Using
     - self.sections
     """
-    wing_panel_corner_points = np.concatenate([[section.LE_point, section.TE_point] for section in sections])
+    wing_panel_corner_points = np.concatenate(
+        [[section.LE_point, section.TE_point] for section in sections]
+    )
     panel_aerodynamic_properties = ["CL-alpha", "CD-alpha", "CM-alpha"]
     return np.append(wing_panel_corner_points, panel_aerodynamic_properties, axis=1)
