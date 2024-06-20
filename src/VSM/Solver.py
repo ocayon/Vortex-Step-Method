@@ -42,16 +42,16 @@ class Solver:
         wing_aero = self.solve_iterative_loop(wing_aero)
 
         # Calculate effective angle of attack at the aerodynamic center
-        # This can go inside update_aerodynamicgit ss but to remember to correct it (It is always at the aerodynamic center)
+        # This can go inside update_aerodynamic but to remember to correct it (It is always at the aerodynamic center)
         wing_aero.update_effective_angle_of_attack()
+        wing_aero.update_aerodynamic_coefficients_and_alpha()
 
         # Calculate aerodynamic coefficients in the panel reference frame and store them in the Panel object
         wing_aero.update_aerodynamics()
 
         return wing_aero
 
-    # TODO: Why are the AIC matrices and U2D input here? To allow for an update method?
-    def solve_iterative_loop(self, wing_aero, AIC_x, AIC_y, AIC_z, U_2D):
+    def solve_iterative_loop(self, wing_aero):
         if self.aerodynamic_model_type == "VSM":
             AIC_x, AIC_y, AIC_z, U_2D = wing_aero.calculate_AIC_matrices(
                 control_point="three_quarter_chord"
@@ -63,58 +63,51 @@ class Solver:
         else:
             raise ValueError("Invalid aerodynamic model type")
 
-        GammaNew = wing_aero.get_gamma_distribution()
+        gamma_new = wing_aero.get_gamma_distribution()
         for _ in self.max_iterations:
 
-            Gamma = GammaNew  # I used to do this in a loop, not sure if
+            gamma = gamma_new  # I used to do this in a loop, not sure if
 
             for icp, panel in enumerate(wing_aero.get_panels()):
                 # Initialize induced velocity to 0
                 u = 0
                 v = 0
                 w = 0
-                # Compute induced velocities with previous Gamma distribution
-                for jring in range(len(Gamma)):
-                    u = u + AIC_x[icp][jring] * Gamma[jring]
+                # Compute induced velocities with previous gamma distribution
+                for jring, gamma_jring in enumerate(gamma):
+                    u = u + AIC_x[icp][jring] * gamma_jring
                     # x-component of velocity
-                    v = v + AIC_y[icp][jring] * Gamma[jring]
+                    v = v + AIC_y[icp][jring] * gamma_jring
                     # y-component of velocity
-                    w = w + AIC_z[icp][jring] * Gamma[jring]
+                    w = w + AIC_z[icp][jring] * gamma_jring
                     # z-component of velocity
 
-                u = u - U_2D[icp, 0] * Gamma[icp]
-                v = v - U_2D[icp, 1] * Gamma[icp]
-                w = w - U_2D[icp, 2] * Gamma[icp]
+                u = u - U_2D[icp, 0] * gamma[icp]
+                v = v - U_2D[icp, 1] * gamma[icp]
+                w = w - U_2D[icp, 2] * gamma[icp]
 
-                # Calculate terms of induced corresponding to the airfoil directions
-                dcm = panel.get_reference_frame()
-                norm_airf = dcm[:, 0]
-                tan_airf = dcm[:, 1]
-                z_airf = dcm[:, 2]
+                induced_velocity = np.array([u, v, w])
+                alpha, relative_velocity = (
+                    panel.get_relative_alpha_and_relative_velocity(induced_velocity)
+                )
 
-                # Calculate relative velocity and angle of attack
-                Uinf = panel.get_apparent_velocity
-                Urel = Uinf + np.array([u, v, w])
-                vn = np.dot(norm_airf, Urel)
-                vtan = np.dot(tan_airf, Urel)
-                alpha = np.arctan(vn / vtan)
-
-                Urelcrossz = np.cross(Urel, z_airf)
-                Umag = np.linalg.norm(Urelcrossz)
-                Uinfcrossz = np.cross(Uinf, z_airf)
+                # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
+                z_airf = panel.get_z_airf()
+                relative_velocity_crossz = np.cross(relative_velocity, z_airf)
+                Umag = np.linalg.norm(relative_velocity_crossz)
+                Uinfcrossz = np.cross(panel.get_va, z_airf)
                 Umagw = np.linalg.norm(Uinfcrossz)
 
                 # Look-up airfoil 2D coefficients
                 cl = panel.get_cl(alpha)
-
                 chord = panel.get_chord()
 
                 # Find the new gamma using Kutta-Joukouski law
-                GammaNew[icp] = 0.5 * Umag**2 / Umagw * cl * chord
+                gamma_new[icp] = 0.5 * Umag**2 / Umagw * cl * chord
 
-            reference_error = np.amax(np.abs(GammaNew))
+            reference_error = np.amax(np.abs(gamma_new))
             reference_error = max(reference_error, 0.001)
-            error = np.amax(np.abs(GammaNew - Gamma))
+            error = np.amax(np.abs(gamma_new - gamma))
             normalized_error = error / reference_error
             # relative error
             if normalized_error < self.allowed_error:
@@ -122,63 +115,63 @@ class Solver:
                 converged = True
                 break
 
-            GammaNew = (
+            gamma_new = (
                 1 - self.relaxation_factor
-            ) * Gamma + self.relaxation_factor * GammaNew
+            ) * gamma + self.relaxation_factor * gamma_new
 
             if self.artificial_damping is not None:
-                GammaNew = self.apply_artificial_damping(GammaNew, alpha)
+                gamma_new = self.apply_artificial_damping(gamma_new)
 
         if converged == False:
             print("Not converged after " + str(self.max_iterations) + " iterations")
 
-        wing_aero.set_gamma_distribution(Gamma)
+        wing_aero.set_gamma_distribution(gamma)
 
         return wing_aero
 
-    def apply_artificial_damping(self, Gamma):
-        N = len(Gamma)
-        Gamma_damped = np.zeros(N)
-        for ig in range(N):
+    def apply_artificial_damping(self, gamma):
+        n_gamma = len(gamma)
+        gamma_damped = np.zeros(n_gamma)
+        for ig, gamma_ig in enumerate(gamma):
             if ig == 0:
-                Gim2 = Gamma[0]
-                Gim1 = Gamma[0]
-                Gi = Gamma[0]
-                Gip1 = Gamma[1]
-                Gip2 = Gamma[2]
+                gim2 = gamma[0]
+                gim1 = gamma[0]
+                gi = gamma[0]
+                gip1 = gamma[1]
+                gip2 = gamma[2]
             elif ig == 1:
-                Gim2 = Gamma[0]
-                Gim1 = Gamma[0]
-                Gi = Gamma[1]
-                Gip1 = Gamma[2]
-                Gip2 = Gamma[3]
-            elif ig == N - 2:
-                Gim2 = Gamma[N - 4]
-                Gim1 = Gamma[N - 3]
-                Gi = Gamma[N - 2]
-                Gip1 = Gamma[N - 1]
-                Gip2 = Gamma[N - 1]
-            elif ig == N - 1:
-                Gim2 = Gamma[N - 3]
-                Gim1 = Gamma[N - 2]
-                Gi = Gamma[N - 1]
-                Gip1 = Gamma[N - 1]
-                Gip2 = Gamma[N - 1]
+                gim2 = gamma[0]
+                gim1 = gamma[0]
+                gi = gamma[1]
+                gip1 = gamma[2]
+                gip2 = gamma[3]
+            elif ig == n_gamma - 2:
+                gim2 = gamma[n_gamma - 4]
+                gim1 = gamma[n_gamma - 3]
+                gi = gamma[n_gamma - 2]
+                gip1 = gamma[n_gamma - 1]
+                gip2 = gamma[n_gamma - 1]
+            elif ig == n_gamma - 1:
+                gim2 = gamma[n_gamma - 3]
+                gim1 = gamma[n_gamma - 2]
+                gi = gamma[n_gamma - 1]
+                gip1 = gamma[n_gamma - 1]
+                gip2 = gamma[n_gamma - 1]
             else:
-                Gim2 = Gamma[ig - 2]
-                Gim1 = Gamma[ig - 1]
-                Gi = Gamma[ig]
-                Gip1 = Gamma[ig + 1]
-                Gip2 = Gamma[ig + 2]
+                gim2 = gamma[ig - 2]
+                gim1 = gamma[ig - 1]
+                gi = gamma[ig]
+                gip1 = gamma[ig + 1]
+                gip2 = gamma[ig + 2]
 
-            dif2 = (Gip1 - Gi) - (Gi - Gim1)
-            dif4 = (Gip2 - 3.0 * Gip1 + 3.0 * Gi - Gim1) - (
-                Gip1 - 3.0 * Gi + 3.0 * Gim1 - Gim2
+            dif2 = (gip1 - gi) - (gi - gim1)
+            dif4 = (gip2 - 3.0 * gip1 + 3.0 * gi - gim1) - (
+                gip1 - 3.0 * gi + 3.0 * gim1 - gim2
             )
 
             k2, k4 = self.artificial_damping["k2"], self.artificial_damping["k4"]
-            Gamma_damped[ig] = k2 * dif2 - k4 * dif4
+            gamma_damped[ig] = k2 * dif2 - k4 * dif4
 
-        GammaNew = Gamma + Gamma_damped
+        gamma_new = gamma + gamma_damped
 
-        return GammaNew
+        return gamma_new
