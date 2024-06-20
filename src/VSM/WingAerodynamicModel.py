@@ -1,6 +1,7 @@
 import numpy as np
 from VSM.Panel import Panel
 
+#TODO: change name could deal with multiple wings
 class WingAerodynamics:
     def __init__(
         self,
@@ -15,11 +16,15 @@ class WingAerodynamics:
         for wing_instance in wings:
             sections = wing_instance.refine_aerodynamic_mesh()
             for i in range(len(sections)-1):
-                self.panels.append(Panel(sections[i],sections[i+1]))
+                np.append(self.panels,Panel(sections[i],sections[i+1]))
+                
         self.va = None
+
+        #TODO: return wingaero?
 
     def calculate_AIC_matrices(self):
         pass
+
     def calculate_U2D_matrix(self):
         pass
 
@@ -58,7 +63,7 @@ class WingAerodynamics:
         # Make n panels, 3 array of the list va
         va_matrix = np.repeat([va], len(self.panels), axis=0)
         self.update_wake(va_matrix) # Define the trailing wake filaments
-        
+    
         
 
 

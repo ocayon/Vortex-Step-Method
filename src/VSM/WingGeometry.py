@@ -9,8 +9,8 @@ class Wing:
     Section: List[Section]  # child-class
 
     def refine_aerodynamic_mesh(self):
-        #3 user defined Section
-        #to 25
+        # 3 user defined Section
+        # to 25
         pass
         # return refined_sections #list of updated sections
 

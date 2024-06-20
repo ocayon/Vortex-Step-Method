@@ -27,7 +27,7 @@ wing_aero.set_va(va=[-10, 0, 0], yaw_rate=0)
 # Solve the aerodynamics
 wing_aero = VSM.solve(wing_aero)
 
-#%% Retrieve Results
+# %% Retrieve Results
 # Retrieve aerodynamic coefficients
 wing_coeffs = wing_aero.get_wing_coefficients()  # can be a dictionary or a list
 print(wing_coeffs)

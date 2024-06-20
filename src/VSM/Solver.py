@@ -45,11 +45,12 @@ class Solver:
         # This can go inside update_aerodynamics but to remember to correct it (It is always at the aerodynamic center)
         wing_aero.update_effective_angle_of_attack()
 
-        # Calculate aerodynamic coefficients in the panel reference frame and store them in the panel object
+        # Calculate aerodynamic coefficients in the panel reference frame and store them in the Panel object
         wing_aero.update_aerodynamics()
 
         return wing_aero
 
+    # TODO: Why are the AIC matrices and U2D input here? To allow for an update method?
     def solve_iterative_loop(self, wing_aero, AIC_x, AIC_y, AIC_z, U_2D):
         if self.aerodynamic_model_type == "VSM":
             AIC_x, AIC_y, AIC_z, U_2D = wing_aero.calculate_AIC_matrices(
@@ -61,13 +62,13 @@ class Solver:
             )
         else:
             raise ValueError("Invalid aerodynamic model type")
-        
+
         GammaNew = wing_aero.get_gamma_distribution()
         for _ in self.max_iterations:
 
             Gamma = GammaNew  # I used to do this in a loop, not sure if
 
-            for icp,panel in enumerate(wing_aero.get_panels()):
+            for icp, panel in enumerate(wing_aero.get_panels()):
                 # Initialize induced velocity to 0
                 u = 0
                 v = 0
@@ -111,7 +112,6 @@ class Solver:
                 # Find the new gamma using Kutta-Joukouski law
                 GammaNew[icp] = 0.5 * Umag**2 / Umagw * cl * chord
 
-
             reference_error = np.amax(np.abs(GammaNew))
             reference_error = max(reference_error, 0.001)
             error = np.amax(np.abs(GammaNew - Gamma))
@@ -128,7 +128,6 @@ class Solver:
 
             if self.artificial_damping is not None:
                 GammaNew = self.apply_artificial_damping(GammaNew, alpha)
-
 
         if converged == False:
             print("Not converged after " + str(self.max_iterations) + " iterations")
@@ -153,31 +152,33 @@ class Solver:
                 Gi = Gamma[1]
                 Gip1 = Gamma[2]
                 Gip2 = Gamma[3]
-            elif ig == N-2:
-                Gim2 = Gamma[N-4]
-                Gim1 = Gamma[N-3]
-                Gi = Gamma[N-2]
-                Gip1 = Gamma[N-1]
-                Gip2 = Gamma[N-1]
-            elif ig == N-1:
-                Gim2 = Gamma[N-3]
-                Gim1 = Gamma[N-2]
-                Gi = Gamma[N-1]
-                Gip1 = Gamma[N-1]
-                Gip2 = Gamma[N-1]
+            elif ig == N - 2:
+                Gim2 = Gamma[N - 4]
+                Gim1 = Gamma[N - 3]
+                Gi = Gamma[N - 2]
+                Gip1 = Gamma[N - 1]
+                Gip2 = Gamma[N - 1]
+            elif ig == N - 1:
+                Gim2 = Gamma[N - 3]
+                Gim1 = Gamma[N - 2]
+                Gi = Gamma[N - 1]
+                Gip1 = Gamma[N - 1]
+                Gip2 = Gamma[N - 1]
             else:
-                Gim2 = Gamma[ig-2]
-                Gim1 = Gamma[ig-1]
+                Gim2 = Gamma[ig - 2]
+                Gim1 = Gamma[ig - 1]
                 Gi = Gamma[ig]
-                Gip1 = Gamma[ig+1]
-                Gip2 = Gamma[ig+2]
-                
+                Gip1 = Gamma[ig + 1]
+                Gip2 = Gamma[ig + 2]
+
             dif2 = (Gip1 - Gi) - (Gi - Gim1)
-            dif4 = (Gip2 - 3.*Gip1 + 3.*Gi - Gim1) - (Gip1 - 3.*Gi + 3.*Gim1 - Gim2) 
-        
+            dif4 = (Gip2 - 3.0 * Gip1 + 3.0 * Gi - Gim1) - (
+                Gip1 - 3.0 * Gi + 3.0 * Gim1 - Gim2
+            )
+
             k2, k4 = self.artificial_damping["k2"], self.artificial_damping["k4"]
-            Gamma_damped[i] = k2*dif2 - k4*dif4
-        
-        GammaNew = Gamma+Gamma_damped
+            Gamma_damped[ig] = k2 * dif2 - k4 * dif4
+
+        GammaNew = Gamma + Gamma_damped
 
         return GammaNew
