@@ -5,18 +5,21 @@ class Panel:
     def __init__(self, section_1, section_2):
         self.corner_points
         self.aerodynamic_properties
-        self.local_reference_frame
         self.horshoe_vortex = HorshoeVortex(self.corner_points, self.aerodynamic_center)
-        self._aerodynamic_center = self.calculate_aerodynamic_center()
-        self._control_point = self.calculate_control_point()
         self._va = None
 
     ###########################
     ## GETTER FUNCTIONS
     ###########################
+    @property
+    def local_reference_frame(self):
+        # Calculate reference frame
+        return self._local_reference_frame
+
 
     @property
     def control_point(self):
+        # Calculate here
         return self._control_point
 
     @property
@@ -45,12 +48,6 @@ class Panel:
     ###########################
     ## CALCULATE FUNCTIONS      # All this return smthing
     ###########################
-
-    def calculate_aerodynamic_center(self):
-        pass
-
-    def calculate_control_point(self):
-        pass
 
     def calculate_velocity_induced_bound_2D(self):
         """Calculates the induced velocity inside HorshoeVortex Class"""

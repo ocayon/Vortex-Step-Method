@@ -64,7 +64,7 @@ class Solver:
             raise ValueError("Invalid aerodynamic model type")
 
         gamma_new = wing_aero.get_gamma_distribution()
-        
+        #TODO: instantiate non-chnagning atrributes here 
         for _ in self.max_iterations:
 
             gamma = gamma_new  # I used to do this in a loop, not sure if
