@@ -671,39 +671,44 @@ def solve_lifting_line_system_matrix_approach_art_visc(
     # In case VSM, calculate the effective angle of attack at a 1/4 chord
     if model == "VSM":
 
-        for ig in range(len(Gamma)):
-            Gamma[ig] = GammaNew[ig]
-        for icp in range(N):
-            # Compute induced velocities at 1/4 chord
-            for jring in range(N):
-                rings[jring] = update_Gamma_single_ring(rings[jring], 1, 1)
-                velocity_induced = velocity_induced_single_ring_semiinfinite(
-                    rings[jring],
-                    controlpoints[icp]["coordinates_aoa"],
-                    "LLT",
-                    vec_norm(Uinf),
-                )
-                if nocore == True:
-                    velocity_induced = velocity_induced_single_ring_semiinfinite_nocore(
-                        rings[jring], controlpoints[icp]["coordinates_aoa"], model
-                    )
-                MatrixU[icp, jring] = velocity_induced[0]
-                MatrixV[icp, jring] = velocity_induced[1]
-                MatrixW[icp, jring] = velocity_induced[2]
+        # for ig in range(len(Gamma)):
+        #     Gamma[ig] = GammaNew[ig]
+        # for icp in range(N):
+        #     # Compute induced velocities at 1/4 chord
+        #     for jring in range(N):
+        #         rings[jring] = update_Gamma_single_ring(rings[jring], 1, 1)
+        #         velocity_induced = velocity_induced_single_ring_semiinfinite(
+        #             rings[jring],
+        #             controlpoints[icp]["coordinates_aoa"],
+        #             "LLT",
+        #             vec_norm(Uinf),
+        #         )
+        #         if nocore == True:
+        #             velocity_induced = velocity_induced_single_ring_semiinfinite_nocore(
+        #                 rings[jring], controlpoints[icp]["coordinates_aoa"], model
+        #             )
+        #         MatrixU[icp, jring] = velocity_induced[0]
+        #         MatrixV[icp, jring] = velocity_induced[1]
+        #         MatrixW[icp, jring] = velocity_induced[2]
 
-        for icp in range(N):
-            u = 0
-            v = 0
-            w = 0
-            for jring in range(N):
-                u = u + MatrixU[icp][jring] * Gamma[jring]
-                # x-component of velocity
-                v = v + MatrixV[icp][jring] * Gamma[jring]
-                # y-component of velocity
-                w = w + MatrixW[icp][jring] * Gamma[jring]
-                # z-component of velocity
+        for icp, panel_i in enumerate(self.panels):
+            [u, v, w] = self.wing_induced_velocity(panel_i.get_control_point)
 
-            # Calculate terms of induced corresponding to the airfoil directions
+            #     self.calculate_induced_velocity(icp, panel_i, self.panels, self.controlpoints, self.rings, Uinf, model)
+
+            # for icp in range(N):
+            #     u = 0
+            #     v = 0
+            #     w = 0
+            #     # for jring in range(N):
+            #     #     u = u + MatrixU[icp][jring] * Gamma[jring]
+            #     #     # x-component of velocity
+            #     #     v = v + MatrixV[icp][jring] * Gamma[jring]
+            #     #     # y-component of velocity
+            #     #     w = w + MatrixW[icp][jring] * Gamma[jring]
+            #     #     # z-component of velocity
+
+            #     # Calculate terms of induced corresponding to the airfoil directions
             norm_airf = airf_coord[icp][:, 0]
             tan_airf = airf_coord[icp][:, 1]
             z_airf = airf_coord[icp][:, 2]
@@ -713,6 +718,19 @@ def solve_lifting_line_system_matrix_approach_art_visc(
             vtan = np.dot(tan_airf, Urel)
             # New relative angle of attack
             alpha[icp] = np.arctan(vn / vtan)
+
+            # Calculate terms of induced corresponding to the airfoil directions
+            dcm = panel.get_reference_frame()
+            norm_airf = dcm[:, 0]
+            tan_airf = dcm[:, 1]
+            z_airf = dcm[:, 2]
+
+            # Calculate relative velocity and angle of attack
+            Uinf = panel.get_apparent_velocity
+            Urel = Uinf + np.array([u, v, w])
+            vn = np.dot(norm_airf, Urel)
+            vtan = np.dot(tan_airf, Urel)
+            alpha = np.arctan(vn / vtan)
 
     aero_coeffs = np.column_stack([alpha, cl, cd, cm])
     F = np.column_stack([Lift, Drag, Ma])

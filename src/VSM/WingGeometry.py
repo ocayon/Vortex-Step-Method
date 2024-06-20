@@ -15,6 +15,9 @@ class Wing:
         pass
         # return refined_sections #list of updated sections
 
+    def get_n_panels(self):
+        return self.n_panels
+
 
 @dataclasses
 class Section:
