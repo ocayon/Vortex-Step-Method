@@ -53,7 +53,7 @@ class WingAerodynamics:
 
             if model == "VSM":
                 # Velocity induced by a infinte bound vortex with Gamma = 1
-                U_2D[icp] = panel_icp.velocity_induced_bound_2D()
+                U_2D[icp] = panel_icp.velocity_induced_bound_2D(strength = 1)
 
             elif model != "LLT":
                 raise ValueError("Invalid aerodynamic model type, should be LTT or VSM")
@@ -95,7 +95,7 @@ class WingAerodynamics:
 
         for i, panel_i in enumerate(self.panels):
             induced_velocity = self.wing_induced_velocity(panel_i.aerodynamic_center)
-            self.alpha_aerodynamic_center[i], relative_velocity = (
+            self.alpha_aerodynamic_center[i], _ = (
                 panel_i.get_relative_alpha_and_relative_velocity(induced_velocity)
             )
 
@@ -111,7 +111,7 @@ class WingAerodynamics:
         """
         for i, panel_i in enumerate(self.panels):
             induced_velocity = self.wing_induced_velocity(panel_i.get_control_point())
-            alpha_i, relative_velocity = (
+            alpha_i, _ = (
                 panel_i.get_relative_alpha_and_relative_velocity(induced_velocity)
             )
             self.cl[i], self.cd[i], self.cm[i] = (

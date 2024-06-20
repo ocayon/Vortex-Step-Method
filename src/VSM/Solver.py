@@ -42,7 +42,7 @@ class Solver:
         wing_aero = self.solve_iterative_loop(wing_aero)
 
         # Calculate effective angle of attack at the aerodynamic center
-        # This can go inside update_aerodynamic but to remember to correct it (It is always at the aerodynamic center)
+        #TODO: This can go inside update_aerodynamic but to remember to correct it (It is always at the aerodynamic center)
         wing_aero.update_effective_angle_of_attack()
         wing_aero.update_aerodynamic_coefficients_and_alpha()
 
@@ -64,6 +64,7 @@ class Solver:
             raise ValueError("Invalid aerodynamic model type")
 
         gamma_new = wing_aero.get_gamma_distribution()
+        
         for _ in self.max_iterations:
 
             gamma = gamma_new  # I used to do this in a loop, not sure if
