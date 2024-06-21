@@ -3,14 +3,20 @@ from VSM.HorshoeVortex import HorshoeVortex
 
 
 class Panel:
-    def __init__(self, section_1, section_2, aerodynamic_center_location=0.25):
+    def __init__(
+        self,
+        section_1,
+        section_2,
+        aerodynamic_center_location=0.25,
+        control_point_location=0.75,
+    ):
 
         self._TE_point_1 = section_1.TE_point
         self._LE_point_1 = section_1.LE_point
         self._TE_point_2 = section_2.TE_point
         self._LE_point_2 = section_2.LE_point
         self._aerodynamic_properties = self.calculate_aerodynamic_properties(
-            section_1.aerodynamic_properties, section_2.aerodynamic_properties
+            section_1.airfoil_aerodynamics, section_2.airfoil_aerodynamics
         )
         self._chord = np.average(
             [
@@ -24,28 +30,53 @@ class Panel:
             self._LE_point_2,
             self._TE_point_2,
             aerodynamic_center_location,
+            control_point_location,
         )
         self._va = None
+
+        # Calculate the control point and aerodynamic center
+        mid_LE_point = (self._LE_point_1 + self._LE_point_2) / 2
+        mid_TE_point = (self._TE_point_1 + self._TE_point_2) / 2
+        vec_LE_to_TE = mid_TE_point - mid_LE_point
+        self._aerodynamic_center = (
+            mid_LE_point + aerodynamic_center_location * vec_LE_to_TE
+        )
+        self._control_point = mid_LE_point + control_point_location * vec_LE_to_TE
+
+        # TODO: CHECK Reference Frame Calculations
+        # Calculate the local reference frame
+        # x_airf defined upwards from the chord-line, perpendicular to the panel
+        # y_airf defined parallel to the chord-line, from LE-to-TE
+        # z_airf along the LE, out of plane from the airfoil perspective
+        self._y_airf = vec_LE_to_TE / np.linalg.norm(vec_LE_to_TE)
+        section_1_aerodynamic_center = (
+            self._LE_point_1
+            + aerodynamic_center_location * (self._LE_point_1 - self._TE_point_1)
+        )
+        section_2_aerodynamic_center = (
+            self._LE_point_2
+            + aerodynamic_center_location * (self._LE_point_2 - self._TE_point_2)
+        )
+        self._z_airf = (
+            section_2_aerodynamic_center - section_1_aerodynamic_center
+        ) / np.linalg.norm(section_2_aerodynamic_center - section_1_aerodynamic_center)
+        self._x_airf = np.cross(self._y_airf, self._z_airf)
 
     ###########################
     ## GETTER FUNCTIONS
     ###########################
-    @property
-    def local_reference_frame(self):
-        # Calculate reference frame
-        return self._local_reference_frame
+    # @property
+    # def local_reference_frame(self):
+    #     # Calculate reference frame
+    #     return self._local_reference_frame
 
     @property
     def control_point(self):
-        # Calculate here
         return self._control_point
 
     @property
     def z_airf(self):
-        """Returns the z vector of the airfoil frame of reference
-
-        This is the spanwise/out of plane direction of the airfoil"""
-        return self.local_reference_frame()[:, 2]
+        return self._z_airf
 
     @property
     def va(self):
@@ -79,15 +110,17 @@ class Panel:
 
     # TODO: Check method inputs, not correct yet
     # TODO: verify that calculate_velocity_induced contains CORE correction
-    def calculate_velocity_induced_bound_2D(self):
+    def calculate_velocity_induced_bound_2D(
+        self, evaluation_point: np.array, gamma_mag: float
+    ):
         """Calculates the induced velocity inside HorshoeVortex Class"""
         return self.horshoe_vortex.calculate_velocity_induced_bound_2D(
-            self.control_point
+            evaluation_point, gamma_mag
         )
 
-    def calculate_velocity_induced(self, control_point: np.array, strength: float):
+    def calculate_velocity_induced(self, evaluation_point: np.array, gamma_mag: float):
         return self.horshoe_vortex.calculate_velocity_induced_horseshoe(
-            control_point, strength
+            evaluation_point, gamma_mag
         )
 
     def calculate_relative_alpha_and_relative_velocity(

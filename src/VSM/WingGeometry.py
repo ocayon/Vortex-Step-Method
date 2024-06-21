@@ -1,19 +1,24 @@
-import dataclasses
+from dataclasses import dataclass, field
 import numpy as np
 from typing import List
 
 
-@dataclasses
+@dataclass
 class Wing:
     n_panels: int
     spanwise_panel_distribution: str = "linear"
-    spanwise_direction: np.array = np.array([0, 1, 0])
-    Section: List[Section]  # child-class
+    spanwise_direction: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
+    sections: List["Section"] = field(default_factory=list)  # child-class
+
+    def add_section(
+        self, LE_point: np.array, TE_point: np.array, airfoil_aerodynamics: str
+    ):
+        self.sections.append(Section(LE_point, TE_point, airfoil_aerodynamics))
 
     ## TODO: must be tested
     def refine_aerodynamic_mesh(self):
-        LE = np.array([section.LE_point for section in self.Section])
-        TE = np.array([section.TE_point for section in self.Section])
+        LE = np.array([section.LE_point for section in self.sections])
+        TE = np.array([section.TE_point for section in self.sections])
 
         # Calculate the total length along the leading edge (LE) points
         lengths = np.linalg.norm(LE[1:] - LE[:-1], axis=1)
@@ -55,9 +60,13 @@ class Wing:
 
         # TODO: define the aerodynamic interpolation as well
         # TODO: define the right-output (See what panel expects)
+        new_sections = []
+        for i, _ in enumerate(new_LE):
+            # new_sections.append([new_LE[i], new_TE[i], 2 * np.pi])
+            new_sections.append(Section(new_LE[i], new_TE[i], "inviscid"))
+        return new_sections
 
-        return new_LE, new_TE
-
+    @property
     def get_n_panels(self):
         return self.n_panels
 
@@ -75,7 +84,7 @@ class Wing:
 
         # Concatenate the leading and trailing edge points for all sections
         all_points = np.concatenate(
-            [[section.LE_point, section.TE_point] for section in self.Section]
+            [[section.LE_point, section.TE_point] for section in self.sections]
         )
 
         # Project all points onto the vector axis
@@ -86,13 +95,14 @@ class Wing:
         return span
 
 
-@dataclasses
+@dataclass
 class Section:
-    LE_point: np.array
-    TE_point: np.array
-    CL_alpha: np.array
-    CD_alpha: np.array
-    CM_alpha: np.array
+    LE_point: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
+    TE_point: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
+    airfoil_aerodynamics: str = "inviscid"
+    # CL_alpha: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
+    # CD_alpha: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
+    # CM_alpha: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
 
 
 ######################

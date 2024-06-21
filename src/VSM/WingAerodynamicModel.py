@@ -1,8 +1,10 @@
 import numpy as np
 from VSM.Panel import Panel
+from dataclasses import dataclass, field
 
 
 # TODO: should change name to deal with multiple wings
+@dataclass
 class WingAerodynamics:
     def __init__(
         self,
@@ -12,17 +14,21 @@ class WingAerodynamics:
         """
         A class to represent a vortex system.
         """
-        self.panels = np.array([])
-        self._n_panels_per_wing = np.empty(len(wings))
+        panels = []
+        n_panels_per_wing = np.empty(len(wings))
         n_panels = 0
         for i, wing_instance in enumerate(wings):
             sections = wing_instance.refine_aerodynamic_mesh()
             for j in range(len(sections) - 1):
-                np.append(self.panels, Panel(sections[j], sections[j + 1]))
+                panels.append(Panel(sections[j], sections[j + 1]))
             # adding the number of panels of each wing
-            n_panels += wing_instance.get_n_panels()
+            n_panels += wing_instance.n_panels
             # calculating the number of panels per wing
-            self._n_panels_per_wing[i] = len(sections)
+            n_panels_per_wing[i] = len(sections)
+
+        self.wings = wings
+        self._panels = panels
+        self._n_panels_per_wing = n_panels_per_wing
         self.n_panels = n_panels
         self.va = None
         self.alpha_aerodynamic_center = np.empty(n_panels)
@@ -30,11 +36,7 @@ class WingAerodynamics:
         self.cl = np.empty(n_panels)
         self.cd = np.empty(n_panels)
         self.cm = np.empty(n_panels)
-        self.initial_gamma_distribution = (
-            self.calculate_circulation_distribution_elliptical_wing(
-                initial_gamma_distribution
-            )
-        )
+        self.initial_gamma_distribution = initial_gamma_distribution
 
     ###########################
     ## CALCULATE FUNCTIONS
@@ -71,11 +73,11 @@ class WingAerodynamics:
 
             for jring, panel_jring in enumerate(self.panels):
                 velocity_induced = panel_jring.calculate_velocity_induced(
-                    getattr(panel_icp, evaluation_point), strength=1
+                    getattr(panel_icp, evaluation_point), gamma_mag=1
                 )
                 if icp == jring:
                     U_2D = panel_jring.calculate_velocity_induced_bound_2D(
-                        getattr(panel_icp, evaluation_point), strength=1
+                        getattr(panel_icp, evaluation_point), gamma_mag=1
                     )
                 # AIC Matrix
                 MatrixU[icp, jring] = velocity_induced[0] + U_2D[0]
@@ -94,6 +96,7 @@ class WingAerodynamics:
         Returns:
             np.array: The circulation distribution
         """
+        print(f"gamma_O: {gamma_0},type: {type(gamma_0)}")
         gamma_i = np.array([])
         # Calculating the wing_span from the panels
         for i, (wing_instance, n_panels) in enumerate(
@@ -102,7 +105,7 @@ class WingAerodynamics:
             # calculating the wing-span of each wing
             wing_span = wing_instance.calculate_wing_span()
 
-            y = np.linspace(-wing_span / 2, wing_span / 2, n_panels - 1)
+            y = np.linspace(-wing_span / 2, wing_span / 2, int(n_panels - 1))
             gamma_i_wing = gamma_0 * np.sqrt(1 - (2 * y / wing_span) ** 2)
             gamma_i = np.append(gamma_i, gamma_i_wing)
 
@@ -117,7 +120,7 @@ class WingAerodynamics:
         Returns:
             np.array: The circulation distribution
         """
-        if gamma_distribution is None and self.initial_gamma_distribution == "elliptic":
+        if self.initial_gamma_distribution == "elliptic":
             return self.calculate_circulation_distribution_elliptical_wing()
         elif len(gamma_distribution) == self.n_panels:
             return gamma_distribution
@@ -139,7 +142,7 @@ class WingAerodynamics:
 
     @property
     def panels(self):
-        return self.panels
+        return self._panels
 
     @property
     def spanwise_panel_distribution(self):
@@ -155,8 +158,11 @@ class WingAerodynamics:
     ## SETTER FUNCTIONS
     ###########################
 
+    @panels.setter
+    def panels(self, value):
+        self._panels = value
+
     # TODO: needs work
-    @setter.va
     def set_va(self, va, yaw_rate):
         self.va = va
         self.yaw_rate = yaw_rate

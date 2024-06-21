@@ -57,12 +57,12 @@ class Solver:
         gamma_new = wing_aero.calculate_gamma_distribution()
 
         # TODO: CPU optimization: instantiate non-changing (geometric dependent) attributes here
-        panels = wing_aero.panels()
+        panels = wing_aero.panels
         z_airf_array = np.array([panel.z_airf for panel in panels])
         va_array = np.array([panel.va for panel in panels])
         chord_array = np.array([panel.chord for panel in panels])
 
-        for _ in self.max_iterations:
+        for _ in range(self.max_iterations):
 
             gamma = gamma_new  # I used to do this in a loop, not sure if
 
@@ -80,9 +80,11 @@ class Solver:
                     w = w + AIC_z[icp][jring] * gamma_jring
                     # z-component of velocity
 
-                u = u - U_2D[icp, 0] * gamma[icp]
-                v = v - U_2D[icp, 1] * gamma[icp]
-                w = w - U_2D[icp, 2] * gamma[icp]
+                # TODO: IF we add U_2D to the AIC matrices while defining it,
+                # TODO: this step is no longer needed?
+                # u = u - U_2D[icp, 0] * gamma[icp]
+                # v = v - U_2D[icp, 1] * gamma[icp]
+                # w = w - U_2D[icp, 2] * gamma[icp]
 
                 # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
                 induced_velocity = np.array([u, v, w])
