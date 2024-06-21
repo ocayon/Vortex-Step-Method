@@ -1,5 +1,7 @@
 import numpy as np
+import logging
 
+logging.basicConfig(level=logging.DEBUG)
 # Maurits-tips :)
 # call the methods of child-classes, inhereted or composed of
 # do not call the attributes of child-classes, call them through getter methods
@@ -39,15 +41,9 @@ class Solver:
         # Solve the circulation distribution
         wing_aero = self.solve_iterative_loop(wing_aero)
 
-        # Calculate effective angle of attack at the aerodynamic center
-        # TODO: This can go inside update_aerodynamic but to remember to correct it (It is always at the aerodynamic center)
-        wing_aero.update_effective_angle_of_attack()
-        wing_aero.update_aerodynamic_coefficients_and_alpha()
+        results, wing_aero = wing_aero.calculate_results()
 
-        # Calculate aerodynamic coefficients in the panel reference frame and store them in the Panel object
-        wing_aero.update_global_aerodynamics()
-
-        return wing_aero
+        return results, wing_aero
 
     def solve_iterative_loop(self, wing_aero):
         AIC_x, AIC_y, AIC_z, U_2D = wing_aero.calculate_AIC_matrices(
@@ -115,6 +111,12 @@ class Solver:
             reference_error = max(reference_error, self.tol_reference_error)
             error = np.amax(np.abs(gamma_new - gamma))
             normalized_error = error / reference_error
+
+            logging.debug("Iteration: %d, normalized_error: %f", _, normalized_error)
+            logging.debug("Iteration: %d, reference_error: %f", _, reference_error)
+            logging.debug("Iteration: %d, gamma: %f", _, gamma)
+            logging.debug("gamma_new: %s", gamma_new)
+
             # relative error
             if normalized_error < self.allowed_error:
                 # if error smaller than limit, stop iteration cycle

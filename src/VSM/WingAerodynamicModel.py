@@ -1,10 +1,8 @@
 import numpy as np
 from VSM.Panel import Panel
-from dataclasses import dataclass, field
 
 
 # TODO: should change name to deal with multiple wings
-@dataclass
 class WingAerodynamics:
     def __init__(
         self,
@@ -34,23 +32,14 @@ class WingAerodynamics:
         self._initial_gamma_distribution = initial_gamma_distribution
         self._gamma_distribution = None
 
-        ## FOR OUTPUT
+        # TODO: Can you not delete these attributes and only give them back to the user
+        # TODO: As a result at the end of the calculation, and leave the WingAerodynamics Object Clean
         # arrays per panel
         self._alpha_aerodynamic_center = np.zeros(n_panels)
         self._alpha_control_point = np.zeros(n_panels)
         self._cl = np.zeros(n_panels)
         self._cd = np.zeros(n_panels)
         self._cm = np.zeros(n_panels)
-        # wing level
-        self._cl_wing = 0.0
-        self._cd_wing = 0.0
-        self._cs_wing = 0.0
-        self._lift_wing = 0.0
-        self._drag_wing = 0.0
-        self._side_wing = 0.0
-        self._cmx_wing = 0.0
-        self._cmy_wing = 0.0
-        self._cmz_wing = 0.0
 
     ###########################
     ## GETTER FUNCTIONS
@@ -71,40 +60,6 @@ class WingAerodynamics:
     @property
     def gamma_distribution(self):
         return self._gamma_distribution
-
-    @property
-    def wing_coefficients(self):
-        return {
-            "cl_wing": self._cl_wing,
-            "cd_wing": self._cd_wing,
-            "cs_wing": self._cs_wing,
-        }
-
-    @property
-    def wing_forces(self):
-        return {
-            "lift_wing": self._lift_wing,
-            "drag_wing": self._drag_wing,
-            "side_wing": self._side_wing,
-        }
-
-    @property
-    def wing_moments(self):
-        return {
-            "cmx_wing": self._cmx_wing,
-            "cmy_wing": self._cmy_wing,
-            "cmz_wing": self._cmz_wing,
-        }
-
-    @property
-    def spanwise_distributions(self):
-        return {
-            "alpha_aerodynamic_center": self._alpha_aerodynamic_center,
-            "alpha_control_point": self._alpha_control_point,
-            "cl": self._cl,
-            "cd": self._cd,
-            "cm": self._cm,
-        }
 
     ###########################
     ## SETTER FUNCTIONS
@@ -223,12 +178,57 @@ class WingAerodynamics:
         self._gamma_distribution = gamma_distribution
         return gamma_distribution
 
-        # TODO: Needs Work
+    # TODO: NOT NEEDED?
+    # def calculate_wing_induced_velocity(self, point):
+    #     """Calculates the induced velocity at a given point on the wing
 
-    def calculate_wing_induced_velocity(self, point):
-        # Placeholder for actual implementation
-        induced_velocity = np.array([0, 0, 0])
-        return induced_velocity
+    #     Args:
+    #         point (np.array): The point at which the induced velocity is to be calculated
+
+    #     Returns:
+    #         induced_velocity (np.array): The induced velocity at the given point
+    #     """
+    #     induced_velocity = 0
+    #     for _, panel in enumerate(self.panels):
+    #         induced_velocity += panel.calculate_velocity_induced(point, gamma_mag=1)
+    #     return induced_velocity
+
+    # TODO: Needs Work
+    def calculate_results(self):
+        """Update spanwise local values and calculate the aerodynamics of the wing
+
+        Args:
+            None
+
+        Returns:
+            results_dict (dict): Dictionary containing the aerodynamic results of the wing
+            wing_aero (WingAerodynamics): The updated WingAerodynamics object
+        """
+        results_dict = {}
+
+        results_dict.update(
+            [("alpha_aerodynamic_center", self._alpha_aerodynamic_center)]
+        )
+        results_dict.update([("alpha_control_point", self._alpha_control_point)])
+        results_dict.update([("cl", self._cl)])
+        results_dict.update([("cd", self._cd)])
+        results_dict.update([("cm", self._cm)])
+
+        # Calculate global aerodynamics
+        results_dict.update([("cl_wing", 0.0)])
+        results_dict.update([("cd_wing", 0.0)])
+        results_dict.update([("cs_wing", 0.0)])
+        results_dict.update([("cmx_wing", 0.0)])
+        results_dict.update([("cmy_wing", 0.0)])
+        results_dict.update([("cmz_wing", 0.0)])
+        results_dict.update([("lift_wing", 0.0)])
+        results_dict.update([("drag_wing", 0.0)])
+        results_dict.update([("side_wing", 0.0)])
+        results_dict.update([("mx_wing", 0.0)])
+        results_dict.update([("my_wing", 0.0)])
+        results_dict.update([("mz_wing", 0.0)])
+
+        return results_dict, self
 
     ###########################
     ## UPDATE FUNCTIONS
@@ -276,20 +276,3 @@ class WingAerodynamics:
             )
             self._cl[i], self._cd[i], self._cm[i] = panel_i.calculate_cl_cd_cm(alpha_i)
             self._alpha_control_point[i] = alpha_i
-
-    # TODO: Needs Work
-    def update_global_aerodynamics(self):
-        """
-        Updates the global aerodynamics of the wing
-        """
-        self._cl_wing = np.sum(self._cl)
-        self._cd_wing = np.sum(self._cd)
-        self._cs_wing = 1.0
-
-        self._cmx_wing = 0.0
-        self._cmy_wing = 0.0
-        self._cmz_wing = 0.0
-
-        self._lift_wing = np.sum(self._cl)
-        self._drag_wing = np.sum(self._cd)
-        self._side_wing = 0.0
