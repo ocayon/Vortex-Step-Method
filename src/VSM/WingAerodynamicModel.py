@@ -26,17 +26,104 @@ class WingAerodynamics:
             # calculating the number of panels per wing
             n_panels_per_wing[i] = len(sections)
 
-        self.wings = wings
+        self._wings = wings
         self._panels = panels
         self._n_panels_per_wing = n_panels_per_wing
-        self.n_panels = n_panels
-        self.va = None
-        self.alpha_aerodynamic_center = np.empty(n_panels)
-        self.alpha_control_point = np.empty(n_panels)
-        self.cl = np.empty(n_panels)
-        self.cd = np.empty(n_panels)
-        self.cm = np.empty(n_panels)
-        self.initial_gamma_distribution = initial_gamma_distribution
+        self._n_panels = n_panels
+        self._va = None
+        self._initial_gamma_distribution = initial_gamma_distribution
+        self._gamma_distribution = None
+
+        ## FOR OUTPUT
+        # arrays per panel
+        self._alpha_aerodynamic_center = np.zeros(n_panels)
+        self._alpha_control_point = np.zeros(n_panels)
+        self._cl = np.zeros(n_panels)
+        self._cd = np.zeros(n_panels)
+        self._cm = np.zeros(n_panels)
+        # wing level
+        self._cl_wing = 0.0
+        self._cd_wing = 0.0
+        self._cs_wing = 0.0
+        self._lift_wing = 0.0
+        self._drag_wing = 0.0
+        self._side_wing = 0.0
+        self._cmx_wing = 0.0
+        self._cmy_wing = 0.0
+        self._cmz_wing = 0.0
+
+    ###########################
+    ## GETTER FUNCTIONS
+    ###########################
+
+    @property
+    def panels(self):
+        return self._panels
+
+    @property
+    def n_panels(self):
+        return self._n_panels
+
+    @property
+    def va(self):
+        return self._va
+
+    @property
+    def gamma_distribution(self):
+        return self._gamma_distribution
+
+    @property
+    def wing_coefficients(self):
+        return {
+            "cl_wing": self._cl_wing,
+            "cd_wing": self._cd_wing,
+            "cs_wing": self._cs_wing,
+        }
+
+    @property
+    def wing_forces(self):
+        return {
+            "lift_wing": self._lift_wing,
+            "drag_wing": self._drag_wing,
+            "side_wing": self._side_wing,
+        }
+
+    @property
+    def wing_moments(self):
+        return {
+            "cmx_wing": self._cmx_wing,
+            "cmy_wing": self._cmy_wing,
+            "cmz_wing": self._cmz_wing,
+        }
+
+    @property
+    def spanwise_distributions(self):
+        return {
+            "alpha_aerodynamic_center": self._alpha_aerodynamic_center,
+            "alpha_control_point": self._alpha_control_point,
+            "cl": self._cl,
+            "cd": self._cd,
+            "cm": self._cm,
+        }
+
+    ###########################
+    ## SETTER FUNCTIONS
+    ###########################
+
+    @panels.setter
+    def panels(self, value):
+        self._panels = value
+
+    # TODO: needs work
+    @va.setter
+    def va(self, va, yaw_rate: float = 0.0):
+        self._va = np.array(va)
+        self.yaw_rate = yaw_rate
+        # Make n panels, 3 array of the list va
+        va_distribution = np.repeat([va], len(self.panels), axis=0)
+        for i, panel in enumerate(self.panels):
+            panel.va = va_distribution[i]
+        self.update_wake(va_distribution)  # Define the trailing wake filaments
 
     ###########################
     ## CALCULATE FUNCTIONS
@@ -56,7 +143,7 @@ class WingAerodynamics:
             U_2D (np.array): The 2D velocity induced by a bound vortex
         """
 
-        n_panels = self.n_panels
+        n_panels = self._n_panels
         U_2D = U_2D = np.array([0, 0, 0])
         MatrixU = np.empty((n_panels, n_panels))
         MatrixV = np.empty((n_panels, n_panels))
@@ -96,11 +183,10 @@ class WingAerodynamics:
         Returns:
             np.array: The circulation distribution
         """
-        print(f"gamma_O: {gamma_0},type: {type(gamma_0)}")
         gamma_i = np.array([])
         # Calculating the wing_span from the panels
-        for i, (wing_instance, n_panels) in enumerate(
-            zip(self.wings, self._n_panels_per_wing)
+        for _, (wing_instance, n_panels) in enumerate(
+            zip(self._wings, self._n_panels_per_wing)
         ):
             # calculating the wing-span of each wing
             wing_span = wing_instance.calculate_wing_span()
@@ -120,57 +206,38 @@ class WingAerodynamics:
         Returns:
             np.array: The circulation distribution
         """
-        if self.initial_gamma_distribution == "elliptic":
-            return self.calculate_circulation_distribution_elliptical_wing()
-        elif len(gamma_distribution) == self.n_panels:
-            return gamma_distribution
-        else:
-            raise ValueError(
-                f"Invalid gamma distribution, len(gamma_distribution) :{len(gamma_distribution)} != self.n_panels:{self.n_panels}"
+
+        if (
+            gamma_distribution is None
+            and self._initial_gamma_distribution == "elliptic"
+        ):
+            gamma_distribution = (
+                self.calculate_circulation_distribution_elliptical_wing()
             )
+        elif (
+            gamma_distribution is not None and len(gamma_distribution) != self._n_panels
+        ):
+            raise ValueError(
+                f"Invalid gamma distribution, len(gamma_distribution) :{len(gamma_distribution)} != self._n_panels:{self._n_panels}"
+            )
+        self._gamma_distribution = gamma_distribution
+        return gamma_distribution
 
-    def calculate_relative_alpha_and_relative_velocity(
-        self, induced_velocity: np.array
-    ):
-        return self.panels.calculate_relative_alpha_and_relative_velocity(
-            self, induced_velocity
-        )
+        # TODO: Needs Work
 
-    ###########################
-    ## GETTER FUNCTIONS
-    ###########################
-
-    @property
-    def panels(self):
-        return self._panels
-
-    @property
-    def spanwise_panel_distribution(self):
-        return {
-            "alpha_aerodynamic_center": self.alpha_aerodynamic_center,
-            "alpha_control_point": self.alpha_control_point,
-            "cl": self.cl,
-            "cd": self.cd,
-            "cm": self.cm,
-        }
+    def calculate_wing_induced_velocity(self, point):
+        # Placeholder for actual implementation
+        induced_velocity = np.array([0, 0, 0])
+        return induced_velocity
 
     ###########################
-    ## SETTER FUNCTIONS
+    ## UPDATE FUNCTIONS
     ###########################
 
-    @panels.setter
-    def panels(self, value):
-        self._panels = value
-
-    # TODO: needs work
-    def set_va(self, va, yaw_rate):
-        self.va = va
-        self.yaw_rate = yaw_rate
-        # Make n panels, 3 array of the list va
-        va_distribution = np.repeat([va], len(self.panels), axis=0)
-        for i, panel in enumerate(self.panels):
-            panel.va = va_distribution[i]
-        self.update_wake(va_distribution)  # Define the trailing wake filaments
+    # TODO: Needs Work
+    def update_wake(self, va_distribution):
+        # Placeholder for actual implementation
+        pass
 
     def update_effective_angle_of_attack(self):
         """Updates the angle of attack at the aerodynamic center of each panel,
@@ -183,8 +250,10 @@ class WingAerodynamics:
             None
         """
         for i, panel_i in enumerate(self.panels):
-            induced_velocity = self.wing_induced_velocity(panel_i.aerodynamic_center)
-            self.alpha_aerodynamic_center[i], _ = (
+            induced_velocity = self.calculate_wing_induced_velocity(
+                panel_i.aerodynamic_center
+            )
+            self._alpha_aerodynamic_center[i], _ = (
                 panel_i.calculate_relative_alpha_and_relative_velocity(induced_velocity)
             )
 
@@ -199,38 +268,28 @@ class WingAerodynamics:
             None
         """
         for i, panel_i in enumerate(self.panels):
-            induced_velocity = self.wing_induced_velocity(panel_i.control_point)
+            induced_velocity = self.calculate_wing_induced_velocity(
+                panel_i.control_point
+            )
             alpha_i, _ = panel_i.calculate_relative_alpha_and_relative_velocity(
                 induced_velocity
             )
-            self.cl[i], self.cd[i], self.cm[i] = (
-                panel_i.calculate_aerodynamic_coefficients(alpha_i)
-            )
-            self.alpha_control_point[i] = alpha_i
-
-    # TODO: Needs Work
-    def wing_induced_velocity(self, point):
-        # Placeholder for actual implementation
-        induced_velocity = np.array([0, 0, 0])
-        return induced_velocity
+            self._cl[i], self._cd[i], self._cm[i] = panel_i.calculate_cl_cd_cm(alpha_i)
+            self._alpha_control_point[i] = alpha_i
 
     # TODO: Needs Work
     def update_global_aerodynamics(self):
-        pass
+        """
+        Updates the global aerodynamics of the wing
+        """
+        self._cl_wing = np.sum(self._cl)
+        self._cd_wing = np.sum(self._cd)
+        self._cs_wing = 1.0
 
-    # TODO: Needs Work
-    def update_wake(self, va_distribution):
-        # Placeholder for actual implementation
-        pass
+        self._cmx_wing = 0.0
+        self._cmy_wing = 0.0
+        self._cmz_wing = 0.0
 
-    ###########################
-    ## below is not yet needed?
-    ###########################
-
-    def calculate_aerodynamic_forces(self, alpha, cl, cd, cm):
-        # Placeholder for actual implementation
-        pass
-
-    def get_wing_coefficients(self):
-        # Placeholder for actual implementation
-        return {"CL": 0.0, "CD": 0.0, "CS": 0.0, "CM": 0.0}
+        self._lift_wing = np.sum(self._cl)
+        self._drag_wing = np.sum(self._cd)
+        self._side_wing = 0.0

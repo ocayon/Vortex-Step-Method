@@ -136,8 +136,8 @@ class Panel:
             relative_velocity (np.array): Relative velocity of the panel
         """
         # Calculate terms of induced corresponding to the airfoil directions
-        norm_airf = self.local_reference_frame()[:, 0]
-        tan_airf = self.local_reference_frame()[:, 1]
+        norm_airf = self._x_airf
+        tan_airf = self._y_airf
 
         # Calculate relative velocity and angle of attack
         relative_velocity = self.va + induced_velocity
@@ -170,5 +170,11 @@ class Panel:
         # TODO: this is a placeholder, for inviscid flow
         return 2 * np.pi * np.sin(alpha)
 
-    def calculate_aerodynamic_coefficients(self, alpha: float):
-        pass
+    # TODO: FIX THIS
+    def calculate_cl_cd_cm(self, alpha: float):
+        # use self._aerodynamic_properties
+        # which contains the aerodynamic properties of the airfoil
+        cl = 2 * np.pi * np.sin(alpha)
+        cd = 0.05
+        cm = 0
+        return cl, cd, cm

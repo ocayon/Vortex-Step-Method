@@ -22,24 +22,24 @@ wing_aero = WingAerodynamics([wing])
 VSM = Solver()
 
 # Define inflow conditions
-wing_aero.set_va(va=[-10, 0, 0], yaw_rate=0)
+wing_aero.va = [-10, 0, 0]
 
 # Solve the aerodynamics
 wing_aero = VSM.solve(wing_aero)
 
 # %% Retrieve Results
 # Retrieve aerodynamic coefficients
-wing_coeffs = wing_aero.wing_coefficients()  # can be a dictionary or a list
+wing_coeffs = wing_aero.wing_coefficients  # can be a dictionary or a list
 print(wing_coeffs)
 # Retrieve aerodynamic forces
-wing_forces = wing_aero.wing_forces()  # can be a dictionary or a list
+wing_forces = wing_aero.wing_forces  # can be a dictionary or a list
 print(wing_forces)
 # Retrieve aerodynamic moments
-wing_moments = wing_aero.wing_moments()  # can be a dictionary or a list
+wing_moments = wing_aero.wing_moments  # can be a dictionary or a list
 print(wing_moments)
 # Retrieve gamma distribution
-gamma = wing_aero.gamma_distribution()  # can be a list or a numpy array
+gamma = wing_aero.gamma_distribution  # can be a list or a numpy array
 print(gamma)
 # Retrieve angle of attack distribution
-aero_coeffs = wing_aero.spanwise_distribution()  # dictionary with alpha, cl, cd, cm
+aero_coeffs = wing_aero.spanwise_distributions  # dictionary with alpha, cl, cd, cm
 print(aero_coeffs)

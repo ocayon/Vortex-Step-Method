@@ -57,10 +57,13 @@ class Solver:
         gamma_new = wing_aero.calculate_gamma_distribution()
 
         # TODO: CPU optimization: instantiate non-changing (geometric dependent) attributes here
+        # TODO: Further optimization: is to populate only in the loop, not create new arrays
         panels = wing_aero.panels
         z_airf_array = np.array([panel.z_airf for panel in panels])
         va_array = np.array([panel.va for panel in panels])
         chord_array = np.array([panel.chord for panel in panels])
+
+        converged = False
 
         for _ in range(self.max_iterations):
 
@@ -89,7 +92,7 @@ class Solver:
                 # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
                 induced_velocity = np.array([u, v, w])
                 alpha, relative_velocity = (
-                    wing_aero.calculate_relative_alpha_and_relative_velocity(
+                    panel.calculate_relative_alpha_and_relative_velocity(
                         induced_velocity
                     )
                 )
@@ -125,6 +128,10 @@ class Solver:
             if self.artificial_damping is not None:
                 gamma_new = self.apply_artificial_damping(gamma_new)
 
+        if converged:
+            print(" ")
+            print("Converged after " + str(_) + " iterations")
+            print("------------------------------------")
         if not converged:
             print("Not converged after " + str(self.max_iterations) + " iterations")
 

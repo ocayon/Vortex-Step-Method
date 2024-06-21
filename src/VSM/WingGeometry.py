@@ -29,11 +29,11 @@ class Wing:
         cum_length = np.concatenate(([0], np.cumsum(lengths)))
 
         # Compute the target lengths for each of the n_panels points
-        target_lengths = np.linspace(0, n_provided, self.n_panels)
+        target_lengths = np.linspace(0, n_provided, self.n_panels + 1)
 
         # Initialize arrays to hold the new LE and TE points
-        new_LE = np.zeros((self.n_panels, 3))
-        new_TE = np.zeros((self.n_panels, 3))
+        new_LE = np.zeros((self.n_panels + 1, 3))
+        new_TE = np.zeros((self.n_panels + 1, 3))
 
         # Interpolate new LE and TE points
         for i, target_length in enumerate(target_lengths):
