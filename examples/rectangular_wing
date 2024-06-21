@@ -29,17 +29,17 @@ wing_aero = VSM.solve(wing_aero)
 
 # %% Retrieve Results
 # Retrieve aerodynamic coefficients
-wing_coeffs = wing_aero.get_wing_coefficients()  # can be a dictionary or a list
+wing_coeffs = wing_aero.wing_coefficients()  # can be a dictionary or a list
 print(wing_coeffs)
 # Retrieve aerodynamic forces
-wing_forces = wing_aero.get_wing_forces()  # can be a dictionary or a list
+wing_forces = wing_aero.wing_forces()  # can be a dictionary or a list
 print(wing_forces)
 # Retrieve aerodynamic moments
-wing_moments = wing_aero.get_wing_moments()  # can be a dictionary or a list
+wing_moments = wing_aero.wing_moments()  # can be a dictionary or a list
 print(wing_moments)
 # Retrieve gamma distribution
-gamma = wing_aero.get_gamma_distribution()  # can be a list or a numpy array
+gamma = wing_aero.gamma_distribution()  # can be a list or a numpy array
 print(gamma)
 # Retrieve angle of attack distribution
-aero_coeffs = wing_aero.get_spanwise_distribution()  # dictionary with alpha, cl, cd, cm
+aero_coeffs = wing_aero.spanwise_distribution()  # dictionary with alpha, cl, cd, cm
 print(aero_coeffs)
