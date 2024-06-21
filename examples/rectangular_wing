@@ -17,6 +17,9 @@ wing.add_section([0, 1, 0], [-1, 1, 0], "inviscid")
 # Default parameters are used (elliptic circulation distribution, 5 filaments per ring)
 wing_aero = WingAerodynamics([wing])
 
+# Plotting the wing
+wing_aero.plot()
+
 # Initialize solver
 # Default parameters are used (VSM, no artificial damping)
 VSM = Solver()

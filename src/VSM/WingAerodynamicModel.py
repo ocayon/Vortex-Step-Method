@@ -1,4 +1,9 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib
+
+matplotlib.use("TkAgg")  # Replace 'TkAgg' with your preferred backend
 from VSM.Panel import Panel
 
 
@@ -276,3 +281,66 @@ class WingAerodynamics:
             )
             self._cl[i], self._cd[i], self._cm[i] = panel_i.calculate_cl_cd_cm(alpha_i)
             self._alpha_control_point[i] = alpha_i
+
+    def plot(self):
+        """
+        Plots the wing panels in 3D.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        # Extract corner points, control points, and aerodynamic centers from panels
+        corner_points = np.array([panel.corner_points for panel in self.panels])
+        control_points = np.array([panel.control_point for panel in self.panels])
+        aerodynamic_centers = np.array(
+            [panel.aerodynamic_center for panel in self.panels]
+        )
+
+        # Create a 3D plot
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection="3d")
+
+        # Plot each panel
+        for i in range(len(self.panels)):
+            # Get the corner points of the current panel and close the loop by adding the first point again
+            x_corners = np.append(corner_points[i, :, 0], corner_points[i, 0, 0])
+            y_corners = np.append(corner_points[i, :, 1], corner_points[i, 0, 1])
+            z_corners = np.append(corner_points[i, :, 2], corner_points[i, 0, 2])
+
+            # Plot the panel edges
+            ax.plot(
+                x_corners,
+                y_corners,
+                z_corners,
+                color="k",
+                label="Panel Edges" if i == 0 else "",
+            )
+
+            # Plot the control point
+            ax.scatter(
+                control_points[i, 0],
+                control_points[i, 1],
+                control_points[i, 2],
+                color="r",
+                label="Control Points" if i == 0 else "",
+            )
+
+            # Plot the aerodynamic center
+            ax.scatter(
+                aerodynamic_centers[i, 0],
+                aerodynamic_centers[i, 1],
+                aerodynamic_centers[i, 2],
+                color="b",
+                label="Aerodynamic Centers" if i == 0 else "",
+            )
+
+        # Add legends for the first occurrence of each label
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        ax.legend(by_label.values(), by_label.keys())
+
+        # Display the plot
+        plt.show()

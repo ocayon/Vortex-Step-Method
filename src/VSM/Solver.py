@@ -1,7 +1,7 @@
 import numpy as np
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 # Maurits-tips :)
 # call the methods of child-classes, inhereted or composed of
 # do not call the attributes of child-classes, call them through getter methods
@@ -51,6 +51,7 @@ class Solver:
         )
 
         gamma_new = wing_aero.calculate_gamma_distribution()
+        logging.info("Initial gamma_new: %s", gamma_new)
 
         # TODO: CPU optimization: instantiate non-changing (geometric dependent) attributes here
         # TODO: Further optimization: is to populate only in the loop, not create new arrays
@@ -60,8 +61,7 @@ class Solver:
         chord_array = np.array([panel.chord for panel in panels])
 
         converged = False
-
-        for _ in range(self.max_iterations):
+        for i in range(self.max_iterations):
 
             gamma = gamma_new  # I used to do this in a loop, not sure if
 
@@ -107,15 +107,25 @@ class Solver:
                 # Find the new gamma using Kutta-Joukouski law
                 gamma_new[icp] = 0.5 * Umag**2 / Umagw * cl * chord_array[icp]
 
+                logging.info("--------- icp: %d", icp)
+                logging.info("induced_velocity: %s", induced_velocity)
+                logging.info("alpha: %f", alpha)
+                logging.info("relative_velocity: %s", relative_velocity)
+                logging.info("cl: %f", cl)
+                logging.info("Umag: %f", Umag)
+                logging.info("Umagw: %f", Umagw)
+                logging.info("chord: %f", chord_array[icp])
+
             reference_error = np.amax(np.abs(gamma_new))
             reference_error = max(reference_error, self.tol_reference_error)
             error = np.amax(np.abs(gamma_new - gamma))
             normalized_error = error / reference_error
 
-            logging.debug("Iteration: %d, normalized_error: %f", _, normalized_error)
-            logging.debug("Iteration: %d, reference_error: %f", _, reference_error)
-            logging.debug("Iteration: %d, gamma: %f", _, gamma)
-            logging.debug("gamma_new: %s", gamma_new)
+            # logging.info("Iteration: %d, normalized_error: %f", _, normalized_error)
+            # logging.info("Iteration: %d, reference_error: %f", _, reference_error)
+            logging.info("Iteration: %d", i)
+            logging.info("gamma: %s", gamma)
+            logging.info("gamma_new: %s", gamma_new)
 
             # relative error
             if normalized_error < self.allowed_error:
@@ -132,7 +142,7 @@ class Solver:
 
         if converged:
             print(" ")
-            print("Converged after " + str(_) + " iterations")
+            print("Converged after " + str(i) + " iterations")
             print("------------------------------------")
         if not converged:
             print("Not converged after " + str(self.max_iterations) + " iterations")

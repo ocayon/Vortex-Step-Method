@@ -65,11 +65,6 @@ class Panel:
     ###########################
     ## GETTER FUNCTIONS
     ###########################
-    # @property
-    # def local_reference_frame(self):
-    #     # Calculate reference frame
-    #     return self._local_reference_frame
-
     @property
     def control_point(self):
         return self._control_point
@@ -108,7 +103,7 @@ class Panel:
     ## CALCULATE FUNCTIONS      # All this return smthing
     ###########################
 
-    # TODO: Check method inputs, not correct yet
+    # TODO: Check method inputs, not correct yet?
     # TODO: verify that calculate_velocity_induced contains CORE correction
     def calculate_velocity_induced_bound_2D(
         self, evaluation_point: np.array, gamma_mag: float
