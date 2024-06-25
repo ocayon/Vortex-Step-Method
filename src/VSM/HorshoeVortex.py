@@ -47,9 +47,11 @@ class HorshoeVortex:
             BoundFilament(x1=self.bound_point_2, x2=TE_point_2)
         )  # trailing edge vortex
 
+        # appending a initial wake filament
+        self.filaments.append(None)
+        self.filaments.append(None)
+
         self._gamma = None  # Initialize the gamma attribute
-
-
 
         logging.info("Horshoe vortex created")
         logging.info("Bound point 1: %s", self.bound_point_1)
@@ -114,14 +116,18 @@ class HorshoeVortex:
 
         return ind_vel
 
-    def update_filaments_for_wake(self, point1, point2):
-        self.filaments.append(SemiInfiniteFilament(point1, point2))
+    def update_filaments_for_wake(self, point1, dir_1, point2, dir_2):
+        self.filaments[3] = SemiInfiniteFilament(point1, dir_1)
+        self.filaments[4] = SemiInfiniteFilament(point2, dir_2)
+        print("Wake filaments updated")
+        print(self.filaments[3].x2)
+        print(self.filaments[4].x2)
 
-    #TODO:
-    def calculate_filaments_for_plotting():
-        # This function calculates the filaments for plotting
-        # 1. loop over each filament and grab x1 and x2
-        # need to also calculate a downstream point for the 3,4 index of the filament that represents the wake
+    def calculate_filaments_for_plotting(self):
+        filaments = []
+        for filament in self.filaments:
+            filaments.append([filament.x1, filament.x2])
+        return filaments
 
 
 class Filament(ABC):
@@ -139,7 +145,7 @@ class Filament(ABC):
     def __init__(self):
         pass
 
-    def calculate_induced_velocity(self, point):
+    def calculate_induced_velocity(self, point, gamma):
         pass
 
 
@@ -221,11 +227,14 @@ class SemiInfiniteFilament:
 
     def __init__(self, x1, direction, Uinf=1.0, alpha0=1.25643, nu=1.48e-5):
         self.x1 = x1
+        # x2 is a point far away from the filament, defined here for plotting purposes
+        self.x2 = x1 + direction * 0.5
         self.direction = direction
         self.alpha0 = alpha0  # Oseen parameter
         self.nu = nu  # Kinematic viscosity of air
 
-    def calculate_induced_velocity(self, point, gamma, Uinf):
+    # TODO: what is the purpose of Uinf here? It does NOT take correct value
+    def calculate_induced_velocity(self, point, gamma, Uinf=1):
         r1 = point - self.x1
         r1XVf = np.cross(r1, self.direction)
 

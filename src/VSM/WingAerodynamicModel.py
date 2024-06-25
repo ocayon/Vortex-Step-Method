@@ -98,7 +98,7 @@ class WingAerodynamics:
 
         # TODO: later Wake should be a class
         # Add the frozen wake elements based on the va distribution
-        Wake.frozen_wake(va_distribution, self.panels)
+        self.panels = Wake.frozen_wake(va_distribution, self.panels)
 
     ###########################
     ## CALCULATE FUNCTIONS
@@ -277,6 +277,35 @@ class WingAerodynamics:
             self._cl[i], self._cd[i], self._cm[i] = panel_i.calculate_cl_cd_cm(alpha_i)
             self._alpha_control_point[i] = alpha_i
 
+    def plot_line_segment(self, ax, segment, color, label, width: float = 3):
+        ax.plot(
+            [segment[0][0], segment[1][0]],
+            [segment[0][1], segment[1][1]],
+            [segment[0][2], segment[1][2]],
+            color=color,
+            label=label,
+            linewidth=width,
+        )
+
+    def set_axes_equal(self, ax):
+        x_limits = ax.get_xlim3d()
+        y_limits = ax.get_ylim3d()
+        z_limits = ax.get_zlim3d()
+
+        x_range = abs(x_limits[1] - x_limits[0])
+        y_range = abs(y_limits[1] - y_limits[0])
+        z_range = abs(z_limits[1] - z_limits[0])
+
+        max_range = max([x_range, y_range, z_range])
+
+        x_mid = np.mean(x_limits)
+        y_mid = np.mean(y_limits)
+        z_mid = np.mean(z_limits)
+
+        ax.set_xlim3d([x_mid - max_range / 2, x_mid + max_range / 2])
+        ax.set_ylim3d([y_mid - max_range / 2, y_mid + max_range / 2])
+        ax.set_zlim3d([z_mid - max_range / 2, z_mid + max_range / 2])
+
     def plot(self):
         """
         Plots the wing panels and filaments in 3D.
@@ -339,71 +368,21 @@ class WingAerodynamics:
             )
 
             # Plot the filaments
-            bound_filament = panel.horshoe_vortex.filaments_for_plotting[0]
-            trailing_edge_filament_1 = panel.horshoe_vortex.filaments_for_plotting[1]
-            trailing_edge_filament_2 = panel.horshoe_vortex.filaments_for_plotting[2]
-            wake_filament_1 = panel.horshoe_vortex.filaments_for_plotting[3]
-            wake_filament_2 = panel.horshoe_vortex.filaments_for_plotting[4]
-
-            def plot_line_segment(segment, color, label, width: float = 3):
-                ax.plot(
-                    [segment[0][0], segment[1][0]],
-                    [segment[0][1], segment[1][1]],
-                    [segment[0][2], segment[1][2]],
-                    color=color,
-                    label=label,
-                    linewidth=width,
-                )
-
-            plot_line_segment(bound_filament, "r", "Bound Vortex")
-            plot_line_segment(trailing_edge_filament_1, "g", "Trailing Edge Vortex")
-            plot_line_segment(trailing_edge_filament_2, "g", "Trailing Edge Vortex")
-            plot_line_segment(wake_filament_1, "b", "Wake Vortex")
-            plot_line_segment(wake_filament_2, "b", "Wake Vortex")
-
-            # print(" ")
-            # print("new - panel")
-            # corn_p1 = panel.corner_points[0]
-            # corn_p2 = panel.corner_points[1]
-            # ax.plot(
-            #     [corn_p1[0], corn_p2[0]],
-            #     [corn_p1[1], corn_p2[1]],
-            #     [corn_p1[2], corn_p2[2]],
-            #     color="r",
-            #     label="test",
-            # )
-
-            # ax.plot(
-            #     bound_filament[0],
-            #     bound_filament[1],
-            #     color="r",
-            #     label="Bound Vortex",
-            # )
-            # ax.plot(
-            #     trailing_edge_filament_1[0],
-            #     trailing_edge_filament_1[1],
-            #     color="g",
-            #     label="Trailing Edge Vortex",
-            # )
-            # ax.plot(
-            #     trailing_edge_filament_2[0],
-            #     trailing_edge_filament_2[1],
-            #     color="g",
-            #     label="Trailing Edge Vortex",
-            # )
-
-            logging.info(f"Plotting panel {i}")
-            logging.info(f"Corner Points: {corner_points[i]}")
-            logging.info(f"Control Point: {control_points[i]}")
-            logging.info(f"Aerodynamic Center: {aerodynamic_centers[i]}")
-            logging.info(f"Bound Filament: {bound_filament}")
-            logging.info(f"Trailing Edge Filament 1: {trailing_edge_filament_1}")
-            logging.info(f"Trailing Edge Filament 2: {trailing_edge_filament_2}")
+            filaments = panel.horshoe_vortex.calculate_filaments_for_plotting()
+            for filament, legend in zip(
+                filaments,
+                ["Bound Vortex", "side1", "side2", "wake_1", "wake_2"],
+            ):
+                logging.info("Legend: %s", legend)
+                self.plot_line_segment(ax, filament, "k", legend)
 
         # Add legends for the first occurrence of each label
         handles, labels = ax.get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
         ax.legend(by_label.values(), by_label.keys())
+
+        # Set equal axis limits
+        self.set_axes_equal(ax)
 
         # Display the plot
         plt.show()
