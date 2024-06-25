@@ -38,3 +38,7 @@ results, wing_aero = VSM.solve(wing_aero)
 
 # Print
 print(results)
+
+
+# TODOs
+# 1. update_wake, called in WingAerodynamicModel, def va setter

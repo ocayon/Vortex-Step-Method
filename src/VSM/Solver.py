@@ -100,7 +100,7 @@ class Solver:
                 Uinfcrossz = np.cross(va_array[icp], z_airf_array[icp])
                 Umagw = np.linalg.norm(Uinfcrossz)
 
-                # TODO: this should be instantiated upfront, from the wing_aero object
+                # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
                 # Lookup cl for this specific alpha
                 cl = panel.calculate_cl(alpha)
 

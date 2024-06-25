@@ -15,8 +15,8 @@ class Panel:
         self._LE_point_1 = section_1.LE_point
         self._TE_point_2 = section_2.TE_point
         self._LE_point_2 = section_2.LE_point
-        self._aerodynamic_properties = self.calculate_aerodynamic_properties(
-            section_1.airfoil_aerodynamics, section_2.airfoil_aerodynamics
+        self._airfoil_data = self.calculate_airfoil_data(
+            section_1.aero_input, section_2.aero_input
         )
         self._chord = np.average(
             [
@@ -103,7 +103,6 @@ class Panel:
     ## CALCULATE FUNCTIONS      # All this return smthing
     ###########################
 
-    # TODO: Check method inputs, not correct yet?
     # TODO: verify that calculate_velocity_induced contains CORE correction
     def calculate_velocity_induced_bound_2D(
         self, evaluation_point: np.array, gamma_mag: float
@@ -141,17 +140,50 @@ class Panel:
         alpha = np.arctan(vn / vtan)
         return alpha, relative_velocity
 
-    def calculate_aerodynamic_properties(
-        self, aerodynamic_properties_1, aerodynamic_properties_2
-    ):
-        # TODO: This is a placeholder
-        cl, cd, cm = np.array([]), np.array([]), np.array([])
-        for alpha in np.arange(-20, 20, 3):
-            np.append(cl, 2 * np.pi * np.sin(alpha))
-            np.append(cd, 0.05)
-            np.append(cm, 0)
+    def _calculate_inviscid_polar_data(self):
+        """Calculates the lift, drag and moment coefficients of the panel
 
-        return np.array([cl, cd, cm])
+        Args:
+            None
+
+        Returns:
+            airfoil_data (np.array): Array containing the lift, drag and moment coefficients of the panel
+        """
+        aoa = np.arange(-20, 21, 1)
+        airfoil_data = np.empty(
+            (
+                len(aoa),
+                4,
+            )
+        )
+        for j, alpha in enumerate(aoa):
+            cl, cd, cm = 2 * np.pi * np.sin(alpha), 0.05, 0.01
+            airfoil_data[j, 0] = alpha
+            airfoil_data[j, 1] = cl
+            airfoil_data[j, 2] = cd
+            airfoil_data[j, 3] = cm
+
+        return airfoil_data
+
+    def calculate_airfoil_data(self, aero_input_1, aero_input_2):
+        """Calculates the aerodynamic properties of the panel
+
+        Args:
+            aero_input_1 (tuple): Aerodynamic properties of the first section
+            aero_input_2 (tuple): Aerodynamic properties of the second section
+
+        Returns:
+            airfoil_data (np.array): [alpha,cl,cd,cm] of size (n_alpha, 4)
+        """
+        if (aero_input_1[0] and aero_input_2[0]) == "inviscid":
+            return self._calculate_inviscid_polar_data()
+
+        elif (aero_input_1[0] and aero_input_2[0]) == "lei_airfoil_breukels":
+            # TODO: 1. Average the Geometry, to find the mid-panel airfoil
+            # TODO: 2. Calculate the aerodynamic properties of the mid-panel airfoil
+            return NotImplementedError
+        else:
+            raise NotImplementedError
 
     def calculate_cl(self, alpha: float):
         """Calculates the lift coefficient of the panel
@@ -162,14 +194,8 @@ class Panel:
         Returns:
             float: Lift coefficient of the panel
         """
-        # TODO: this is a placeholder, for inviscid flow
-        return 2 * np.pi * np.sin(alpha)
-
-    # TODO: FIX THIS
-    def calculate_cl_cd_cm(self, alpha: float):
-        # use self._aerodynamic_properties
-        # which contains the aerodynamic properties of the airfoil
-        cl = 2 * np.pi * np.sin(alpha)
-        cd = 0.05
-        cm = 0
-        return cl, cd, cm
+        return np.interp(
+            np.rad2deg(alpha),
+            self._airfoil_data[:, 0],
+            self._airfoil_data[:, 1],
+        )

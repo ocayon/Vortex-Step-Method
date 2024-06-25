@@ -38,12 +38,6 @@ class Wing:
         new_aero_input = np.empty((self.n_panels + 1,), dtype=object)
         new_sections = []
 
-        # Handle the inviscid case at once
-        if aero_input[0][0] == "inviscid":
-            airfoil_data = self._calculate_inviscid_polar_data()
-        else:
-            raise NotImplementedError
-
         # Interpolate new LE and TE points
         for i, target_length in enumerate(target_lengths):
             # Find the segment in which the target_length falls
@@ -66,14 +60,13 @@ class Wing:
             new_TE[i] = TE[section_index] + t * (
                 TE[section_index + 1] - TE[section_index]
             )
-
             # Interpolate aero_input
             if aero_input[section_index][0] != aero_input[section_index + 1][0]:
                 # this entails different aero model over the span
                 raise NotImplementedError
 
             if aero_input[section_index][0] == "inviscid":
-                new_aero_input[i] = ["polars", airfoil_data[i]]
+                new_aero_input[i] = ["inviscid"]
 
             elif aero_input[section_index][0] == "polars":
                 # TODO: perform a polar interpolation
@@ -87,18 +80,6 @@ class Wing:
             new_sections.append(Section(new_LE[i], new_TE[i], new_aero_input[i]))
 
         return new_sections
-
-    def _calculate_inviscid_polar_data(self):
-        aoa = np.arange(-20, 21, 1)
-        airfoil_data = np.empty((len(aoa), 4, 1))
-        for i in range(self.n_panels - 1):
-            for j, alpha in enumerate(aoa):
-                cl, cd, cm = 2 * np.pi * np.sin(alpha), 0.05, 0.01
-                airfoil_data[j, 0, i] = alpha
-                airfoil_data[j, 1, i] = cl
-                airfoil_data[j, 2, i] = cd
-                airfoil_data[j, 3, i] = cm
-        return airfoil_data
 
     # @property
     # def n_panels(self):
@@ -135,7 +116,7 @@ class Section:
     TE_point: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
     aero_input: list = field(default_factory=list)
 
-    # TODO: Ideas on what the other aero_input could be populated with:
+    # Ideas on what the other aero_input could be populated with:
     # ['polars', [CL_alpha, CD_alpha, CM_alpha]]
     # ['lei_airfoil_breukels', [tube_diameter, chamber_height]]
 

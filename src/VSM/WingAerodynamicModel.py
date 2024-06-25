@@ -74,15 +74,24 @@ class WingAerodynamics:
     def panels(self, value):
         self._panels = value
 
-    # TODO: needs work
     @va.setter
     def va(self, va, yaw_rate: float = 0.0):
         self._va = np.array(va)
-        self.yaw_rate = yaw_rate
-        # Make n panels, 3 array of the list va
-        va_distribution = np.repeat([va], len(self.panels), axis=0)
+        self._yaw_rate = yaw_rate
+
+        if len(va) == 3:
+            va_distribution = np.repeat([va], len(self.panels), axis=0)
+        elif len(va) == len(self.panels):
+            va_distribution = va
+        else:
+            raise ValueError(
+                f"Invalid va distribution, len(va) :{len(va)} != len(self.panels):{len(self.panels)}"
+            )
+        # Update the va attribute of each panel
         for i, panel in enumerate(self.panels):
             panel.va = va_distribution[i]
+
+        # TODO: Populate the wake class and this function
         self.update_wake(va_distribution)  # Define the trailing wake filaments
 
     ###########################
@@ -182,21 +191,6 @@ class WingAerodynamics:
             )
         self._gamma_distribution = gamma_distribution
         return gamma_distribution
-
-    # TODO: NOT NEEDED?
-    # def calculate_wing_induced_velocity(self, point):
-    #     """Calculates the induced velocity at a given point on the wing
-
-    #     Args:
-    #         point (np.array): The point at which the induced velocity is to be calculated
-
-    #     Returns:
-    #         induced_velocity (np.array): The induced velocity at the given point
-    #     """
-    #     induced_velocity = 0
-    #     for _, panel in enumerate(self.panels):
-    #         induced_velocity += panel.calculate_velocity_induced(point, gamma_mag=1)
-    #     return induced_velocity
 
     # TODO: Needs Work
     def calculate_results(self):
