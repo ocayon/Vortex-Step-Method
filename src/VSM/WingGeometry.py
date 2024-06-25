@@ -1,6 +1,9 @@
 from dataclasses import dataclass, field
 import numpy as np
 from typing import List
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 
 @dataclass
@@ -10,20 +13,18 @@ class Wing:
     spanwise_direction: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
     sections: List["Section"] = field(default_factory=list)  # child-class
 
-    def add_section(
-        self, LE_point: np.array, TE_point: np.array, airfoil_aerodynamics: str
-    ):
-        self.sections.append(Section(LE_point, TE_point, airfoil_aerodynamics))
+    def add_section(self, LE_point: np.array, TE_point: np.array, aero_input: str):
+        self.sections.append(Section(LE_point, TE_point, aero_input))
 
     ## TODO: must be tested
     def refine_aerodynamic_mesh(self):
         LE = np.array([section.LE_point for section in self.sections])
         TE = np.array([section.TE_point for section in self.sections])
+        aero_input = np.array([section.aero_input for section in self.sections])
 
         # Calculate the total length along the leading edge (LE) points
         lengths = np.linalg.norm(LE[1:] - LE[:-1], axis=1)
         n_provided = np.sum(lengths)
-        sections_length = n_provided / self.n_panels
 
         # Compute the cumulative length along the LE points
         cum_length = np.concatenate(([0], np.cumsum(lengths)))
@@ -34,6 +35,14 @@ class Wing:
         # Initialize arrays to hold the new LE and TE points
         new_LE = np.zeros((self.n_panels + 1, 3))
         new_TE = np.zeros((self.n_panels + 1, 3))
+        new_aero_input = np.empty((self.n_panels + 1,), dtype=object)
+        new_sections = []
+
+        # Handle the inviscid case at once
+        if aero_input[0][0] == "inviscid":
+            airfoil_data = self._calculate_inviscid_polar_data()
+        else:
+            raise NotImplementedError
 
         # Interpolate new LE and TE points
         for i, target_length in enumerate(target_lengths):
@@ -58,17 +67,42 @@ class Wing:
                 TE[section_index + 1] - TE[section_index]
             )
 
-        # TODO: define the aerodynamic interpolation as well
-        # TODO: define the right-output (See what panel expects)
-        new_sections = []
-        for i, _ in enumerate(new_LE):
-            # new_sections.append([new_LE[i], new_TE[i], 2 * np.pi])
-            new_sections.append(Section(new_LE[i], new_TE[i], "inviscid"))
+            # Interpolate aero_input
+            if aero_input[section_index][0] != aero_input[section_index + 1][0]:
+                # this entails different aero model over the span
+                raise NotImplementedError
+
+            if aero_input[section_index][0] == "inviscid":
+                new_aero_input[i] = ["polars", airfoil_data[i]]
+
+            elif aero_input[section_index][0] == "polars":
+                # TODO: perform a polar interpolation
+                raise NotImplementedError
+
+            elif aero_input[section_index][0] == "lei_airfoil_breukels":
+                # TODO: perform geometric interpolation
+                raise NotImplementedError
+
+            # Appending to the new_section
+            new_sections.append(Section(new_LE[i], new_TE[i], new_aero_input[i]))
+
         return new_sections
 
-    @property
-    def get_n_panels(self):
-        return self.n_panels
+    def _calculate_inviscid_polar_data(self):
+        aoa = np.arange(-20, 21, 1)
+        airfoil_data = np.empty((len(aoa), 4, 1))
+        for i in range(self.n_panels - 1):
+            for j, alpha in enumerate(aoa):
+                cl, cd, cm = 2 * np.pi * np.sin(alpha), 0.05, 0.01
+                airfoil_data[j, 0, i] = alpha
+                airfoil_data[j, 1, i] = cl
+                airfoil_data[j, 2, i] = cd
+                airfoil_data[j, 3, i] = cm
+        return airfoil_data
+
+    # @property
+    # def n_panels(self):
+    #     return self.n_panels
 
     # TODO: add test here, assessing for example the types of the inputs
     def calculate_wing_span(self):
@@ -99,7 +133,12 @@ class Wing:
 class Section:
     LE_point: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
     TE_point: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
-    airfoil_aerodynamics: str = "inviscid"
+    aero_input: list = field(default_factory=list)
+
+    # TODO: Ideas on what the other aero_input could be populated with:
+    # ['polars', [CL_alpha, CD_alpha, CM_alpha]]
+    # ['lei_airfoil_breukels', [tube_diameter, chamber_height]]
+
     # CL_alpha: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
     # CD_alpha: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
     # CM_alpha: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
