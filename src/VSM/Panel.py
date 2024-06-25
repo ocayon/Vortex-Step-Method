@@ -24,7 +24,7 @@ class Panel:
                 np.abs(section_2.LE_point - section_2.TE_point),
             ]
         )
-        self.horshoe_vortex = HorshoeVortex(
+        self._horshoe_vortex = HorshoeVortex(
             self._LE_point_1,
             self._TE_point_1,
             self._LE_point_2,
@@ -66,6 +66,10 @@ class Panel:
     ## GETTER FUNCTIONS
     ###########################
     @property
+    def horshoe_vortex(self):
+        return self._horshoe_vortex
+
+    @property
     def control_point(self):
         return self._control_point
 
@@ -91,6 +95,14 @@ class Panel:
     def chord(self):
         return self._chord
 
+    @property
+    def TE_point_1(self):
+        return self._TE_point_1
+
+    @property
+    def TE_point_2(self):
+        return self._TE_point_2
+
     ###########################
     ## SETTER FUNCTIONS
     ###########################
@@ -108,12 +120,12 @@ class Panel:
         self, evaluation_point: np.array, gamma_mag: float
     ):
         """Calculates the induced velocity inside HorshoeVortex Class"""
-        return self.horshoe_vortex.calculate_velocity_induced_bound_2D(
+        return self._horshoe_vortex.calculate_velocity_induced_bound_2D(
             evaluation_point, gamma_mag
         )
 
     def calculate_velocity_induced(self, evaluation_point: np.array, gamma_mag: float):
-        return self.horshoe_vortex.calculate_velocity_induced_horseshoe(
+        return self._horshoe_vortex.calculate_velocity_induced_horseshoe(
             evaluation_point, gamma_mag
         )
 

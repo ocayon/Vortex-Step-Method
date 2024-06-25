@@ -1,5 +1,8 @@
 from abc import ABC
 import numpy as np
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 
 class HorshoeVortex:
@@ -26,25 +29,37 @@ class HorshoeVortex:
     ):
 
         self.filaments = []
-        bound_point_1 = (
+        self.bound_point_1 = (
             LE_point_1 * (1 - aerodynamic_center_location)
             + TE_point_1 * aerodynamic_center_location
         )
-        bound_point_2 = (
+        self.bound_point_2 = (
             LE_point_2 * (1 - aerodynamic_center_location)
             + TE_point_2 * aerodynamic_center_location
         )
         self.filaments.append(
-            BoundFilament(x1=bound_point_1, x2=bound_point_2)
+            BoundFilament(x1=self.bound_point_1, x2=self.bound_point_2)
         )  # bound vortex
         self.filaments.append(
-            BoundFilament(x1=TE_point_1, x2=bound_point_1)
+            BoundFilament(x1=TE_point_1, x2=self.bound_point_1)
         )  # trailing edge vortex
         self.filaments.append(
-            BoundFilament(x1=bound_point_2, x2=TE_point_2)
+            BoundFilament(x1=self.bound_point_2, x2=TE_point_2)
         )  # trailing edge vortex
 
         self._gamma = None  # Initialize the gamma attribute
+
+
+
+        logging.info("Horshoe vortex created")
+        logging.info("Bound point 1: %s", self.bound_point_1)
+        logging.info("TE point 1: %s", TE_point_1)
+        logging.info("Bound point 2: %s", self.bound_point_2)
+        logging.info("TE point 2: %s", TE_point_2)
+
+    @property
+    def filaments_for_plotting(self):
+        return self._filaments_for_plotting
 
     @property
     def gamma(self):
@@ -98,6 +113,15 @@ class HorshoeVortex:
             ind_vel += filament.calculate_induced_velocity(control_point, gamma)
 
         return ind_vel
+
+    def update_filaments_for_wake(self, point1, point2):
+        self.filaments.append(SemiInfiniteFilament(point1, point2))
+
+    #TODO:
+    def calculate_filaments_for_plotting():
+        # This function calculates the filaments for plotting
+        # 1. loop over each filament and grab x1 and x2
+        # need to also calculate a downstream point for the 3,4 index of the filament that represents the wake
 
 
 class Filament(ABC):

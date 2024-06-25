@@ -1,10 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import matplotlib
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-matplotlib.use("TkAgg")  # Replace 'TkAgg' with your preferred backend
+import matplotlib
+import logging
+
 from VSM.Panel import Panel
+import VSM.Wake as Wake
+
+logging.basicConfig(level=logging.INFO)
 
 
 # TODO: should change name to deal with multiple wings
@@ -91,8 +96,9 @@ class WingAerodynamics:
         for i, panel in enumerate(self.panels):
             panel.va = va_distribution[i]
 
-        # TODO: Populate the wake class and this function
-        self.update_wake(va_distribution)  # Define the trailing wake filaments
+        # TODO: later Wake should be a class
+        # Add the frozen wake elements based on the va distribution
+        Wake.frozen_wake(va_distribution, self.panels)
 
     ###########################
     ## CALCULATE FUNCTIONS
@@ -233,11 +239,6 @@ class WingAerodynamics:
     ## UPDATE FUNCTIONS
     ###########################
 
-    # TODO: Needs Work
-    def update_wake(self, va_distribution):
-        # Placeholder for actual implementation
-        pass
-
     def update_effective_angle_of_attack(self):
         """Updates the angle of attack at the aerodynamic center of each panel,
             Calculated at the AERODYNAMIC CENTER
@@ -278,7 +279,7 @@ class WingAerodynamics:
 
     def plot(self):
         """
-        Plots the wing panels in 3D.
+        Plots the wing panels and filaments in 3D.
 
         Args:
             None
@@ -298,7 +299,7 @@ class WingAerodynamics:
         ax = fig.add_subplot(111, projection="3d")
 
         # Plot each panel
-        for i in range(len(self.panels)):
+        for i, panel in enumerate(self.panels):
             # Get the corner points of the current panel and close the loop by adding the first point again
             x_corners = np.append(corner_points[i, :, 0], corner_points[i, 0, 0])
             y_corners = np.append(corner_points[i, :, 1], corner_points[i, 0, 1])
@@ -309,9 +310,15 @@ class WingAerodynamics:
                 x_corners,
                 y_corners,
                 z_corners,
-                color="k",
+                color="grey",
                 label="Panel Edges" if i == 0 else "",
+                linewidth=1,
             )
+
+            # Create a list of tuples representing the vertices of the polygon
+            verts = [list(zip(x_corners, y_corners, z_corners))]
+            poly = Poly3DCollection(verts, color="grey", alpha=0.1)
+            ax.add_collection3d(poly)
 
             # Plot the control point
             ax.scatter(
@@ -330,6 +337,68 @@ class WingAerodynamics:
                 color="b",
                 label="Aerodynamic Centers" if i == 0 else "",
             )
+
+            # Plot the filaments
+            bound_filament = panel.horshoe_vortex.filaments_for_plotting[0]
+            trailing_edge_filament_1 = panel.horshoe_vortex.filaments_for_plotting[1]
+            trailing_edge_filament_2 = panel.horshoe_vortex.filaments_for_plotting[2]
+            wake_filament_1 = panel.horshoe_vortex.filaments_for_plotting[3]
+            wake_filament_2 = panel.horshoe_vortex.filaments_for_plotting[4]
+
+            def plot_line_segment(segment, color, label, width: float = 3):
+                ax.plot(
+                    [segment[0][0], segment[1][0]],
+                    [segment[0][1], segment[1][1]],
+                    [segment[0][2], segment[1][2]],
+                    color=color,
+                    label=label,
+                    linewidth=width,
+                )
+
+            plot_line_segment(bound_filament, "r", "Bound Vortex")
+            plot_line_segment(trailing_edge_filament_1, "g", "Trailing Edge Vortex")
+            plot_line_segment(trailing_edge_filament_2, "g", "Trailing Edge Vortex")
+            plot_line_segment(wake_filament_1, "b", "Wake Vortex")
+            plot_line_segment(wake_filament_2, "b", "Wake Vortex")
+
+            # print(" ")
+            # print("new - panel")
+            # corn_p1 = panel.corner_points[0]
+            # corn_p2 = panel.corner_points[1]
+            # ax.plot(
+            #     [corn_p1[0], corn_p2[0]],
+            #     [corn_p1[1], corn_p2[1]],
+            #     [corn_p1[2], corn_p2[2]],
+            #     color="r",
+            #     label="test",
+            # )
+
+            # ax.plot(
+            #     bound_filament[0],
+            #     bound_filament[1],
+            #     color="r",
+            #     label="Bound Vortex",
+            # )
+            # ax.plot(
+            #     trailing_edge_filament_1[0],
+            #     trailing_edge_filament_1[1],
+            #     color="g",
+            #     label="Trailing Edge Vortex",
+            # )
+            # ax.plot(
+            #     trailing_edge_filament_2[0],
+            #     trailing_edge_filament_2[1],
+            #     color="g",
+            #     label="Trailing Edge Vortex",
+            # )
+
+            logging.info(f"Plotting panel {i}")
+            logging.info(f"Corner Points: {corner_points[i]}")
+            logging.info(f"Control Point: {control_points[i]}")
+            logging.info(f"Aerodynamic Center: {aerodynamic_centers[i]}")
+            logging.info(f"Bound Filament: {bound_filament}")
+            logging.info(f"Trailing Edge Filament 1: {trailing_edge_filament_1}")
+            logging.info(f"Trailing Edge Filament 2: {trailing_edge_filament_2}")
 
         # Add legends for the first occurrence of each label
         handles, labels = ax.get_legend_handles_labels()
