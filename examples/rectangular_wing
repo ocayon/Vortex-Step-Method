@@ -17,8 +17,8 @@ wing = Wing(n_panels=10)
 # ['inviscid']
 # ['lei_airfoil_breukels', [tube_diameter, chamber_height]]
 # ['polars', []]
-wing.add_section([0, 1, 0], [-1, 1, 0], ["inviscid"])
-wing.add_section([0, -1, 0], [-1, -1, 0], ["inviscid"])
+wing.add_section([1, 10, 0], [0, 10, 0], ["inviscid"])
+wing.add_section([1, -10, 0], [0, -10, 0], ["inviscid"])
 
 
 # Initialize wing aerodynamics

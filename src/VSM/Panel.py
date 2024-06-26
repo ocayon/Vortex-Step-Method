@@ -78,6 +78,14 @@ class Panel:
         return self._z_airf
 
     @property
+    def x_airf(self):
+        return self._x_airf
+    
+    @property
+    def y_airf(self):
+        return self._y_airf
+    
+    @property
     def va(self):
         return self._va
 
@@ -124,7 +132,7 @@ class Panel:
             evaluation_point, gamma_mag
         )
 
-    def calculate_velocity_induced(self, evaluation_point: np.array, gamma_mag: float):
+    def calculate_velocity_induced(self, evaluation_point: np.array, gamma_mag = None):
         return self._horshoe_vortex.calculate_velocity_induced_horseshoe(
             evaluation_point, gamma_mag
         )
@@ -206,8 +214,5 @@ class Panel:
         Returns:
             float: Lift coefficient of the panel
         """
-        return np.interp(
-            np.rad2deg(alpha),
-            self._airfoil_data[:, 0],
-            self._airfoil_data[:, 1],
-        )
+        #TODO: Fix this
+        return 2*np.pi*np.sin(alpha)

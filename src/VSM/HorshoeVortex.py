@@ -116,9 +116,9 @@ class HorshoeVortex:
 
         return ind_vel
 
-    def update_filaments_for_wake(self, point1, dir_1, point2, dir_2):
-        self.filaments[3] = SemiInfiniteFilament(point1, dir_1)
-        self.filaments[4] = SemiInfiniteFilament(point2, dir_2)
+    def update_filaments_for_wake(self, point1, point2, dir):
+        self.filaments[3] = SemiInfiniteFilament(point1, dir,filament_direction=-1)
+        self.filaments[4] = SemiInfiniteFilament(point2, dir,filament_direction=1)
         print("Wake filaments updated")
         print(self.filaments[3].x2)
         print(self.filaments[4].x2)
@@ -226,13 +226,14 @@ class SemiInfiniteFilament:
 
     """
 
-    def __init__(self, x1, direction, Uinf=1.0, alpha0=1.25643, nu=1.48e-5):
+    def __init__(self, x1, direction, filament_direction, alpha0=1.25643, nu=1.48e-5):
         self.x1 = x1
         # x2 is a point far away from the filament, defined here for plotting purposes
-        self.x2 = x1 + direction * 0.5
+        self.x2 = x1 + filament_direction*direction * 0.5
         self.direction = direction
         self.alpha0 = alpha0  # Oseen parameter
         self.nu = nu  # Kinematic viscosity of air
+        self._filament_direction = filament_direction
 
     # TODO: what is the purpose of Uinf here? It does NOT take correct value
     def calculate_induced_velocity(self, point, gamma, Uinf=1):
@@ -272,4 +273,4 @@ class SemiInfiniteFilament:
             # determine the three velocity components
             vel_ind = K * r1XVf_proj
         # output results, vector with the three velocity components
-        return vel_ind
+        return vel_ind*self._filament_direction

@@ -23,6 +23,6 @@ def frozen_wake(
         va_i = va_distribution[i]
         va_i_unit = va_i / np.linalg.norm(va_i)
         panel.horshoe_vortex.update_filaments_for_wake(
-            panel.TE_point_1, va_i_unit, panel.TE_point_2, va_i_unit
+            panel.TE_point_1, panel.TE_point_2, va_i_unit
         )
     return panels

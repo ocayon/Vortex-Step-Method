@@ -119,7 +119,6 @@ class WingAerodynamics:
         """
 
         n_panels = self._n_panels
-        U_2D = U_2D = np.array([0, 0, 0])
         MatrixU = np.empty((n_panels, n_panels))
         MatrixV = np.empty((n_panels, n_panels))
         MatrixW = np.empty((n_panels, n_panels))
@@ -135,12 +134,13 @@ class WingAerodynamics:
 
             for jring, panel_jring in enumerate(self.panels):
                 velocity_induced = panel_jring.calculate_velocity_induced(
-                    getattr(panel_icp, evaluation_point), gamma_mag=1
+                    getattr(panel_icp, evaluation_point), gamma_mag=-1
                 )
                 # AIC Matrix
                 MatrixU[icp, jring] = velocity_induced[0]
                 MatrixV[icp, jring] = velocity_induced[1]
                 MatrixW[icp, jring] = velocity_induced[2]
+
                 if icp == jring:
                     U_2D = panel_jring.calculate_velocity_induced_bound_2D(
                         getattr(panel_icp, evaluation_point), gamma_mag=1
@@ -150,7 +150,7 @@ class WingAerodynamics:
                     MatrixW[icp, jring] += U_2D[2]
                 
 
-        return MatrixU, MatrixV, MatrixW, U_2D
+        return MatrixU, MatrixV, MatrixW
 
     def calculate_circulation_distribution_elliptical_wing(self, gamma_0: float = 1):
         """
