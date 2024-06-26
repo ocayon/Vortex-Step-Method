@@ -126,7 +126,8 @@ class HorshoeVortex:
     def calculate_filaments_for_plotting(self):
         filaments = []
         for filament in self.filaments:
-            filaments.append([filament.x1, filament.x2])
+            dir = filament.x2 - filament.x1 / np.linalg.norm(filament.x2 - filament.x1)
+            filaments.append([filament.x1, filament.x2,dir])
         return filaments
 
 

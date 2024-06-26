@@ -137,14 +137,18 @@ class WingAerodynamics:
                 velocity_induced = panel_jring.calculate_velocity_induced(
                     getattr(panel_icp, evaluation_point), gamma_mag=1
                 )
+                # AIC Matrix
+                MatrixU[icp, jring] = velocity_induced[0]
+                MatrixV[icp, jring] = velocity_induced[1]
+                MatrixW[icp, jring] = velocity_induced[2]
                 if icp == jring:
                     U_2D = panel_jring.calculate_velocity_induced_bound_2D(
                         getattr(panel_icp, evaluation_point), gamma_mag=1
                     )
-                # AIC Matrix
-                MatrixU[icp, jring] = velocity_induced[0] + U_2D[0]
-                MatrixV[icp, jring] = velocity_induced[1] + U_2D[1]
-                MatrixW[icp, jring] = velocity_induced[2] + U_2D[2]
+                    MatrixU[icp, jring] += U_2D[0]
+                    MatrixV[icp, jring] += U_2D[1]
+                    MatrixW[icp, jring] += U_2D[2]
+                
 
         return MatrixU, MatrixV, MatrixW, U_2D
 
@@ -170,7 +174,7 @@ class WingAerodynamics:
             gamma_i_wing = gamma_0 * np.sqrt(1 - (2 * y / wing_span) ** 2)
             gamma_i = np.append(gamma_i, gamma_i_wing)
 
-        return gamma_i
+        return gamma_i*0
 
     def calculate_gamma_distribution(self, gamma_distribution=None):
         """Calculates the circulation distribution for the wing
@@ -277,7 +281,7 @@ class WingAerodynamics:
             self._cl[i], self._cd[i], self._cm[i] = panel_i.calculate_cl_cd_cm(alpha_i)
             self._alpha_control_point[i] = alpha_i
 
-    def plot_line_segment(self, ax, segment, color, label, width: float = 3):
+    def plot_line_segment(self, ax, segment, color, label, dir, width: float = 3):
         ax.plot(
             [segment[0][0], segment[1][0]],
             [segment[0][1], segment[1][1]],
@@ -286,6 +290,8 @@ class WingAerodynamics:
             label=label,
             linewidth=width,
         )
+        dir = segment[1] - segment[0]
+        ax.quiver(segment[0][0], segment[0][1], segment[0][2], dir[0], dir[1], dir[2], color=color)
 
     def set_axes_equal(self, ax):
         x_limits = ax.get_xlim3d()
@@ -372,9 +378,12 @@ class WingAerodynamics:
             for filament, legend in zip(
                 filaments,
                 ["Bound Vortex", "side1", "side2", "wake_1", "wake_2"],
-            ):
+            ):  
+                dir = filament[2]
+                filament[:2] = filament
+                
                 logging.info("Legend: %s", legend)
-                self.plot_line_segment(ax, filament, "k", legend)
+                self.plot_line_segment(ax, filament, "k", legend, dir)
 
         # Add legends for the first occurrence of each label
         handles, labels = ax.get_legend_handles_labels()
