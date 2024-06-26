@@ -16,8 +16,10 @@ wing = Wing(n_panels=5)
 # airfoil data can be:
 # ['inviscid']
 # ['lei_airfoil_breukels', [tube_diameter, chamber_height]]
-wing.add_section([0, -1, 0], [-1, -1, 0], ["inviscid"])
-wing.add_section([0, 1, 0], [-1, 1, 0], ["inviscid"])
+# ['polars', []]
+wing.add_section([1, 10, 0], [0, 10, 0], ["inviscid"])
+wing.add_section([1, -10, 0], [0, -10, 0], ["inviscid"])
+
 
 # Initialize wing aerodynamics
 # Default parameters are used (elliptic circulation distribution, 5 filaments per ring)

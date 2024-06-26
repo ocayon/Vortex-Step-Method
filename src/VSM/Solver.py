@@ -46,12 +46,12 @@ class Solver:
         return results, wing_aero
 
     def solve_iterative_loop(self, wing_aero):
-        AIC_x, AIC_y, AIC_z, U_2D = wing_aero.calculate_AIC_matrices(
+        AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
             self.aerodynamic_model_type
         )
 
         gamma_new = wing_aero.calculate_gamma_distribution()
-        logging.info("Initial gamma_new: %s", gamma_new)
+        # logging.info("Initial gamma_new: %s", gamma_new)
 
         # TODO: CPU optimization: instantiate non-changing (geometric dependent) attributes here
         # TODO: Further optimization: is to populate only in the loop, not create new arrays
@@ -59,11 +59,13 @@ class Solver:
         z_airf_array = np.array([panel.z_airf for panel in panels])
         va_array = np.array([panel.va for panel in panels])
         chord_array = np.array([panel.chord for panel in panels])
+        gamma = np.zeros(len(panels))
 
         converged = False
         for i in range(self.max_iterations):
-
-            gamma = gamma_new  # I used to do this in a loop, not sure if
+            
+            for ig, gamma_n in enumerate(gamma_new):
+                gamma[ig] = gamma_n
 
             for icp, panel in enumerate(panels):
                 # Initialize induced velocity to 0
@@ -78,12 +80,6 @@ class Solver:
                     # y-component of velocity
                     w = w + AIC_z[icp][jring] * gamma_jring
                     # z-component of velocity
-
-                # TODO: IF we add U_2D to the AIC matrices while defining it,
-                # TODO: this step is no longer needed?
-                # u = u - U_2D[icp, 0] * gamma[icp]
-                # v = v - U_2D[icp, 1] * gamma[icp]
-                # w = w - U_2D[icp, 2] * gamma[icp]
 
                 # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
                 induced_velocity = np.array([u, v, w])
@@ -107,14 +103,14 @@ class Solver:
                 # Find the new gamma using Kutta-Joukouski law
                 gamma_new[icp] = 0.5 * Umag**2 / Umagw * cl * chord_array[icp]
 
-                logging.info("--------- icp: %d", icp)
-                logging.info("induced_velocity: %s", induced_velocity)
-                logging.info("alpha: %f", alpha)
-                logging.info("relative_velocity: %s", relative_velocity)
-                logging.info("cl: %f", cl)
-                logging.info("Umag: %f", Umag)
-                logging.info("Umagw: %f", Umagw)
-                logging.info("chord: %f", chord_array[icp])
+                # logging.info("--------- icp: %d", icp)
+                # logging.info("induced_velocity: %s", induced_velocity)
+                # logging.info("alpha: %f", alpha)
+                # logging.info("relative_velocity: %s", relative_velocity)
+                # logging.info("cl: %f", cl)
+                # logging.info("Umag: %f", Umag)
+                # logging.info("Umagw: %f", Umagw)
+                # logging.info("chord: %f", chord_array[icp])
 
             reference_error = np.amax(np.abs(gamma_new))
             reference_error = max(reference_error, self.tol_reference_error)
@@ -124,7 +120,7 @@ class Solver:
             # logging.info("Iteration: %d, normalized_error: %f", _, normalized_error)
             # logging.info("Iteration: %d, reference_error: %f", _, reference_error)
             logging.info("Iteration: %d", i)
-            logging.info("gamma: %s", gamma)
+            # logging.info("gamma: %s", gamma)
             logging.info("gamma_new: %s", gamma_new)
 
             # relative error
@@ -137,8 +133,8 @@ class Solver:
                 1 - self.relaxation_factor
             ) * gamma + self.relaxation_factor * gamma_new
 
-            if self.artificial_damping is not None:
-                gamma_new = self.apply_artificial_damping(gamma_new)
+            # if self.artificial_damping is not None:
+            #     gamma_new = self.apply_artificial_damping(gamma_new)
 
         if converged:
             print(" ")
