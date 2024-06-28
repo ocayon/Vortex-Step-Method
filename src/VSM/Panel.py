@@ -1,5 +1,5 @@
 import numpy as np
-from VSM.HorshoeVortex import HorshoeVortex
+from VSM.Filament import BoundFilament, Infinite2DFilament
 
 
 class Panel:
@@ -24,13 +24,7 @@ class Panel:
                 np.abs(section_2.LE_point - section_2.TE_point),
             ]
         )
-        self._horshoe_vortex = HorshoeVortex(
-            self._LE_point_1,
-            self._TE_point_1,
-            self._LE_point_2,
-            self._TE_point_2,
-            aerodynamic_center_location,
-        )
+
         self._va = None
 
         # Calculate the control point and aerodynamic center
@@ -61,6 +55,32 @@ class Panel:
         ) / np.linalg.norm(section_2_aerodynamic_center - section_1_aerodynamic_center)
         self._x_airf = np.cross(self._y_airf, self._z_airf)
 
+        self.filaments = []
+        self.bound_point_1 = (
+            self.LE_point_1 * (1 - aerodynamic_center_location)
+            + self.TE_point_1 * aerodynamic_center_location
+        )
+        self.bound_point_2 = (
+            self.LE_point_2 * (1 - aerodynamic_center_location)
+            + self.TE_point_2 * aerodynamic_center_location
+        )
+        self.filaments.append(
+            BoundFilament(x1=self.bound_point_1, x2=self.bound_point_2)
+        )  # bound vortex
+        self.filaments.append(
+            BoundFilament(x1=self.TE_point_1, x2=self.bound_point_1)
+        )  # trailing edge vortex
+        self.filaments.append(
+            BoundFilament(x1=self.bound_point_2, x2=self.TE_point_2)
+        )  # trailing edge vortex
+
+        self._gamma = None  # Initialize the gamma attribute
+
+        self._filament_2d = Infinite2DFilament(
+            self.bound_point_1, self.bound_point_2
+        )  # 2D vortex filament for induced velocity calculation
+
+
     ###########################
     ## GETTER FUNCTIONS
     ###########################
@@ -79,11 +99,11 @@ class Panel:
     @property
     def x_airf(self):
         return self._x_airf
-    
+
     @property
     def y_airf(self):
         return self._y_airf
-    
+
     @property
     def va(self):
         return self._va
@@ -109,6 +129,14 @@ class Panel:
     @property
     def TE_point_2(self):
         return self._TE_point_2
+    
+    @property
+    def LE_point_1(self):
+        return self._LE_point_1
+    
+    @property
+    def LE_point_2(self):
+        return self._LE_point_2
 
     ###########################
     ## SETTER FUNCTIONS
@@ -122,18 +150,9 @@ class Panel:
     ## CALCULATE FUNCTIONS      # All this return smthing
     ###########################
 
-    # TODO: verify that calculate_velocity_induced contains CORE correction
-    def calculate_velocity_induced_bound_2D(
-        self, evaluation_point: np.array, gamma_mag: float
-    ):
-        """Calculates the induced velocity inside HorshoeVortex Class"""
-        return self._horshoe_vortex.calculate_velocity_induced_bound_2D(
-            evaluation_point, gamma_mag
-        )
-
-    def calculate_velocity_induced(self, evaluation_point: np.array, gamma_mag = None):
-        return self._horshoe_vortex.calculate_velocity_induced_horseshoe(
-            evaluation_point, gamma_mag
+    def calculate_velocity_induced(self, evaluation_point: np.array, gamma=None):
+        return self.calculate_velocity_induced_horseshoe(
+            evaluation_point, gamma
         )
 
     def calculate_relative_alpha_and_relative_velocity(
@@ -213,5 +232,48 @@ class Panel:
         Returns:
             float: Lift coefficient of the panel
         """
-        #TODO: Fix this
-        return 2*np.pi*np.sin(alpha)
+        # TODO: Fix this
+        return 2 * np.pi * np.sin(alpha)
+
+    @property
+    def filaments_for_plotting(self):
+        return self._filaments_for_plotting
+
+    @property
+    def gamma(self):
+        return self._gamma
+
+    @gamma.setter
+    def gamma(self, value):
+        if value < 0:
+            raise ValueError("Gamma must be a non-negative value")
+        self._gamma = value
+
+    def calculate_velocity_induced_bound_2D(self, control_point, gamma=None):
+        """ "
+        This function calculates the 2D induced velocity at the control point due to the bound vortex filaments
+        """
+        if gamma is None:
+            gamma = self.gamma
+        
+        return self._filament_2d.calculate_induced_velocity(control_point, gamma)
+
+    def calculate_velocity_induced_horseshoe(self, control_point, gamma=None):
+        """ "
+        This function calculates the induced velocity at the control point due to the bound vortex filaments
+        """
+        if gamma is None:
+            gamma = self.gamma
+
+        ind_vel = np.zeros(3)
+        for filament in self.filaments:
+            ind_vel += filament.calculate_induced_velocity(control_point, gamma)
+
+        return ind_vel
+
+    def calculate_filaments_for_plotting(self):
+        filaments = []
+        for filament in self.filaments:
+            dir = filament.x2 - filament.x1 / np.linalg.norm(filament.x2 - filament.x1)
+            filaments.append([filament.x1, filament.x2,dir])
+        return filaments

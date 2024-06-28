@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from VSM.HorshoeVortex import HorshoeVortex
+from VSM.Filament import HorshoeVortex
 
 
 def test_initialization():

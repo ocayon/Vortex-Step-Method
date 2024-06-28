@@ -1,5 +1,5 @@
 import numpy as np
-from VSM.HorshoeVortex import BoundFilament, SemiInfiniteFilament, HorshoeVortex
+from VSM.Filament import BoundFilament, SemiInfiniteFilament, HorshoeVortex
 
 
 def test_combined_filaments():

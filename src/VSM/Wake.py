@@ -1,5 +1,5 @@
 import numpy as np
-from VSM.HorshoeVortex import SemiInfiniteFilament
+from VSM.Filament import SemiInfiniteFilament
 
 # wake adds horshoe filaments to the horshoe class
 # based on a WingAero input
@@ -23,7 +23,7 @@ def frozen_wake(
     for i, panel in enumerate(panels):
         va_i = va_distribution[i]
         dir = va_i / np.linalg.norm(va_i)
-        panel.horshoe_vortex.filaments.append(SemiInfiniteFilament(panel.TE_point_1, dir,filament_direction=-1))
-        panel.horshoe_vortex.filaments.append(SemiInfiniteFilament(panel.TE_point_2, dir,filament_direction=1))
+        panel.filaments.append(SemiInfiniteFilament(panel.TE_point_1, dir,filament_direction=-1))
+        panel.filaments.append(SemiInfiniteFilament(panel.TE_point_2, dir,filament_direction=1))
         print("Wake filaments updated")
     return panels

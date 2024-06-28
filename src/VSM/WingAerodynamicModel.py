@@ -134,7 +134,7 @@ class WingAerodynamics:
 
             for jring, panel_jring in enumerate(self.panels):
                 velocity_induced = panel_jring.calculate_velocity_induced(
-                    getattr(panel_icp, evaluation_point), gamma_mag=1
+                    getattr(panel_icp, evaluation_point), gamma=1
                 )
                 # AIC Matrix
                 MatrixU[icp, jring] = velocity_induced[0]
@@ -143,7 +143,7 @@ class WingAerodynamics:
 
                 if icp == jring:
                     U_2D = panel_jring.calculate_velocity_induced_bound_2D(
-                        getattr(panel_icp, evaluation_point), gamma_mag=1
+                        getattr(panel_icp, evaluation_point), gamma=1
                     )
                     MatrixU[icp, jring] -= U_2D[0]
                     MatrixV[icp, jring] -= U_2D[1]
@@ -375,7 +375,7 @@ class WingAerodynamics:
             )
 
             # Plot the filaments
-            filaments = panel.horshoe_vortex.calculate_filaments_for_plotting()
+            filaments = panel.calculate_filaments_for_plotting()
             for filament, legend in zip(
                 filaments,
                 ["Bound Vortex", "side1", "side2", "wake_1", "wake_2"],

@@ -1,5 +1,5 @@
 import numpy as np
-from VSM.HorshoeVortex import SemiInfiniteFilament
+from VSM.Filament import SemiInfiniteFilament
 
 
 def test_calculate_induced_velocity_semi_infinite():

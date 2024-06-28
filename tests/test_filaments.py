@@ -1,7 +1,5 @@
 # Test a horseshoe vortex induced velocities
-import pytest
-from VSM.HorshoeVortex import HorshoeVortex
-from VSM.HorshoeVortex import BoundFilament
+from VSM.Filament import BoundFilament
 
 def test_bound_filament():
     x1 = [0, 0, 0]

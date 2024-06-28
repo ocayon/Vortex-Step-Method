@@ -1,5 +1,5 @@
 import numpy as np
-from VSM.HorshoeVortex import BoundFilament
+from VSM.Filament import BoundFilament
 
 
 def test_calculate_induced_velocity():
