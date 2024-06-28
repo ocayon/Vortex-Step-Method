@@ -25,7 +25,6 @@ class HorshoeVortex:
         LE_point_2,
         TE_point_2,
         aerodynamic_center_location,
-        control_point_location,
     ):
 
         self.filaments = []
@@ -94,14 +93,6 @@ class HorshoeVortex:
             ind_vel += filament.calculate_induced_velocity(control_point, gamma)
 
         return ind_vel
-
-    def update_filaments_for_wake(self, point1, point2, dir):
-        #TODO: Rework Wake class, now it is redundant
-        self.filaments.append(SemiInfiniteFilament(point1, dir,filament_direction=-1))
-        self.filaments.append(SemiInfiniteFilament(point2, dir,filament_direction=1))
-        print("Wake filaments updated")
-        print(self.filaments[3].x2)
-        print(self.filaments[4].x2)
 
     def calculate_filaments_for_plotting(self):
         filaments = []

@@ -30,7 +30,6 @@ class Panel:
             self._LE_point_2,
             self._TE_point_2,
             aerodynamic_center_location,
-            control_point_location,
         )
         self._va = None
 
