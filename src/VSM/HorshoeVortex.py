@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 import numpy as np
 import logging
 
@@ -46,10 +46,6 @@ class HorshoeVortex:
         self.filaments.append(
             BoundFilament(x1=self.bound_point_2, x2=TE_point_2)
         )  # trailing edge vortex
-
-        # appending a initial wake filament
-        self.filaments.append(None)
-        self.filaments.append(None)
 
         self._gamma = None  # Initialize the gamma attribute
 
@@ -117,8 +113,9 @@ class HorshoeVortex:
         return ind_vel
 
     def update_filaments_for_wake(self, point1, point2, dir):
-        self.filaments[3] = SemiInfiniteFilament(point1, dir,filament_direction=-1)
-        self.filaments[4] = SemiInfiniteFilament(point2, dir,filament_direction=1)
+        #TODO: Rework Wake class, now it is redundant
+        self.filaments.append(SemiInfiniteFilament(point1, dir,filament_direction=-1))
+        self.filaments.append(SemiInfiniteFilament(point2, dir,filament_direction=1))
         print("Wake filaments updated")
         print(self.filaments[3].x2)
         print(self.filaments[4].x2)
@@ -134,52 +131,51 @@ class HorshoeVortex:
 class Filament(ABC):
     """
     A class to represent a filament.
-
-    input:
+    
+    Input:
     two points defining the filament
-
-    output:
+    
+    Output:
     a filament object
-
     """
-
+    
+    @abstractmethod
     def __init__(self):
         pass
 
+    @abstractmethod
     def calculate_induced_velocity(self, point, gamma):
         pass
 
 
-class BoundFilament:
+class BoundFilament(Filament):
     """
-    A class to represent a filament.
-
-    input:
+    A class to represent a bound vortex filament.
+    
+    Input:
     two points defining the filament
-
-    output:
+    
+    Output:
     a filament object
-
     """
-
+    
     def __init__(self, x1, x2):
-        self.x1 = x1
-        self.x2 = x2
-        self.length = np.linalg.norm(x2 - x1)
+        self.x1 = np.array(x1)
+        self.x2 = np.array(x2)
+        self.length = np.linalg.norm(self.x2 - self.x1)
 
     def calculate_induced_velocity(self, point, gamma=1.0):
+        point = np.array(point)
         r0 = self.x2 - self.x1  # Vortex filament
-        r1 = point - self.x1  # Controlpoint to one end of the vortex filament
-        r2 = point - self.x2  # Controlpoint to one end of the vortex filament
+        r1 = point - self.x1  # Control point to one end of the vortex filament
+        r2 = point - self.x2  # Control point to the other end of the vortex filament
         # Cross products used for later computations
         r1Xr0 = np.cross(r1, r0)
         r2Xr0 = np.cross(r2, r0)
 
         epsilon = 0.05 * self.length  # Cut-off radius
 
-        if (
-            np.linalg.norm(r1Xr0) / self.length > epsilon
-        ):  # Perpendicular distance from XVP to vortex filament (r0)
+        if np.linalg.norm(r1Xr0) / self.length > epsilon:  # Perpendicular distance from XVP to vortex filament (r0)
             r1Xr2 = np.cross(r1, r2)
             vel_ind = (
                 gamma
@@ -190,13 +186,15 @@ class BoundFilament:
             )
         else:
             # The control point is placed on the edge of the radius core
-            # proj stands for the vectors respect to the new controlpoint
-            r1_proj = np.dot(r1, r0) * r0 / (
-                self.length**2
-            ) + epsilon * r1Xr0 / np.linalg.norm(r1Xr0)
-            r2_proj = np.dot(r2, r0) * r0 / (
-                self.length**2
-            ) + epsilon * r2Xr0 / np.linalg.norm(r2Xr0)
+            # proj stands for the vectors respect to the new control point
+            r1_proj = (
+                np.dot(r1, r0) * r0 / (self.length**2)
+                + epsilon * r1Xr0 / np.linalg.norm(r1Xr0)
+            )
+            r2_proj = (
+                np.dot(r2, r0) * r0 / (self.length**2)
+                + epsilon * r2Xr0 / np.linalg.norm(r2Xr0)
+            )
             r1Xr2_proj = np.cross(r1_proj, r2_proj)
             vel_ind_proj = (
                 gamma
@@ -212,7 +210,6 @@ class BoundFilament:
             vel_ind = np.linalg.norm(r1Xr0) / (self.length * epsilon) * vel_ind_proj
 
         return vel_ind
-
 
 class SemiInfiniteFilament:
     """
