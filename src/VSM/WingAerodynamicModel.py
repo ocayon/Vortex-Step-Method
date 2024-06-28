@@ -133,7 +133,7 @@ class WingAerodynamics:
         for icp, panel_icp in enumerate(self.panels):
 
             for jring, panel_jring in enumerate(self.panels):
-                velocity_induced = panel_jring.calculate_velocity_induced(
+                velocity_induced = panel_jring.calculate_velocity_induced_horseshoe(
                     getattr(panel_icp, evaluation_point), gamma=1
                 )
                 # AIC Matrix
@@ -142,12 +142,13 @@ class WingAerodynamics:
                 MatrixW[icp, jring] = velocity_induced[2]
 
                 if icp == jring:
-                    U_2D = panel_jring.calculate_velocity_induced_bound_2D(
-                        getattr(panel_icp, evaluation_point), gamma=1
-                    )
-                    MatrixU[icp, jring] -= U_2D[0]
-                    MatrixV[icp, jring] -= U_2D[1]
-                    MatrixW[icp, jring] -= U_2D[2]
+                    if evaluation_point != "aerodynamic_center":
+                        U_2D = panel_jring.calculate_velocity_induced_bound_2D(
+                            getattr(panel_icp, evaluation_point), gamma=1
+                        )
+                        MatrixU[icp, jring] -= U_2D[0]
+                        MatrixV[icp, jring] -= U_2D[1]
+                        MatrixW[icp, jring] -= U_2D[2]
                 
 
         return MatrixU, MatrixV, MatrixW
@@ -223,6 +224,7 @@ class WingAerodynamics:
         results_dict.update([("cd", self._cd)])
         results_dict.update([("cm", self._cm)])
 
+
         # Calculate global aerodynamics
         results_dict.update([("cl_wing", 0.0)])
         results_dict.update([("cd_wing", 0.0)])
@@ -237,8 +239,7 @@ class WingAerodynamics:
         results_dict.update([("my_wing", 0.0)])
         results_dict.update([("mz_wing", 0.0)])
 
-        results_dict.update([("gamma_distribution", self._gamma_distribution)])
-        return results_dict, self
+        return results_dict
 
     ###########################
     ## UPDATE FUNCTIONS

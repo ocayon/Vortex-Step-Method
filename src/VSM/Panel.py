@@ -150,11 +150,6 @@ class Panel:
     ## CALCULATE FUNCTIONS      # All this return smthing
     ###########################
 
-    def calculate_velocity_induced(self, evaluation_point: np.array, gamma=None):
-        return self.calculate_velocity_induced_horseshoe(
-            evaluation_point, gamma
-        )
-
     def calculate_relative_alpha_and_relative_velocity(
         self, induced_velocity: np.array
     ):

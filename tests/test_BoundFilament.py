@@ -33,3 +33,17 @@ def test_calculate_induced_velocity():
     np.testing.assert_almost_equal(
         induced_velocity_calculated, induced_velocity_analytical, decimal=6
     )
+
+def test_point_on_itself():
+     # Define a simple filament and control point
+    filament = BoundFilament([0, 0, 0], [1, 0, 0])
+    control_point = [0.5, 0, 0]
+    gamma = 1.0
+
+    # Calculated solution using the BoundFilament class method
+    induced_velocity_calculated = filament.calculate_induced_velocity(
+        control_point, gamma
+    )
+
+    # Assert that is not nan
+    assert not np.isnan(induced_velocity_calculated).any()

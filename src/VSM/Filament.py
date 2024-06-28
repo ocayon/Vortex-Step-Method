@@ -45,7 +45,13 @@ class BoundFilament(Filament):
         point = np.array(point)
         r0 = self.x2 - self.x1  # Vortex filament
         r1 = point - self.x1  # Control point to one end of the vortex filament
-        r2 = point - self.x2  # Control point to the other end of the vortex filament
+        r2 = point - self.x2  # Control point to the other end of the filament
+
+        # Check if the control point is on the filament
+        if np.linalg.norm(np.cross(r1, r2)) < 1e-12:
+            logging.warning("Control point is on the filament. Returning zero induced velocity to avoid singularity.")
+            return np.array([0.0, 0.0, 0.0])
+
         # Cross products used for later computations
         r1Xr0 = np.cross(r1, r0)
         r2Xr0 = np.cross(r2, r0)

@@ -41,7 +41,7 @@ class Solver:
         # Solve the circulation distribution
         wing_aero = self.solve_iterative_loop(wing_aero)
 
-        results, wing_aero = wing_aero.calculate_results()
+        results = wing_aero.calculate_results()
 
         return results, wing_aero
 
@@ -120,7 +120,7 @@ class Solver:
             # logging.info("Iteration: %d, reference_error: %f", _, reference_error)
             logging.info("Iteration: %d", i)
             # logging.info("gamma: %s", gamma)
-            logging.info("gamma_new: %s", gamma_new)
+            # logging.info("gamma_new: %s", gamma_new)
 
             # relative error
             if normalized_error < self.allowed_error:

@@ -2,6 +2,7 @@ from VSM.WingAerodynamicModel import WingAerodynamics
 from VSM.WingGeometry import Wing, Section
 from VSM.Solver import Solver
 import numpy as np
+from copy import deepcopy
 
 # Use example
 ################# CAREFULL WITH REFERENCE FRAMES, CHANGING FROM ORIGINAL CODE #################
@@ -10,7 +11,7 @@ import numpy as np
 # y: right
 # z: down
 # Create a wing object
-wing = Wing(n_panels=30)
+wing = Wing(n_panels=50)
 
 # Add sections to the wing
 # arguments are: (leading edge position [x,y,z], trailing edge position [x,y,z], airfoil data)
@@ -33,7 +34,8 @@ wing_aero = WingAerodynamics([wing])
 
 # Initialize solver
 # Default parameters are used (VSM, no artificial damping)
-VSM = Solver()
+LLT = Solver(aerodynamic_model_type = 'LLT')
+VSM = Solver(aerodynamic_model_type = 'VSM')
 
 Umag = 20
 aoa = 3
@@ -41,21 +43,24 @@ aoa = aoa*np.pi/180
 Uinf = np.array([np.cos(aoa),0,np.sin(aoa)])*Umag
 # Define inflow conditions
 wing_aero.va = Uinf
-
+wing_aero_LLT = deepcopy(wing_aero)
 # Plotting the wing
 wing_aero.plot()
 
 # solve the aerodynamics
-results, wing_aero = VSM.solve(wing_aero)
+results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
+results_LLT, wing_aero_LLT = LLT.solve(wing_aero_LLT)
+
 
 # Print
-print(results)
+print(results_VSM)
 
 
 import matplotlib.pyplot as plt
 # Plot Gamma distribution
 plt.figure()
-plt.plot(wing_aero.gamma_distribution)
+plt.plot(wing_aero_VSM.gamma_distribution)
+plt.plot(wing_aero_LLT.gamma_distribution)
 plt.show()
 
 # TODOs
