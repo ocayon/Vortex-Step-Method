@@ -134,7 +134,7 @@ class WingAerodynamics:
 
             for jring, panel_jring in enumerate(self.panels):
                 velocity_induced = panel_jring.calculate_velocity_induced(
-                    getattr(panel_icp, evaluation_point), gamma_mag=-1
+                    getattr(panel_icp, evaluation_point), gamma_mag=1
                 )
                 # AIC Matrix
                 MatrixU[icp, jring] = velocity_induced[0]
@@ -237,6 +237,7 @@ class WingAerodynamics:
         results_dict.update([("my_wing", 0.0)])
         results_dict.update([("mz_wing", 0.0)])
 
+        results_dict.update([("gamma_distribution", self._gamma_distribution)])
         return results_dict, self
 
     ###########################

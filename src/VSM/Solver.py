@@ -22,7 +22,7 @@ class Solver:
         max_iterations: int = 1000,
         allowed_error: float = 1e-5,
         tol_reference_error: float = 0.001,
-        relaxation_factor: float = 0.03,
+        relaxation_factor: float = 0.003,
         artificial_damping: dict = {"k2": 0.0, "k4": 0.0},
     ):
         self.aerodynamic_model_type = aerodynamic_model_type
@@ -63,9 +63,8 @@ class Solver:
 
         converged = False
         for i in range(self.max_iterations):
-            
-            for ig, gamma_n in enumerate(gamma_new):
-                gamma[ig] = gamma_n
+
+            gamma = np.array(gamma_new)
 
             for icp, panel in enumerate(panels):
                 # Initialize induced velocity to 0
@@ -90,10 +89,10 @@ class Solver:
                 )
 
                 relative_velocity_crossz = np.cross(
-                    relative_velocity, z_airf_array[icp]
+                    relative_velocity, panel.z_airf
                 )
                 Umag = np.linalg.norm(relative_velocity_crossz)
-                Uinfcrossz = np.cross(va_array[icp], z_airf_array[icp])
+                Uinfcrossz = np.cross(panel.va,panel.z_airf)
                 Umagw = np.linalg.norm(Uinfcrossz)
 
                 # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
