@@ -22,7 +22,7 @@ class Solver:
         max_iterations: int = 1000,
         allowed_error: float = 1e-5,
         tol_reference_error: float = 0.001,
-        relaxation_factor: float = 0.003,
+        relaxation_factor: float = 0.03,
         artificial_damping: dict = {"k2": 0.0, "k4": 0.0},
     ):
         self.aerodynamic_model_type = aerodynamic_model_type

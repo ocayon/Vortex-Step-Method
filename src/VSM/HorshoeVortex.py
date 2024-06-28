@@ -75,8 +75,8 @@ class HorshoeVortex:
         """
         if gamma is None:
             gamma = self.gamma
-        A = self.filaments[1].x1
-        B = self.filaments[1].x2
+        A = self.bound_point_1
+        B = self.bound_point_2
         r0 = B - A
         AP = control_point - A
 
@@ -233,8 +233,8 @@ class SemiInfiniteFilament:
         self._filament_direction = filament_direction
 
     # TODO: what is the purpose of Uinf here? It does NOT take correct value
-    def calculate_induced_velocity(self, point, gamma, Uinf=1):
-        r1 = point - self.x1
+    def calculate_induced_velocity(self, point, gamma, Uinf=10):
+        r1 = self.x1 - point  # Vector from control point to XV1
         r1XVf = np.cross(r1, self.direction)
 
         r_perp = (
@@ -271,3 +271,4 @@ class SemiInfiniteFilament:
             vel_ind = K * r1XVf_proj
         # output results, vector with the three velocity components
         return vel_ind*self._filament_direction
+

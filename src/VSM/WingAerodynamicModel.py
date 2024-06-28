@@ -145,9 +145,9 @@ class WingAerodynamics:
                     U_2D = panel_jring.calculate_velocity_induced_bound_2D(
                         getattr(panel_icp, evaluation_point), gamma_mag=1
                     )
-                    MatrixU[icp, jring] += U_2D[0]
-                    MatrixV[icp, jring] += U_2D[1]
-                    MatrixW[icp, jring] += U_2D[2]
+                    MatrixU[icp, jring] -= U_2D[0]
+                    MatrixV[icp, jring] -= U_2D[1]
+                    MatrixW[icp, jring] -= U_2D[2]
                 
 
         return MatrixU, MatrixV, MatrixW
