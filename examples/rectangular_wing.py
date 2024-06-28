@@ -10,7 +10,7 @@ import numpy as np
 # y: right
 # z: down
 # Create a wing object
-wing = Wing(n_panels=10)
+wing = Wing(n_panels=30)
 
 # Add sections to the wing
 # arguments are: (leading edge position [x,y,z], trailing edge position [x,y,z], airfoil data)

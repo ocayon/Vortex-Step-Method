@@ -49,6 +49,10 @@ class HorshoeVortex:
 
         self._gamma = None  # Initialize the gamma attribute
 
+        self._filament_2d = Infinite2DFilament(
+            self.bound_point_1, self.bound_point_2
+        )  # 2D vortex filament for induced velocity calculation
+
         logging.info("Horshoe vortex created")
         logging.info("Bound point 1: %s", self.bound_point_1)
         logging.info("TE point 1: %s", TE_point_1)
@@ -75,29 +79,8 @@ class HorshoeVortex:
         """
         if gamma is None:
             gamma = self.gamma
-        A = self.bound_point_1
-        B = self.bound_point_2
-        r0 = B - A
-        AP = control_point - A
-
-        # Projection of AP onto AB
-        r0_unit = r0 / np.linalg.norm(r0)
-        projection_length = np.dot(AP, r0_unit)
-        projection_point = +projection_length * r0_unit
-
-        # Vector r3 from the projection point to the control point P
-        r3 = control_point - projection_point
-
-        # Calculate the cross product of r0 and r3
-        cross = np.cross(r0, r3)
-
-        # Magnitude squared of the cross product vector
-        cross_norm_sq = np.dot(cross, cross)
-
-        # Induced velocity calculation
-        ind_vel = (gamma / (2 * np.pi)) * (cross / cross_norm_sq) * np.linalg.norm(r0)
-
-        return ind_vel
+        
+        return self._filament_2d.calculate_induced_velocity(control_point, gamma)
 
     def calculate_velocity_induced_horseshoe(self, control_point, gamma=None):
         """ "
@@ -211,7 +194,7 @@ class BoundFilament(Filament):
 
         return vel_ind
 
-class SemiInfiniteFilament:
+class SemiInfiniteFilament(Filament):
     """
     A class to represent a filament.
 
@@ -272,3 +255,43 @@ class SemiInfiniteFilament:
         # output results, vector with the three velocity components
         return vel_ind*self._filament_direction
 
+class Infinite2DFilament(Filament):
+    """
+    A class to represent an infinite 2D vortex filament.
+    
+    Input:
+    two points defining the filament
+    
+    Output:
+    a filament object
+    """
+
+    def __init__(self, x1, x2):
+        self.x1 = np.array(x1)
+        self.x2 = np.array(x2)
+        self.length = np.linalg.norm(self.x2 - self.x1)
+
+    def calculate_induced_velocity(self, control_point, gamma=1.0):
+        A = self.x1
+        B = self.x2
+        r0 = B - A
+        AP = control_point - A
+
+        # Projection of AP onto AB
+        r0_unit = r0 / np.linalg.norm(r0)
+        projection_length = np.dot(AP, r0_unit)
+        projection_point = projection_length * r0_unit
+
+        # Vector r3 from the projection point to the control point P
+        r3 = control_point - projection_point
+
+        # Calculate the cross product of r0 and r3
+        cross = np.cross(r0, r3)
+
+        # Magnitude squared of the cross product vector
+        cross_norm_sq = np.dot(cross, cross)
+
+        # Induced velocity calculation
+        ind_vel = (gamma / (2 * np.pi)) * (cross / cross_norm_sq) * np.linalg.norm(r0)
+
+        return ind_vel
