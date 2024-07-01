@@ -20,11 +20,8 @@ wing = Wing(n_panels=50)
 # ['lei_airfoil_breukels', [tube_diameter, chamber_height]]
 # ['polars', []]
 span = 20
-wing.add_section([-1, -span/2, 0], [0, -span/2, 0], ["inviscid"])
-wing.add_section([-1, span/2, 0], [0, span/2, 0], ["inviscid"])
-
-
-
+wing.add_section([-1, -span / 2, 0], [0, -span / 2, 0], ["inviscid"])
+wing.add_section([-1, span / 2, 0], [0, span / 2, 0], ["inviscid"])
 
 
 # Initialize wing aerodynamics
@@ -34,13 +31,13 @@ wing_aero = WingAerodynamics([wing])
 
 # Initialize solver
 # Default parameters are used (VSM, no artificial damping)
-LLT = Solver(aerodynamic_model_type = 'LLT')
-VSM = Solver(aerodynamic_model_type = 'VSM')
+LLT = Solver(aerodynamic_model_type="LLT")
+VSM = Solver(aerodynamic_model_type="VSM")
 
 Umag = 20
 aoa = 3
-aoa = aoa*np.pi/180
-Uinf = np.array([np.cos(aoa),0,np.sin(aoa)])*Umag
+aoa = aoa * np.pi / 180
+Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
 # Define inflow conditions
 wing_aero.va = Uinf
 wing_aero_LLT = deepcopy(wing_aero)
@@ -57,11 +54,22 @@ print(results_VSM)
 
 
 import matplotlib.pyplot as plt
+
 # Plot Gamma distribution
 plt.figure()
-plt.plot(wing_aero_VSM.gamma_distribution)
-plt.plot(wing_aero_LLT.gamma_distribution)
+plt.plot(wing_aero_VSM.gamma_distribution, label="VSM")
+plt.plot(wing_aero_LLT.gamma_distribution, label="LLT")
+plt.legend()
 plt.show()
+
+
+def is_symmetric_1d(array):
+    return np.array_equal(array, array[::-1])
+
+
+print(f"VSM is symmetric: {is_symmetric_1d(wing_aero_VSM.gamma_distribution)}")
+print(f"LLT is symmetric: {is_symmetric_1d(wing_aero_LLT.gamma_distribution)}")
+
 
 # TODOs
 # 1. update_wake, called in WingAerodynamicModel, def va setter
