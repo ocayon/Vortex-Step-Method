@@ -65,13 +65,13 @@ def test_long_filament():
     assert np.isclose(induced_velocity[2], 0)  # z-component should be zero
 
 
-def test_point_in_core_radius():
-    """Test with a point within the core radius to the filament to check handling of near-singularities."""
+def test_a_very_close_point():
+    """Test with a point that's super close, which should be almost zero."""
     filament = BoundFilament([0, 0, 0], [1, 0, 0])
     control_point = [0.5, 1e-10, 0]
     induced_velocity = filament.calculate_induced_velocity(control_point)
     assert not np.isnan(induced_velocity).any()
-    assert np.all(np.abs(induced_velocity) < 1e6)  # Velocity should be large but finite
+    assert np.allclose(induced_velocity, [0, 0, 0], atol=1e-8)
 
 
 def test_point_far_from_filament():
