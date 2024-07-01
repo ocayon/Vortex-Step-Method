@@ -8,14 +8,14 @@ logging.basicConfig(level=logging.INFO)
 class Filament(ABC):
     """
     A class to represent a filament.
-    
+
     Input:
     two points defining the filament
-    
+
     Output:
     a filament object
     """
-    
+
     @abstractmethod
     def __init__(self):
         pass
@@ -28,71 +28,92 @@ class Filament(ABC):
 class BoundFilament(Filament):
     """
     A class to represent a bound vortex filament.
-    
+
     Input:
     two points defining the filament
-    
+
     Output:
     a filament object
     """
-    
+
     def __init__(self, x1, x2):
         self.x1 = np.array(x1)
         self.x2 = np.array(x2)
         self.length = np.linalg.norm(self.x2 - self.x1)
 
-    def calculate_induced_velocity(self, point, gamma=1.0):
+    def calculate_induced_velocity(self, point, gamma=1.0, core_radius_fraction=0.05):
         point = np.array(point)
         r0 = self.x2 - self.x1  # Vortex filament
         r1 = point - self.x1  # Control point to one end of the vortex filament
         r2 = point - self.x2  # Control point to the other end of the filament
 
+        # TODO: this norm is executed twice, could be better placed for CPU efficiency
         # Check if the control point is on the filament
         if np.linalg.norm(np.cross(r1, r2)) < 1e-12:
-            logging.warning("Control point is on the filament. Returning zero induced velocity to avoid singularity.")
+            logging.warning(
+                "Control point is on the filament. Returning zero induced velocity to avoid singularity."
+            )
             return np.array([0.0, 0.0, 0.0])
 
         # Cross products used for later computations
         r1Xr0 = np.cross(r1, r0)
         r2Xr0 = np.cross(r2, r0)
 
-        epsilon = 0.05 * self.length  # Cut-off radius
+        epsilon = core_radius_fraction * self.length  # Cut-off radius
 
-        if np.linalg.norm(r1Xr0) / self.length > epsilon:  # Perpendicular distance from XVP to vortex filament (r0)
-            r1Xr2 = np.cross(r1, r2)
-            vel_ind = (
-                gamma
-                / (4 * np.pi)
-                * r1Xr2
-                / (np.linalg.norm(r1Xr2) ** 2)
-                * np.dot(r0, r1 / np.linalg.norm(r1) - r2 / np.linalg.norm(r2))
-            )
-        else:
-            # The control point is placed on the edge of the radius core
-            # proj stands for the vectors respect to the new control point
-            r1_proj = (
-                np.dot(r1, r0) * r0 / (self.length**2)
-                + epsilon * r1Xr0 / np.linalg.norm(r1Xr0)
-            )
-            r2_proj = (
-                np.dot(r2, r0) * r0 / (self.length**2)
-                + epsilon * r2Xr0 / np.linalg.norm(r2Xr0)
-            )
-            r1Xr2_proj = np.cross(r1_proj, r2_proj)
-            vel_ind_proj = (
-                gamma
-                / (4 * np.pi)
-                * r1Xr2_proj
-                / (np.linalg.norm(r1Xr2_proj) ** 2)
-                * np.dot(
-                    r0,
-                    r1_proj / np.linalg.norm(r1_proj)
-                    - r2_proj / np.linalg.norm(r2_proj),
-                )
-            )
-            vel_ind = np.linalg.norm(r1Xr0) / (self.length * epsilon) * vel_ind_proj
+        # if (
+        #     np.linalg.norm(r1Xr0) / self.length > epsilon
+        # ):  # Perpendicular distance from XVP to vortex filament (r0)
+        #     r1Xr2 = np.cross(r1, r2)
+        #     vel_ind = (
+        #         gamma
+        #         / (4 * np.pi)
+        #         * r1Xr2
+        #         / (np.linalg.norm(r1Xr2) ** 2)
+        #         * np.dot(r0, r1 / np.linalg.norm(r1) - r2 / np.linalg.norm(r2))
+        #     )
+        # else:
+        #     # The control point is placed on the edge of the radius core
+        #     # proj stands for the vectors respect to the new control point
+        #     r1_proj = np.dot(r1, r0) * r0 / (
+        #         self.length**2
+        #     ) + epsilon * r1Xr0 / np.linalg.norm(r1Xr0)
+        #     r2_proj = np.dot(r2, r0) * r0 / (
+        #         self.length**2
+        #     ) + epsilon * r2Xr0 / np.linalg.norm(r2Xr0)
+        #     r1Xr2_proj = np.cross(r1_proj, r2_proj)
+        #     vel_ind_proj = (
+        #         gamma
+        #         / (4 * np.pi)
+        #         * r1Xr2_proj
+        #         / (np.linalg.norm(r1Xr2_proj) ** 2)
+        #         * np.dot(
+        #             r0,
+        #             r1_proj / np.linalg.norm(r1_proj)
+        #             - r2_proj / np.linalg.norm(r2_proj),
+        #         )
+        #     )
+        #     vel_ind = np.linalg.norm(r1Xr0) / (self.length * epsilon) * vel_ind_proj
+
+        ### NEW CORE IMPLEMENTATION
+        # Calculate the velocity using the Biot-Savart law
+        r1Xr2 = np.cross(r1, r2)
+        vel_ind = (
+            gamma
+            / (4 * np.pi)
+            * r1Xr2
+            / (np.linalg.norm(r1Xr2) ** 2)
+            * np.dot(r0, r1 / np.linalg.norm(r1) - r2 / np.linalg.norm(r2))
+        )
+
+        # Apply smoothing near the core, if needed
+        dist = np.linalg.norm(r1Xr0) / self.length
+        if dist <= epsilon:
+            smoothing_factor = (dist / epsilon) ** 2
+            vel_ind *= smoothing_factor
 
         return vel_ind
+
 
 class SemiInfiniteFilament(Filament):
     """
@@ -109,7 +130,7 @@ class SemiInfiniteFilament(Filament):
     def __init__(self, x1, direction, filament_direction, alpha0=1.25643, nu=1.48e-5):
         self.x1 = x1
         # x2 is a point far away from the filament, defined here for plotting purposes
-        self.x2 = x1 + filament_direction*direction * 0.5
+        self.x2 = x1 + filament_direction * direction * 0.5
         self.direction = direction
         self.alpha0 = alpha0  # Oseen parameter
         self.nu = nu  # Kinematic viscosity of air
@@ -153,15 +174,16 @@ class SemiInfiniteFilament(Filament):
             # determine the three velocity components
             vel_ind = K * r1XVf_proj
         # output results, vector with the three velocity components
-        return vel_ind*self._filament_direction
+        return vel_ind * self._filament_direction
+
 
 class Infinite2DFilament(Filament):
     """
     A class to represent an infinite 2D vortex filament.
-    
+
     Input:
     two points defining the filament
-    
+
     Output:
     a filament object
     """

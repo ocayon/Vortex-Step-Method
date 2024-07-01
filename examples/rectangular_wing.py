@@ -63,8 +63,8 @@ plt.legend()
 plt.show()
 
 
-def is_symmetric_1d(array):
-    return np.array_equal(array, array[::-1])
+def is_symmetric_1d(array, tol=1e-8):
+    return np.allclose(array, array[::-1], atol=tol)
 
 
 print(f"VSM is symmetric: {is_symmetric_1d(wing_aero_VSM.gamma_distribution)}")
