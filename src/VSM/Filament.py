@@ -41,6 +41,7 @@ class BoundFilament(Filament):
         self._x1 = np.array(x1)
         self._x2 = np.array(x2)
         self._length = np.linalg.norm(self._x2 - self._x1)
+        self._r0 = self._x2 - self._x1
 
     @property
     def x1(self):
@@ -65,7 +66,6 @@ class BoundFilament(Filament):
         Returns:
             np.ndarray: The induced velocity at the control point.
         """
-        r0 = self._x2 - self._x1  # Vortex filament
         r1 = (
             np.array(point) - self._x1
         )  # Control point to one end of the vortex filament
@@ -74,7 +74,7 @@ class BoundFilament(Filament):
         )  # Control point to the other end of the filament
 
         # Copmute distance from the control point to the filament
-        dist = np.linalg.norm(np.cross(r1, r0)) / self._length
+        dist = np.linalg.norm(np.cross(r1, self._r0)) / self._length
 
         # Determine the core radius
         epsilon_bound = core_radius_fraction * self._length
@@ -96,7 +96,7 @@ class BoundFilament(Filament):
                 / (4 * np.pi)
                 * r1_cross_r2
                 / (r1_cross_r2_norm**2)
-                * np.dot(r0, r1 / np.linalg.norm(r1) - r2 / np.linalg.norm(r2))
+                * np.dot(self._r0, r1 / np.linalg.norm(r1) - r2 / np.linalg.norm(r2))
             )
 
         # Within Core Radius apply smoothing
@@ -109,7 +109,7 @@ class BoundFilament(Filament):
                 / (4 * np.pi)
                 * r1_cross_r2
                 / (r1_cross_r2_norm**2)
-                * np.dot(r0, r1 / np.linalg.norm(r1) - r2 / np.linalg.norm(r2))
+                * np.dot(self._r0, r1 / np.linalg.norm(r1) - r2 / np.linalg.norm(r2))
             )
 
 
