@@ -73,6 +73,12 @@ class BoundFilament(Filament):
             np.array(point) - self._x2
         )  # Control point to the other end of the filament
 
+        # Copmute distance from the control point to the filament
+        dist = np.linalg.norm(np.cross(r1, r0)) / self._length
+
+        # Determine the core radius
+        epsilon_bound = core_radius_fraction * self._length
+
         # Check if the control point is on the filament
         r1_cross_r2 = np.cross(r1, r2)
         r1_cross_r2_norm = np.linalg.norm(r1_cross_r2)
@@ -82,24 +88,29 @@ class BoundFilament(Filament):
             )
             return np.zeros(3)
 
-        # Calculate the velocity using the Biot-Savart law
-        vel_ind = (
-            gamma
-            / (4 * np.pi)
-            * r1_cross_r2
-            / (r1_cross_r2_norm**2)
-            * np.dot(r0, r1 / np.linalg.norm(r1) - r2 / np.linalg.norm(r2))
-        )
+        # Outside of Core Radius
+        elif dist > epsilon_bound:
+            # Calculate the velocity using the Biot-Savart law
+            return (
+                gamma
+                / (4 * np.pi)
+                * r1_cross_r2
+                / (r1_cross_r2_norm**2)
+                * np.dot(r0, r1 / np.linalg.norm(r1) - r2 / np.linalg.norm(r2))
+            )
 
-        # evaluation point within the core distance, apply smoothing
-        epsilon_bound = core_radius_fraction * self._length
-        dist = np.linalg.norm(np.cross(r1, r0)) / self._length
-        # TODO: change equation back to original shown on p.24 of thesis
-        if dist <= epsilon_bound:
+        # Within Core Radius apply smoothing
+        else:
+            # calculating smoothing factor
             smoothing_factor = (dist / epsilon_bound) ** 2
-            vel_ind *= smoothing_factor
-
-        return vel_ind
+            return (
+                smoothing_factor
+                * gamma
+                / (4 * np.pi)
+                * r1_cross_r2
+                / (r1_cross_r2_norm**2)
+                * np.dot(r0, r1 / np.linalg.norm(r1) - r2 / np.linalg.norm(r2))
+            )
 
 
 class SemiInfiniteFilament(Filament):
@@ -209,6 +220,8 @@ class Infinite2DFilament(Filament):
         self._x1 = np.array(x1)
         self._x2 = np.array(x2)
         self._length = np.linalg.norm(self._x2 - self._x1)
+        self._AB = self._x2 - self._x1
+        self._midpoint = self._x1 + 0.5 * self._AB
 
     @property
     def x1(self):
@@ -218,27 +231,43 @@ class Infinite2DFilament(Filament):
     def x2(self):
         return self._x2
 
-    def calculate_induced_velocity(self, point, gamma=1.0):
-        A = self._x1
-        B = self._x2
-        r0 = B - A
-        AP = point - A
+    def calculate_induced_velocity(self, point, gamma=1.0, core_radius_fraction=0.01):
 
-        # Projection of AP onto AB
-        r0_unit = r0 / np.linalg.norm(r0)
-        projection_length = np.dot(AP, r0_unit)
-        projection_point = projection_length * r0_unit
+        MP = np.array(point) - self._midpoint
 
-        # Vector r3 from the projection point to the control point P
-        r3 = point - projection_point
+        # calc. perpendicular distance
+        P_to_AB = np.linalg.norm(
+            np.cross(self._x2 - self._x1, point - self._x1)
+        ) / np.linalg.norm(self._x2 - self._x1)
 
-        # Calculate the cross product of r0 and r3
-        cross = np.cross(r0, r3)
+        # define the core radius
+        epsilon_infinite = core_radius_fraction * self._length
 
-        # Magnitude squared of the cross product vector
-        cross_norm_sq = np.dot(cross, cross)
+        # outside of core radius
+        if P_to_AB > epsilon_infinite:
+            AB_cross_MP = np.cross(self._AB, MP)
+            AB_cross_MP_dot_AB_cross_MP = np.dot(AB_cross_MP, AB_cross_MP)
+            return (
+                (gamma / (2 * np.pi))
+                * (AB_cross_MP / AB_cross_MP_dot_AB_cross_MP)
+                * np.linalg.norm(self._AB)
+            )
 
-        # Induced velocity calculation
-        ind_vel = (gamma / (2 * np.pi)) * (cross / cross_norm_sq) * np.linalg.norm(r0)
+        # if point on the filament
+        elif P_to_AB == 0:
+            logging.warning(
+                "Control point is on the filament. Returning zero induced velocity to avoid singularity."
+            )
+            return np.zeros(3)
 
-        return ind_vel
+        # inside the core radius
+        else:
+            AB_cross_MP = np.cross(self._AB, MP)
+            AB_cross_MP_dot_AB_cross_MP = np.dot(AB_cross_MP, AB_cross_MP)
+            smoothing_factor = (P_to_AB / epsilon_infinite) ** 2
+            return (
+                smoothing_factor
+                * (gamma / (2 * np.pi))
+                * (AB_cross_MP / AB_cross_MP_dot_AB_cross_MP)
+                * np.linalg.norm(self._AB)
+            )
