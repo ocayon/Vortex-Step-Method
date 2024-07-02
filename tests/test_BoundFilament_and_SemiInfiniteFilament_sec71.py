@@ -59,11 +59,11 @@ def test_combined_filaments():
     control_point = np.array([0, 0, 0])
 
     # Analytical solutions for the combined induced velocities
-    analytical_solutions = {
-        5: np.array([0, 0, 0.2653]),
-        10: np.array([0, 0, -1.5915]),
-        2: np.array([0, 0, 0.1061]),
-    }
+    # analytical_solutions = {
+    #     5: np.array([0, 0, 0.2653]),
+    #     10: np.array([0, 0, -1.5915]),
+    #     2: np.array([0, 0, 0.1061]),
+    # }
 
     solution = [0, 0, 0]
     for i in range(3):

@@ -20,87 +20,68 @@ class Panel:
         )
         self._chord = np.average(
             [
-                np.abs(section_1.LE_point - section_1.TE_point),
-                np.abs(section_2.LE_point - section_2.TE_point),
+                np.linalg.norm(section_1.TE_point - section_1.LE_point),
+                np.linalg.norm(section_2.TE_point - section_2.LE_point),
             ]
         )
-
         self._va = None
 
         # Calculate the control point and aerodynamic center
-        mid_LE_point = (self._LE_point_1 + self._LE_point_2) / 2
-        mid_TE_point = (self._TE_point_1 + self._TE_point_2) / 2
+        # Be wary that x is defined positive into the wind, so from TE to LE
+        mid_LE_point = self.LE_point_1 + 0.5 * (self._LE_point_2 - self._LE_point_1)
+        mid_TE_point = self.TE_point_1 + 0.5 * (self._TE_point_2 - self._TE_point_1)
         vec_LE_to_TE = mid_TE_point - mid_LE_point
         self._aerodynamic_center = (
             mid_LE_point + aerodynamic_center_location * vec_LE_to_TE
         )
         self._control_point = mid_LE_point + control_point_location * vec_LE_to_TE
 
-        # TODO: CHECK Reference Frame Calculations
-        # Calculate the local reference frame
-        # x_airf defined upwards from the chord-line, perpendicular to the panel
-        # y_airf defined parallel to the chord-line, from LE-to-TE
-        # z_airf along the LE, out of plane from the airfoil perspective
-        self._y_airf = vec_LE_to_TE / np.linalg.norm(vec_LE_to_TE)
-        section_1_aerodynamic_center = (
-            self._LE_point_1
-            + aerodynamic_center_location * (self._LE_point_1 - self._TE_point_1)
-        )
-        section_2_aerodynamic_center = (
-            self._LE_point_2
-            + aerodynamic_center_location * (self._LE_point_2 - self._TE_point_2)
-        )
-        self._z_airf = (
-            section_2_aerodynamic_center - section_1_aerodynamic_center
-        ) / np.linalg.norm(section_2_aerodynamic_center - section_1_aerodynamic_center)
-        self._x_airf = np.cross(self._y_airf, self._z_airf)
-
+        # Setting up the filaments
         self.filaments = []
-        self.bound_point_1 = (
-            self.LE_point_1 * (1 - aerodynamic_center_location)
-            + self.TE_point_1 * aerodynamic_center_location
+        self.bound_point_1 = self._LE_point_1 + aerodynamic_center_location * (
+            self._TE_point_1 - self._LE_point_1
         )
-        self.bound_point_2 = (
-            self.LE_point_2 * (1 - aerodynamic_center_location)
-            + self.TE_point_2 * aerodynamic_center_location
+        self.bound_point_2 = self._LE_point_2 + aerodynamic_center_location * (
+            self._TE_point_2 - self._LE_point_2
         )
         self.filaments.append(
             BoundFilament(x1=self.bound_point_1, x2=self.bound_point_2)
-        )  # bound vortex
-        self.filaments.append(
-            BoundFilament(x1=self.TE_point_1, x2=self.bound_point_1)
-        )  # trailing edge vortex
-        self.filaments.append(
-            BoundFilament(x1=self.bound_point_2, x2=self.TE_point_2)
-        )  # trailing edge vortex
-
+        )
+        self.filaments.append(BoundFilament(x1=self.TE_point_1, x2=self.bound_point_1))
+        self.filaments.append(BoundFilament(x1=self.bound_point_2, x2=self.TE_point_2))
+        self._filament_2d = Infinite2DFilament(self.bound_point_1, self.bound_point_2)
         self._gamma = None  # Initialize the gamma attribute
 
-        self._filament_2d = Infinite2DFilament(
-            self.bound_point_1, self.bound_point_2
-        )  # 2D vortex filament for induced velocity calculation
+        # Calculate the local reference frame, below are all unit_vectors
+        # x_airf defined upwards from the chord-line, perpendicular to the panel
+        # y_airf defined parallel to the chord-line, from LE-to-TE
+        # z_airf along the LE, in plane (towards left tip, along span) from the airfoil perspective
+        self._y_airf = vec_LE_to_TE / np.linalg.norm(vec_LE_to_TE)
+        self._z_airf = (self.bound_point_2 - self.bound_point_1) / np.linalg.norm(
+            self.bound_point_2 - self.bound_point_1
+        )
+        self._x_airf = np.cross(self._y_airf, self._z_airf)
 
     ###########################
     ## GETTER FUNCTIONS
     ###########################
-    @property
-    def horshoe_vortex(self):
-        return self._horshoe_vortex
-
     @property
     def control_point(self):
         return self._control_point
 
     @property
     def z_airf(self):
+        """Unit vector pointing in the airfoil plane, so that is towards left-tip in spanwise direction"""
         return self._z_airf
 
     @property
     def x_airf(self):
+        """Unit vector pointing upwards from the chord-line, perpendicular to the panel"""
         return self._x_airf
 
     @property
     def y_airf(self):
+        """Unit vector pointing parallel to the chord-line, from LE-to-TE"""
         return self._y_airf
 
     @property

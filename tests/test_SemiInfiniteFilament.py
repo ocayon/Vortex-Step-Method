@@ -199,25 +199,3 @@ def test_around_core_radius():
     induced_velocity3 = semi_infinite_filament.calculate_induced_velocity(
         control_point3
     )
-
-    print(f"induced_velocity1: {induced_velocity1}")
-    print(f"induced_velocity2: {induced_velocity2}")
-    print(f"induced_velocity3: {induced_velocity3}")
-
-    # # Check for NaN values
-    # assert not np.isnan(induced_velocity1).any()
-    # assert not np.isnan(induced_velocity2).any()
-    # assert not np.isnan(induced_velocity3).any()
-
-    # # Check that velocities are finite
-    # assert np.all(np.isfinite(induced_velocity1))
-    # assert np.all(np.isfinite(induced_velocity2))
-    # assert np.all(np.isfinite(induced_velocity3))
-
-    # # Check that the x and y component is zero (or very close to zero)
-    # assert np.allclose(induced_velocity1[:2], [0, 0], atol=1e-10)
-    # assert np.allclose(induced_velocity2[:2], [0, 0], atol=1e-10)
-    # assert np.allclose(induced_velocity3[:2], [0, 0], atol=1e-10)
-
-    # # Check that mangitude of velocity is max at the core radius
-    # assert np.linalg.norm(induced_velocity2) > np.linalg.norm(induced_velocity1)

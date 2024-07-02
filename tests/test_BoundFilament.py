@@ -36,15 +36,6 @@ def test_calculate_induced_velocity():
     )
 
 
-# def test_a_very_close_point():
-#     """Test with a point that's super close, which should be almost zero."""
-#     filament = BoundFilament([0, 0, 0], [1, 0, 0])
-#     control_point = [0.5, 1e-10, 0]
-#     induced_velocity = filament.calculate_induced_velocity(control_point)
-#     assert not np.isnan(induced_velocity).any()
-#     assert np.allclose(induced_velocity, [0, 0, 0], atol=1e-8)
-
-
 @pytest.mark.parametrize(
     "point",
     [
