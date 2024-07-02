@@ -22,8 +22,17 @@ def frozen_wake(
 ):
     for i, panel in enumerate(panels):
         va_i = va_distribution[i]
-        dir = va_i / np.linalg.norm(va_i)
-        panel.filaments.append(SemiInfiniteFilament(panel.TE_point_1, dir,filament_direction=-1))
-        panel.filaments.append(SemiInfiniteFilament(panel.TE_point_2, dir,filament_direction=1))
+        vel_mag = np.linalg.norm(va_i)
+        direction = va_i / np.linalg.norm(va_i)
+        panel.filaments.append(
+            SemiInfiniteFilament(
+                panel.TE_point_1, direction, vel_mag, filament_direction=-1
+            )
+        )
+        panel.filaments.append(
+            SemiInfiniteFilament(
+                panel.TE_point_2, direction, vel_mag, filament_direction=1
+            )
+        )
         print("Wake filaments updated")
     return panels

@@ -80,7 +80,6 @@ class Panel:
             self.bound_point_1, self.bound_point_2
         )  # 2D vortex filament for induced velocity calculation
 
-
     ###########################
     ## GETTER FUNCTIONS
     ###########################
@@ -129,11 +128,11 @@ class Panel:
     @property
     def TE_point_2(self):
         return self._TE_point_2
-    
+
     @property
     def LE_point_1(self):
         return self._LE_point_1
-    
+
     @property
     def LE_point_2(self):
         return self._LE_point_2
@@ -250,7 +249,7 @@ class Panel:
         """
         if gamma is None:
             gamma = self.gamma
-        
+
         return self._filament_2d.calculate_induced_velocity(control_point, gamma)
 
     def calculate_velocity_induced_horseshoe(self, control_point, gamma=None):
@@ -269,6 +268,8 @@ class Panel:
     def calculate_filaments_for_plotting(self):
         filaments = []
         for filament in self.filaments:
-            dir = filament.x2 - filament.x1 / np.linalg.norm(filament.x2 - filament.x1)
-            filaments.append([filament.x1, filament.x2,dir])
+            direction = filament.x2 - filament.x1 / np.linalg.norm(
+                filament.x2 - filament.x1
+            )
+            filaments.append([filament.x1, filament.x2, direction])
         return filaments
