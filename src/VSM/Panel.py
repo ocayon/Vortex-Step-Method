@@ -158,7 +158,7 @@ class Panel:
         Returns:
             airfoil_data (np.array): Array containing the lift, drag and moment coefficients of the panel
         """
-        aoa = np.arange(-20, 21, 1)
+        aoa = np.arange(-180, 180, 1)
         airfoil_data = np.empty(
             (
                 len(aoa),
@@ -173,6 +173,13 @@ class Panel:
             airfoil_data[j, 3] = cm
 
         return airfoil_data
+
+    # TODO: populate this, and write pytest
+    def calculate_airfoil_data_lei_airfoil_breukels(self):
+        # if alpha > 20 or alpha < -20:
+        # Cl = 2 * np.cos(alpha * np.pi / 180) * np.sin(alpha * np.pi / 180) ** 2
+        # Cd = 2 * np.sin(alpha * np.pi / 180) ** 3
+        pass
 
     def calculate_airfoil_data(self, aero_input_1, aero_input_2):
         """Calculates the aerodynamic properties of the panel
@@ -195,21 +202,34 @@ class Panel:
         else:
             raise NotImplementedError
 
-    def calculate_cl(self, alpha: float):
-        """Calculates the lift coefficient of the panel
+    def calculate_cl(self, alpha):
+        """
+        Get the lift coefficient (Cl) for a given angle of attack.
 
         Args:
-            alpha (float): Angle of attack of the panel
+            alpha (float): Angle of attack in radians.
+            airfoil_data (np.array): Array containing airfoil data.
 
         Returns:
-            float: Lift coefficient of the panel
+            float: Interpolated lift coefficient (Cl).
         """
+        return np.interp(alpha, self._airfoil_data[:, 0], self._airfoil_data[:, 1])
 
-        if self._airfoil_aero_model == "inviscid":
-            return 2 * np.pi * np.sin(alpha)
-        else:
-            # TODO: once implemented add pytest
-            raise NotImplementedError
+    def calculate_cl_cd_cm(self, alpha):
+        """
+        Get the lift, drag, and moment coefficients (Cl, Cd, Cm) for a given angle of attack.
+
+        Args:
+            alpha (float): Angle of attack in radians.
+            airfoil_data (np.array): Array containing airfoil data.
+
+        Returns:
+            tuple: Interpolated (Cl, Cd, Cm) coefficients.
+        """
+        cl = np.interp(alpha, self._airfoil_data[:, 0], self._airfoil_data[:, 1])
+        cd = np.interp(alpha, self._airfoil_data[:, 0], self._airfoil_data[:, 2])
+        cm = np.interp(alpha, self._airfoil_data[:, 0], self._airfoil_data[:, 3])
+        return cl, cd, cm
 
     def calculate_velocity_induced_bound_2D(self, control_point, gamma=None):
         """ "

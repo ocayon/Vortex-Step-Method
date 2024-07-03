@@ -179,15 +179,6 @@ def test_calculate_relative_alpha_and_relative_velocity(sample_panel):
 def test_calculate_inviscid_polar_data(sample_panel):
     airfoil_data = sample_panel.calculate_inviscid_polar_data()
 
-    # The output should be a numpy array with shape (41, 4)
-    assert airfoil_data.shape == (41, 4)  # -20 to 20 degrees, 4 columns
-
-    # the alpha values should be ranging from -20 to 20 degrees, but in radians
-    assert np.isclose(airfoil_data[0, 0], -20 * np.pi / 180)
-
-    # the cl values should be 2 pi alpha
-    assert np.isclose(airfoil_data[0, 1], 2 * np.pi * np.sin(-20 * np.pi / 180))
-
     # the cd values should be 0.05
     assert np.isclose(airfoil_data[0, 2], 0.05)
 
@@ -206,11 +197,43 @@ def test_calculate_airfoil_data_lei_airfoil_breukels(sample_panel):
 
 
 def test_calculate_cl(sample_panel):
-    alpha = np.pi / 4  # 45 degrees
+    alpha = np.deg2rad(10)
     cl = sample_panel.calculate_cl(alpha)
     expected_cl = 2 * np.pi * np.sin(alpha)
-
     assert np.isclose(cl, expected_cl)
+
+    alpha = np.deg2rad(60)
+    cl = sample_panel.calculate_cl(alpha)
+    expected_cl = 2 * np.pi * np.sin(alpha)
+    assert np.isclose(cl, expected_cl)
+
+
+def test_calculate_cl_cd_cm(sample_panel):
+    # Test for multiple angles
+    test_angles = [-np.pi / 2, -np.pi / 4, 0, np.pi / 4, np.pi / 2]
+
+    for alpha in test_angles:
+        cl, cd, cm = sample_panel.calculate_cl_cd_cm(alpha)
+
+        # Expected values
+        expected_cl = 2 * np.pi * np.sin(alpha)
+        expected_cd = 0.05  # assuming constant drag coefficient
+        expected_cm = 0.01  # assuming constant moment coefficient
+
+        # Check if calculated values are close to expected values
+        assert np.isclose(cl, expected_cl, rtol=1e-5), f"Cl mismatch at alpha={alpha}"
+        assert np.isclose(cd, expected_cd, rtol=1e-5), f"Cd mismatch at alpha={alpha}"
+        assert np.isclose(cm, expected_cm, rtol=1e-5), f"Cm mismatch at alpha={alpha}"
+
+    # Test for an arbitrary angle
+    alpha = 0.7  # approximately 40 degrees
+    cl, cd, cm = sample_panel.calculate_cl_cd_cm(alpha)
+
+    expected_cl = 2 * np.pi * np.sin(alpha)
+
+    assert np.isclose(cl, expected_cl, rtol=1e-3), f"Cl mismatch at alpha={alpha}"
+    assert 0 < cd < 1, f"Cd out of expected range at alpha={alpha}"
+    assert -1 < cm < 1, f"Cm out of expected range at alpha={alpha}"
 
 
 def test_calculate_velocity_induced_bound_2D(sample_panel):

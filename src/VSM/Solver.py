@@ -88,11 +88,9 @@ class Solver:
                     )
                 )
 
-                relative_velocity_crossz = np.cross(
-                    relative_velocity, panel.z_airf
-                )
+                relative_velocity_crossz = np.cross(relative_velocity, panel.z_airf)
                 Umag = np.linalg.norm(relative_velocity_crossz)
-                Uinfcrossz = np.cross(panel.va,panel.z_airf)
+                Uinfcrossz = np.cross(panel.va, panel.z_airf)
                 Umagw = np.linalg.norm(Uinfcrossz)
 
                 # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
