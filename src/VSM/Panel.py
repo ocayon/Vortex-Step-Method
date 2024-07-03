@@ -15,6 +15,7 @@ class Panel:
         self._LE_point_1 = section_1.LE_point
         self._TE_point_2 = section_2.TE_point
         self._LE_point_2 = section_2.LE_point
+        self._airfoil_aero_model = section_1.aero_input[0]
         self._airfoil_data = self.calculate_airfoil_data(
             section_1.aero_input, section_2.aero_input
         )
@@ -121,7 +122,6 @@ class Panel:
     ###########################
     ## SETTER FUNCTIONS
     ###########################
-    # TODO: remove this comment. To set va: panel.va = value (array)
     @va.setter
     def va(self, value):
         self._va = value
@@ -142,18 +142,14 @@ class Panel:
             alpha (float): Relative angle of attack of the panel
             relative_velocity (np.array): Relative velocity of the panel
         """
-        # Calculate terms of induced corresponding to the airfoil directions
-        norm_airf = self._x_airf
-        tan_airf = self._y_airf
-
         # Calculate relative velocity and angle of attack
         relative_velocity = self.va + induced_velocity
-        vn = np.dot(norm_airf, relative_velocity)
-        vtan = np.dot(tan_airf, relative_velocity)
-        alpha = np.arctan(vn / vtan)
+        v_normal = np.dot(self._x_airf, relative_velocity)
+        v_tangential = np.dot(self._y_airf, relative_velocity)
+        alpha = np.arctan(v_normal / v_tangential)
         return alpha, relative_velocity
 
-    def _calculate_inviscid_polar_data(self):
+    def calculate_inviscid_polar_data(self):
         """Calculates the lift, drag and moment coefficients of the panel
 
         Args:
@@ -170,8 +166,8 @@ class Panel:
             )
         )
         for j, alpha in enumerate(aoa):
-            cl, cd, cm = 2 * np.pi * np.sin(alpha), 0.05, 0.01
-            airfoil_data[j, 0] = alpha
+            cl, cd, cm = 2 * np.pi * np.sin(np.deg2rad(alpha)), 0.05, 0.01
+            airfoil_data[j, 0] = np.deg2rad(alpha)
             airfoil_data[j, 1] = cl
             airfoil_data[j, 2] = cd
             airfoil_data[j, 3] = cm
@@ -189,11 +185,12 @@ class Panel:
             airfoil_data (np.array): [alpha,cl,cd,cm] of size (n_alpha, 4)
         """
         if (aero_input_1[0] and aero_input_2[0]) == "inviscid":
-            return self._calculate_inviscid_polar_data()
+            return self.calculate_inviscid_polar_data()
 
         elif (aero_input_1[0] and aero_input_2[0]) == "lei_airfoil_breukels":
             # TODO: 1. Average the Geometry, to find the mid-panel airfoil
             # TODO: 2. Calculate the aerodynamic properties of the mid-panel airfoil
+            # TODO: 3. Write corresponding pytest in test_Panel.py
             return NotImplementedError
         else:
             raise NotImplementedError
@@ -207,29 +204,19 @@ class Panel:
         Returns:
             float: Lift coefficient of the panel
         """
-        # TODO: Fix this
-        return 2 * np.pi * np.sin(alpha)
 
-    @property
-    def filaments_for_plotting(self):
-        return self._filaments_for_plotting
-
-    @property
-    def gamma(self):
-        return self._gamma
-
-    @gamma.setter
-    def gamma(self, value):
-        if value < 0:
-            raise ValueError("Gamma must be a non-negative value")
-        self._gamma = value
+        if self._airfoil_aero_model == "inviscid":
+            return 2 * np.pi * np.sin(alpha)
+        else:
+            # TODO: once implemented add pytest
+            raise NotImplementedError
 
     def calculate_velocity_induced_bound_2D(self, control_point, gamma=None):
         """ "
         This function calculates the 2D induced velocity at the control point due to the bound vortex filaments
         """
         if gamma is None:
-            gamma = self.gamma
+            gamma = self._gamma
 
         return self._filament_2d.calculate_induced_velocity(control_point, gamma)
 
@@ -238,7 +225,7 @@ class Panel:
         This function calculates the induced velocity at the control point due to the bound vortex filaments
         """
         if gamma is None:
-            gamma = self.gamma
+            gamma = self._gamma
 
         ind_vel = np.zeros(3)
         for filament in self.filaments:
@@ -249,8 +236,17 @@ class Panel:
     def calculate_filaments_for_plotting(self):
         filaments = []
         for filament in self.filaments:
-            direction = filament.x2 - filament.x1 / np.linalg.norm(
-                filament.x2 - filament.x1
-            )
-            filaments.append([filament.x1, filament.x2, direction])
+            x1 = filament.x1
+            if hasattr(filament, "x2") and filament.x2 is not None:
+                x2 = filament.x2
+                color = "magenta"
+            else:
+                # For semi-infinite filaments
+                x2 = x1 + 5 * self.chord * (self.va / np.linalg.norm(self.va))
+                color = "orange"
+                if filament.filament_direction == -1:
+                    x1, x2 = x2, x1
+                    color = "red"
+
+            filaments.append([x1, x2, color])
         return filaments

@@ -130,7 +130,7 @@ class SemiInfiniteFilament(Filament):
     ):
         self._x1 = x1  # the trailing edge point, of which the trailing vortex starts
         # x2 is a point far away from the filament, defined here for plotting purposes
-        self._x2 = x1 + filament_direction * direction * 0.5
+        # self._x2 = x1 + filament_direction * direction * 0.5
         self._direction = direction  # unit vector of apparent wind speed
         self._alpha0 = alpha0  # Oseen parameter
         self._nu = nu  # Kinematic viscosity of air
@@ -142,8 +142,12 @@ class SemiInfiniteFilament(Filament):
         return self._x1
 
     @property
-    def x2(self):
-        return self._x2
+    def filament_direction(self):
+        return self._filament_direction
+
+    # @property
+    # def x2(self):
+    #     return self._x2
 
     # TODO: Uinf scales epsilon, why does this make sense?
     def calculate_induced_velocity(self, point, gamma=1):

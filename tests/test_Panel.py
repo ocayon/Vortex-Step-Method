@@ -140,3 +140,104 @@ def test_panel_custom_initialization():
 
     assert np.allclose(custom_panel.aerodynamic_center, [1.3, 1.5, 1])
     assert np.allclose(custom_panel.control_point, [1.7, 1.5, 1])
+
+
+def test_va_setter(sample_panel):
+    test_va = np.array([1, 2, 3])
+    sample_panel.va = test_va
+    assert np.array_equal(sample_panel.va, test_va)
+
+
+def test_calculate_relative_alpha_and_relative_velocity(sample_panel):
+    sample_panel.va = np.array([10, 0, 0])
+    induced_velocity = np.array([1, 1, 1])
+
+    alpha_calc, relative_velocity_calc = (
+        sample_panel.calculate_relative_alpha_and_relative_velocity(induced_velocity)
+    )
+
+    # Calculate terms of induced corresponding to the airfoil directions
+    norm_airf = sample_panel.x_airf
+    tan_airf = sample_panel.y_airf
+
+    # Calculate relative velocity and angle of attack
+    relative_velocity = sample_panel.va + induced_velocity
+    vn = np.dot(norm_airf, relative_velocity)
+    vtan = np.dot(tan_airf, relative_velocity)
+    alpha = np.arctan(vn / vtan)
+
+    print(f"vn: {vn}")
+    print(f"vtan: {vtan}")
+    print(f"alpha_calc: {alpha_calc}")
+    print(f"alpha: {alpha}")
+    print(f"relative_velocity_calc: {relative_velocity_calc}")
+    print(f"relative_velocity: {relative_velocity}")
+    assert np.isclose(alpha, alpha_calc)
+    assert np.allclose(relative_velocity, relative_velocity_calc)
+
+
+def test_calculate_inviscid_polar_data(sample_panel):
+    airfoil_data = sample_panel.calculate_inviscid_polar_data()
+
+    # The output should be a numpy array with shape (41, 4)
+    assert airfoil_data.shape == (41, 4)  # -20 to 20 degrees, 4 columns
+
+    # the alpha values should be ranging from -20 to 20 degrees, but in radians
+    assert np.isclose(airfoil_data[0, 0], -20 * np.pi / 180)
+
+    # the cl values should be 2 pi alpha
+    assert np.isclose(airfoil_data[0, 1], 2 * np.pi * np.sin(-20 * np.pi / 180))
+
+    # the cd values should be 0.05
+    assert np.isclose(airfoil_data[0, 2], 0.05)
+
+    # the cm values should be 0.01
+    assert np.isclose(airfoil_data[0, 3], 0.01)
+
+    # When inviscid, the airfoil_data should be equal to the inviscid data
+    aero_input_1 = ("inviscid",)
+    aero_input_2 = ("inviscid",)
+    airfoil_data_new = sample_panel.calculate_airfoil_data(aero_input_1, aero_input_2)
+    assert np.allclose(airfoil_data, airfoil_data_new)
+
+
+def test_calculate_airfoil_data_lei_airfoil_breukels(sample_panel):
+    pass
+
+
+def test_calculate_cl(sample_panel):
+    alpha = np.pi / 4  # 45 degrees
+    cl = sample_panel.calculate_cl(alpha)
+    expected_cl = 2 * np.pi * np.sin(alpha)
+
+    assert np.isclose(cl, expected_cl)
+
+
+def test_calculate_velocity_induced_bound_2D(sample_panel):
+    control_point = np.array([0.5, 5, 0])
+    gamma = 1.0
+    induced_velocity = sample_panel.calculate_velocity_induced_bound_2D(
+        control_point, gamma
+    )
+
+    assert isinstance(induced_velocity, np.ndarray)
+    assert induced_velocity.shape == (3,)  # 2D velocity
+
+
+def test_calculate_velocity_induced_horseshoe(sample_panel):
+    control_point = np.array([0.5, 5, 0])
+    gamma = 1.0
+    induced_velocity = sample_panel.calculate_velocity_induced_horseshoe(
+        control_point, gamma
+    )
+
+    assert isinstance(induced_velocity, np.ndarray)
+    assert induced_velocity.shape == (3,)  # 3D velocity
+
+
+def test_calculate_filaments_for_plotting(sample_panel):
+    filaments_for_plotting = sample_panel.calculate_filaments_for_plotting()
+    for filament in filaments_for_plotting:
+        assert filament[0].shape == (3,)
+        assert filament[1].shape == (3,)
+        assert isinstance(filament[2], str)
