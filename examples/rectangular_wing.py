@@ -54,11 +54,34 @@ print(results_VSM)
 
 import matplotlib.pyplot as plt
 
-# Plot Gamma distribution
-plt.figure()
-plt.plot(wing_aero_VSM.gamma_distribution, label="VSM")
-plt.plot(wing_aero_LLT.gamma_distribution, label="LLT")
-plt.legend()
+
+def plot_a_distribution(title, VSM_distribution, LLT_distribution):
+    plt.figure()
+    plt.title(title)
+    plt.plot(VSM_distribution, label="VSM")
+    plt.plot(LLT_distribution, label="LLT")
+
+
+plot_a_distribution(
+    "gamma_distribution",
+    results_VSM["gamma_distribution"],
+    results_LLT["gamma_distribution"],
+)
+plot_a_distribution("cl_distrbution", results_VSM["cl"], results_LLT["cl"])
+plot_a_distribution("cd_distribution", results_VSM["cd"], results_LLT["cd"])
+plot_a_distribution(
+    "alpha_at_ac", results_VSM["alpha_at_ac"], results_LLT["alpha_at_ac"]
+)
+plot_a_distribution(
+    "alpha_uncorrected",
+    results_VSM["alpha_uncorrected"],
+    results_LLT["alpha_uncorrected"],
+)
+plot_a_distribution(
+    "cl_over_cd",
+    results_VSM["cl"] / results_VSM["cd"],
+    results_LLT["cl"] / results_LLT["cd"],
+)
 plt.show()
 
 
