@@ -1,5 +1,8 @@
+import logging
 import numpy as np
 from VSM.Filament import BoundFilament, Infinite2DFilament
+
+logging.basicConfig(level=logging.INFO)
 
 
 class Panel:
@@ -15,10 +18,6 @@ class Panel:
         self._LE_point_1 = section_1.LE_point
         self._TE_point_2 = section_2.TE_point
         self._LE_point_2 = section_2.LE_point
-        self._airfoil_aero_model = section_1.aero_input[0]
-        self._airfoil_data = self.calculate_airfoil_data(
-            section_1.aero_input, section_2.aero_input
-        )
         self._chord = np.average(
             [
                 np.linalg.norm(section_1.TE_point - section_1.LE_point),
@@ -26,6 +25,35 @@ class Panel:
             ]
         )
         self._va = None
+
+        # Defining panel_aero_model
+        if section_1.aero_input[0] != section_2.aero_input[0]:
+            raise ValueError(
+                "Both sections should have the same aero_input, got"
+                + section_1.aero_input[0]
+                + " and "
+                + section_2.aero_input[0]
+            )
+        self._panel_aero_model = section_1.aero_input[0]
+
+        # Initializing the panel aerodynamic data dependent on the aero_model
+        if self._panel_aero_model == "lei_airfoil_breukels":
+            self.calculate_lei_airfoil_breukels_cl_cd_cm_coefficients(
+                section_1, section_2
+            )
+        elif self._panel_aero_model == "inviscid":
+            pass
+        elif self._panel_aero_model == "polar_data":
+            # Average the polar_data of the two sections
+            aero_1 = section_1.aero_input[1]
+            aero_2 = section_2.aero_input[1]
+            if len(aero_1) != len(aero_2) or aero_1.shape != aero_2.shape:
+                raise ValueError(
+                    "The polar data of the two sections should have the same shape & length"
+                )
+            self._panel_polar_data = (aero_1 + aero_2) / 2
+        else:
+            raise NotImplementedError
 
         # Calculate the control point and aerodynamic center
         # Be wary that x is defined positive into the wind, so from TE to LE
@@ -149,58 +177,117 @@ class Panel:
         alpha = np.arctan(v_normal / v_tangential)
         return alpha, relative_velocity
 
-    def calculate_inviscid_polar_data(self):
-        """Calculates the lift, drag and moment coefficients of the panel
+    def calculate_lei_airfoil_breukels_cl_cd_cm_coefficients(
+        self, section_1, section_2
+    ):
+        t1, k1 = section_1.aero_input[1]
+        t2, k2 = section_2.aero_input[1]
+        t_avg = (t1 + t2) / 2
+        k_avg = (k1 + k2) / 2
+        # non-dimensionalized average tube_diameter
+        t = t_avg / self._chord
+        # non-dimensionalized average max-chamber
+        k = k_avg / self._chord
 
-        Args:
-            None
+        # cl_coefficients
+        C20 = -0.008011
+        C21 = -0.000336
+        C22 = 0.000992
+        C23 = 0.013936
+        C24 = -0.003838
+        C25 = -0.000161
+        C26 = 0.001243
+        C27 = -0.009288
+        C28 = -0.002124
+        C29 = 0.012267
+        C30 = -0.002398
+        C31 = -0.000274
+        C32 = 0
+        C33 = 0
+        C34 = 0
+        C35 = -3.371000
+        C36 = 0.858039
+        C37 = 0.141600
+        C38 = 7.201140
+        C39 = -0.676007
+        C40 = 0.806629
+        C41 = 0.170454
+        C42 = -0.390563
+        C43 = 0.101966
 
-        Returns:
-            airfoil_data (np.array): Array containing the lift, drag and moment coefficients of the panel
-        """
-        aoa = np.arange(-180, 180, 1)
-        airfoil_data = np.empty(
-            (
-                len(aoa),
-                4,
-            )
-        )
-        for j, alpha in enumerate(aoa):
-            cl, cd, cm = 2 * np.pi * np.sin(np.deg2rad(alpha)), 0.05, 0.01
-            airfoil_data[j, 0] = np.deg2rad(alpha)
-            airfoil_data[j, 1] = cl
-            airfoil_data[j, 2] = cd
-            airfoil_data[j, 3] = cm
+        S9 = C20 * t**2 + C21 * t + C22
+        S10 = C23 * t**2 + C24 * t + C25
+        S11 = C26 * t**2 + C27 * t + C28
+        S12 = C29 * t**2 + C30 * t + C31
+        S13 = C32 * t**2 + C33 * t + C34
+        S14 = C35 * t**2 + C36 * t + C37
+        S15 = C38 * t**2 + C39 * t + C40
+        S16 = C41 * t**2 + C42 * t + C43
 
-        return airfoil_data
+        lambda5 = S9 * k + S10
+        lambda6 = S11 * k + S12
+        lambda7 = S13 * k + S14
+        lambda8 = S15 * k + S16
 
-    # TODO: populate this, and write pytest
-    def calculate_airfoil_data_lei_airfoil_breukels(self):
-        # if alpha > 20 or alpha < -20:
-        # Cl = 2 * np.cos(alpha * np.pi / 180) * np.sin(alpha * np.pi / 180) ** 2
-        # Cd = 2 * np.sin(alpha * np.pi / 180) ** 3
-        pass
+        # # TODO: for CPU efficiency
+        # # converting the coefficients to handle alpha input in radians
+        # cl_3_rad = lambda5 * (np.pi / 180) ** 3
+        # cl_2_rad = lambda6 * (np.pi / 180) ** 2
+        # cl_1_rad = lambda7 * (np.pi / 180)
+        # cl_0_rad = lambda8
+        # self._cl_coefficients = [cl_3_rad, cl_2_rad, cl_1_rad, cl_0_rad]
 
-    def calculate_airfoil_data(self, aero_input_1, aero_input_2):
-        """Calculates the aerodynamic properties of the panel
+        self._cl_coefficients = [lambda5, lambda6, lambda7, lambda8]
 
-        Args:
-            aero_input_1 (tuple): Aerodynamic properties of the first section
-            aero_input_2 (tuple): Aerodynamic properties of the second section
+        # cd_coefficients
+        C44 = 0.546094
+        C45 = 0.022247
+        C46 = -0.071462
+        C47 = -0.006527
+        C48 = 0.002733
+        C49 = 0.000686
+        C50 = 0.123685
+        C51 = 0.143755
+        C52 = 0.495159
+        C53 = -0.105362
+        C54 = 0.033468
 
-        Returns:
-            airfoil_data (np.array): [alpha,cl,cd,cm] of size (n_alpha, 4)
-        """
-        if (aero_input_1[0] and aero_input_2[0]) == "inviscid":
-            return self.calculate_inviscid_polar_data()
+        cd_2_deg = (C44 * t + C45) * k**2 + (C46 * t + C47) * k + (C48 * t + C49)
+        cd_1_deg = 0
+        cd_0_deg = (C50 * t + C51) * k + (C52 * t**2 + C53 * t + C54)
 
-        elif (aero_input_1[0] and aero_input_2[0]) == "lei_airfoil_breukels":
-            # TODO: 1. Average the Geometry, to find the mid-panel airfoil
-            # TODO: 2. Calculate the aerodynamic properties of the mid-panel airfoil
-            # TODO: 3. Write corresponding pytest in test_Panel.py
-            return NotImplementedError
-        else:
-            raise NotImplementedError
+        # # TODO: for CPU efficiency
+        # # converting the coefficients to handle alpha input in radians
+        # cd_2_rad = cd_2_deg * (np.pi / 180) ** 2
+        # cd_1_rad = cd_1_deg * (np.pi / 180)
+        # cd_0_rad = cd_0_deg
+        # self._cd_coefficients = [cd_2_rad, cd_1_rad, cd_0_rad]
+
+        self._cd_coefficients = [cd_2_deg, cd_1_deg, cd_0_deg]
+
+        # cm_coefficients
+        C55 = -0.284793
+        C56 = -0.026199
+        C57 = -0.024060
+        C58 = 0.000559
+        C59 = -1.787703
+        C60 = 0.352443
+        C61 = -0.839323
+        C62 = 0.137932
+
+        cm_2_deg = (C55 * t + C56) * k + (C57 * t + C58)
+        cm_1_deg = 0
+        cm_0_deg = (C59 * t + C60) * k + (C61 * t + C62)
+
+        # # TODO: for CPU efficiency
+        # # converting the coefficients to handle alpha input in radians
+        # cm_2_rad = cm_2_deg * (np.pi / 180) ** 2
+        # cm_1_rad = cm_1_deg * (np.pi / 180)
+        # cm_0_rad = cm_0_deg
+
+        # self._cm_coefficients = [cm_2_rad, cm_1_rad, cm_0_rad]
+
+        self._cm_coefficients = [cm_2_deg, cm_1_deg, cm_0_deg]
 
     def calculate_cl(self, alpha):
         """
@@ -213,9 +300,22 @@ class Panel:
         Returns:
             float: Interpolated lift coefficient (Cl).
         """
-        return np.interp(alpha, self._airfoil_data[:, 0], self._airfoil_data[:, 1])
+        if self._panel_aero_model == "lei_airfoil_breukels":
+            cl = np.polyval(self._cl_coefficients, np.rad2deg(alpha))
+            # if outside of 20 degrees which in rad = np.pi/9
+            if alpha > (np.pi / 9) or alpha < -(np.pi / 9):
+                cl = 2 * np.cos(alpha) * np.sin(alpha) ** 2
+            return cl
+        elif self._panel_aero_model == "inviscid":
+            return 2 * np.pi * np.sin(alpha)
+        elif self._panel_aero_model == "polar_data":
+            return np.interp(
+                alpha, self._panel_polar_data[:, 0], self._panel_polar_data[:, 1]
+            )
+        else:
+            raise NotImplementedError
 
-    def calculate_cl_cd_cm(self, alpha):
+    def calculate_cd_cm(self, alpha):
         """
         Get the lift, drag, and moment coefficients (Cl, Cd, Cm) for a given angle of attack.
 
@@ -226,10 +326,27 @@ class Panel:
         Returns:
             tuple: Interpolated (Cl, Cd, Cm) coefficients.
         """
-        cl = np.interp(alpha, self._airfoil_data[:, 0], self._airfoil_data[:, 1])
-        cd = np.interp(alpha, self._airfoil_data[:, 0], self._airfoil_data[:, 2])
-        cm = np.interp(alpha, self._airfoil_data[:, 0], self._airfoil_data[:, 3])
-        return cl, cd, cm
+        if self._panel_aero_model == "lei_airfoil_breukels":
+            cd = np.polyval(self._cd_coefficients, np.rad2deg(alpha))
+            cm = np.polyval(self._cm_coefficients, np.rad2deg(alpha))
+            # if outside of 20 degrees (np.pi/9)
+            if alpha > (np.pi / 9) or alpha < -(np.pi / 9):
+                cd = 2 * np.sin(alpha) ** 3
+            return cd, cm
+        elif self._panel_aero_model == "inviscid":
+            cd = 0.05
+            cm = 0.01
+            return cd, cm
+        elif self._panel_aero_model == "polar_data":
+            cd = np.interp(
+                alpha, self._panel_polar_data[:, 0], self._panel_polar_data[:, 2]
+            )
+            cm = np.interp(
+                alpha, self._panel_polar_data[:, 0], self._panel_polar_data[:, 3]
+            )
+            return cd, cm
+        else:
+            raise NotImplementedError
 
     def calculate_velocity_induced_bound_2D(self, control_point, gamma=None):
         """ "
