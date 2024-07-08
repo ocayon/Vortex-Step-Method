@@ -407,7 +407,7 @@ def test_calculate_cl_and_cd_cm(sample_panel):
         assert np.isclose(cl_inviscid, expected_cl_inviscid)
 
         cd_cm_inviscid = inviscid_panel_instance.calculate_cd_cm(alpha_rad)
-        expected_cm_cd_inviscid = [0.01, 0.05]
+        expected_cm_cd_inviscid = [0.0, 0.0]
         assert np.isclose(cd_cm_inviscid[0], expected_cm_cd_inviscid[1])
 
         # polar data panel

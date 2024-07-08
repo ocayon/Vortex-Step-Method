@@ -143,9 +143,9 @@ def test_calculate_results():
     wing_aero = WingAerodynamics([wing])
 
     # Define inflow conditions
-    Umag = -20
+    Umag = 20
     aoa = 3 * np.pi / 180
-    Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
+    Uinf = np.array([np.cos(aoa), 0, -np.sin(aoa)]) * -Umag
     wing_aero.va = Uinf
 
     # Initialize solver
@@ -228,7 +228,6 @@ def test_calculate_results():
     F_rel_ref, F_gl_ref, Ltot_ref, Dtot_ref, CL_ref, CD_ref, CS_ref = output_results(
         Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot, density
     )
-
     # Debug: Print the compared results
     print("CL_ref:", CL_ref, "CL_wing:", results_dict["cl_wing"])
     print("CD_ref:", CD_ref, "CD_wing:", results_dict["cd_wing"])

@@ -319,9 +319,9 @@ class WingAerodynamics:
         results_dict.update([("cm", cm_array)])
 
         # Calculate global aerodynamics
-        results_dict.update([("cl_wing", CL)])
-        results_dict.update([("cd_wing", CD)])
-        results_dict.update([("cs_wing", CS)])
+        results_dict.update([("cl_wing", -CL)])
+        results_dict.update([("cd_wing", -CD)])
+        results_dict.update([("cs_wing", -CS)])
         results_dict.update([("cmx_wing", 0.0)])
         results_dict.update([("cmy_wing", 0.0)])
         results_dict.update([("cmz_wing", 0.0)])

@@ -334,8 +334,8 @@ class Panel:
                 cd = 2 * np.sin(alpha) ** 3
             return cd, cm
         elif self._panel_aero_model == "inviscid":
-            cd = 0.05
-            cm = 0.01
+            cd = 0.0
+            cm = 0.0
             return cd, cm
         elif self._panel_aero_model == "polar_data":
             cd = np.interp(

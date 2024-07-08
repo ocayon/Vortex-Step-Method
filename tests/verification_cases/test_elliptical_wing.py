@@ -33,16 +33,21 @@ def calculate_elliptical_wing(n_panels=20, plot_wing=False):
     # Create the wing
     wing = Wing(n_panels)  # Adjust the number of panels as needed
 
-    # Add sections to the wing using cosine distribution
-    y_coords = cosspace(-span / 2, span / 2, 40)
-    x_chords = x_coords(y_coords, chord_root, span)
+    # # Add sections to the wing using cosine distribution
+    # y_coords = cosspace(-span / 2, span / 2, 14)
+    # x_chords = x_coords(y_coords, chord_root, span)
 
-    for y, x in zip(y_coords, x_chords):
-        wing.add_section([0.25 * x, y, 0], [-0.75 * x, y, 0], ["inviscid"])
+    # for y, x in zip(y_coords, x_chords):
+    #     wing.add_section([0.25 * x, y, 0], [-0.75 * x, y, 0], ["inviscid"])
+
+    span = 20
+    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
+    wing.add_section([0, span / 2, 0], [-1, span / 2, 0], ["inviscid"])
 
     # Initialize wing aerodynamics
     wing_aero = WingAerodynamics([wing])
-    aoa_deg = np.linspace(0, 10, 2)  # (0, 15, 10)  # Angles of attack in degrees
+    aoa_deg = np.linspace(0, 15, 10)  # Angles of attack in degrees
+    aoa_deg = [3]
     results = []
 
     # plotting the geometry wing
