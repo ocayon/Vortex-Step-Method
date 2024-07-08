@@ -309,28 +309,40 @@ class WingAerodynamics:
             SFtot += SideF[i] * r0_length
 
         Umag = np.linalg.norm(Uinf)
-        CL = Ltot / (0.5 * Umag**2 * Atot * density)
-        CD = Dtot / (0.5 * Umag**2 * Atot * density)
-        CS = SFtot / (0.5 * Umag**2 * Atot * density)
+
+        Fx = Dtot
+        Fy = SFtot
+        Fz = Ltot
+
+        cfz = Fz / (0.5 * Umag**2 * Atot * density)
+        cfx = Fx / (0.5 * Umag**2 * Atot * density)
+        cfy = Fy / (0.5 * Umag**2 * Atot * density)
 
         results_dict = {}
-        results_dict.update([("cl", cl_array)])
-        results_dict.update([("cd", cd_array)])
-        results_dict.update([("cm", cm_array)])
+        # Global aerodynamics
+        results_dict.update([("Fx", Fx)])
+        results_dict.update([("Fy", Fy)])
+        results_dict.update([("Fz", Fz)])
 
-        # Calculate global aerodynamics
-        results_dict.update([("cl_wing", -CL)])
-        results_dict.update([("cd_wing", -CD)])
-        results_dict.update([("cs_wing", -CS)])
-        results_dict.update([("cmx_wing", 0.0)])
-        results_dict.update([("cmy_wing", 0.0)])
-        results_dict.update([("cmz_wing", 0.0)])
-        results_dict.update([("lift_wing", Ltot)])
-        results_dict.update([("drag_wing", Dtot)])
-        results_dict.update([("side_wing", SFtot)])
-        results_dict.update([("mx_wing", 0.0)])
-        results_dict.update([("my_wing", 0.0)])
-        results_dict.update([("mz_wing", 0.0)])
+        results_dict.update([("cfz", cfz)])
+        results_dict.update([("cfx", cfx)])
+        results_dict.update([("cfy", cfy)])
+
+        # Flipping reference frame, to conventional frame
+        # x (+) downstream, y(+) left and z-up reference frame
+        cl = -cfz
+        cd = -cfx
+        cs = -cfy
+
+        results_dict.update([("cl", cl)])
+        results_dict.update([("cd", cd)])
+        results_dict.update([("cs", cs)])
+
+        # Local aerodynamics
+        cl_distribution = [-cl for cl in cl_array]
+        cd_distribution = [-cd for cd in cd_array]
+        results_dict.update([("cl_distribution", cl_distribution)])
+        results_dict.update([("cd_distribution", cd_distribution)])
 
         # Additional info
         results_dict.update([("alpha_at_ac", self._alpha_aerodynamic_center)])

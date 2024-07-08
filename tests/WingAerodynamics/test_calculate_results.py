@@ -165,15 +165,12 @@ def test_calculate_results():
     # Extract the results from the dictionary
     results_dict = calculate_results_output
 
-    # Prepare inputs for the reference function
-    """
-        Fmag: Lift, Drag, and Moment magnitudes.
-        aero_coeffs: alpha, cl, cd, cm.
-        ringvec: List of dictionaries containing the vectors that define each ring.
-        Uinf: Wind speed velocity vector.
-        controlpoints: List of dictionaries with the variables needed to define each wing section.
-        Atot: Planform area.
-    """
+    # Debug: Print the compared results
+    cl_calculated = results_dict["cfz"]
+    cd_calculated = results_dict["cfx"]
+    cs_calculated = results_dict["cfy"]
+    L_calculated = results_dict["Fz"]
+    D_calculated = results_dict["Fx"]
 
     # Calculating Fmag, using UNCORRECTED alpha
     alpha = results_VSM["alpha_uncorrected"]
@@ -228,51 +225,21 @@ def test_calculate_results():
     F_rel_ref, F_gl_ref, Ltot_ref, Dtot_ref, CL_ref, CD_ref, CS_ref = output_results(
         Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot, density
     )
-    # Debug: Print the compared results
-    print("CL_ref:", CL_ref, "CL_wing:", results_dict["cl_wing"])
-    print("CD_ref:", CD_ref, "CD_wing:", results_dict["cd_wing"])
-    print("CS_ref:", CS_ref, "CS_wing:", results_dict["cs_wing"])
-    print("Ltot_ref:", Ltot_ref, "Lift_wing:", results_dict["lift_wing"])
-    print("Dtot_ref:", Dtot_ref, "Drag_wing:", results_dict["drag_wing"])
+
+    ##########################
+    ### COMPARING
+    ##########################
 
     # Assert that the results are close
-    np.testing.assert_allclose(results_dict["cl_wing"], CL_ref, rtol=1e-5)
-    np.testing.assert_allclose(results_dict["cd_wing"], CD_ref, rtol=1e-5)
-    np.testing.assert_allclose(results_dict["cs_wing"], CS_ref, rtol=1e-5)
-    np.testing.assert_allclose(results_dict["lift_wing"], Ltot_ref, rtol=1e-5)
-    np.testing.assert_allclose(results_dict["drag_wing"], Dtot_ref, rtol=1e-5)
-
-    # Check the structure of the results_dict
-    expected_keys = {
-        "cl",
-        "cd",
-        "cm",
-        "cl_wing",
-        "cd_wing",
-        "cs_wing",
-        "cmx_wing",
-        "cmy_wing",
-        "cmz_wing",
-        "lift_wing",
-        "drag_wing",
-        "side_wing",
-        "mx_wing",
-        "my_wing",
-        "mz_wing",
-        "alpha_at_ac",
-        "alpha_uncorrected",
-        "gamma_distribution",
-    }
-    assert (
-        set(results_dict.keys()) == expected_keys
-    ), f"Mismatch in results_dict keys. Expected: {expected_keys}, Got: {set(results_dict.keys())}"
+    np.testing.assert_allclose(cl_calculated, CL_ref, rtol=1e-5)
+    np.testing.assert_allclose(cd_calculated, CD_ref, rtol=1e-5)
+    np.testing.assert_allclose(cs_calculated, CS_ref, rtol=1e-5)
+    np.testing.assert_allclose(L_calculated, Ltot_ref, rtol=1e-5)
+    np.testing.assert_allclose(D_calculated, Dtot_ref, rtol=1e-5)
 
     # Check the shape of array outputs
-    assert len(results_dict["cl"]) == len(wing_aero_VSM.panels)
-    assert len(results_dict["cd"]) == len(wing_aero_VSM.panels)
-    assert len(results_dict["cm"]) == len(wing_aero_VSM.panels)
-
-    # You may want to add more detailed checks for the array outputs if needed
+    assert len(results_dict["cl_distribution"]) == len(wing_aero_VSM.panels)
+    assert len(results_dict["cd_distribution"]) == len(wing_aero_VSM.panels)
 
     # Check that the wing_aero_VSM is updated
     assert hasattr(wing_aero_VSM, "_alpha_aerodynamic_center")

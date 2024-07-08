@@ -44,10 +44,11 @@ wing_aero_LLT = deepcopy(wing_aero)
 # Plotting the wing
 wing_aero.plot()
 
-# solve the aerodynamics
+## Solve the aerodynamics
+# cl,cd,cs coefficients are flipped to "normal ref frame"
+# x (+) downstream, y(+) left and z-up reference frame
 results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
 results_LLT, wing_aero_LLT = LLT.solve(wing_aero_LLT)
-
 
 # Print
 print(results_VSM)
@@ -56,6 +57,8 @@ print(results_VSM)
 ###############
 # Plotting
 ###############
+
+
 import matplotlib.pyplot as plt
 
 
@@ -72,7 +75,9 @@ plot_a_distribution(
     results_VSM["gamma_distribution"],
     results_LLT["gamma_distribution"],
 )
-plot_a_distribution("cl_distrbution", results_VSM["cl"], results_LLT["cl"])
+plot_a_distribution(
+    "cl_distribution", results_VSM["cl_distribution"], results_LLT["cl_distribution"]
+)
 plot_a_distribution(
     "alpha_at_ac", results_VSM["alpha_at_ac"], results_LLT["alpha_at_ac"]
 )
@@ -81,11 +86,7 @@ plot_a_distribution(
     results_VSM["alpha_uncorrected"],
     results_LLT["alpha_uncorrected"],
 )
-plot_a_distribution(
-    "cl_over_cd",
-    results_VSM["cl"] / results_VSM["cd"],
-    results_LLT["cl"] / results_LLT["cd"],
-)
+
 plt.show()
 
 # Check if the gamma distribution is symmetric
