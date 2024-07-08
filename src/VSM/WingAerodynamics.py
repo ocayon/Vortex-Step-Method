@@ -42,15 +42,6 @@ class WingAerodynamics:
         self._initial_gamma_distribution = initial_gamma_distribution
         self._gamma_distribution = None
 
-        # TODO: Can you not delete these attributes and only give them back to the user
-        # TODO: As a result at the end of the calculation, and leave the WingAerodynamics Object Clean
-        # arrays per panel
-        self._alpha_aerodynamic_center = np.zeros(n_panels)
-        self._alpha_control_point = np.zeros(n_panels)
-        self._cl = np.zeros(n_panels)
-        self._cd = np.zeros(n_panels)
-        self._cm = np.zeros(n_panels)
-
     ###########################
     ## GETTER FUNCTIONS
     ###########################
@@ -202,8 +193,7 @@ class WingAerodynamics:
         self._gamma_distribution = gamma_distribution
         return gamma_distribution
 
-    # TODO: Needs Work
-    def calculate_results(self):
+    def calculate_results(self, density):
         """Update spanwise local values and calculate the aerodynamics of the wing
 
         Args:
@@ -213,29 +203,139 @@ class WingAerodynamics:
             results_dict (dict): Dictionary containing the aerodynamic results of the wing
             wing_aero (WingAerodynamics): The updated WingAerodynamics object
         """
-        results_dict = {}
 
-        results_dict.update(
-            [("alpha_aerodynamic_center", self._alpha_aerodynamic_center)]
+        # Update the aerodynamic coefficients of each panel
+        cl_array, cd_array, cm_array = (
+            np.zeros(len(self.panels)),
+            np.zeros(len(self.panels)),
+            np.zeros(len(self.panels)),
         )
-        results_dict.update([("alpha_control_point", self._alpha_control_point)])
-        results_dict.update([("cl", self._cl)])
-        results_dict.update([("cd", self._cd)])
-        results_dict.update([("cm", self._cm)])
+        for i, panel_i in enumerate(self.panels):
+            cl = panel_i.calculate_cl(self._alpha_aerodynamic_center[i])
+            cd, cm = panel_i.calculate_cd_cm(self._alpha_aerodynamic_center[i])
+            cl_array[i] = cl
+            cd_array[i] = cd
+            cm_array[i] = cm
+
+        # Calculate the global aerodynamics of the wing
+        F_rel = []
+        F_gl = []
+        Fmag_gl = []
+        SideF = []
+        Ltot = 0
+        Dtot = 0
+        SFtot = 0
+
+        Atot = 0
+        if len(self._va) == 3:
+            Uinf = self._va
+        else:
+            raise ValueError("Calc.results not ready for va_distributed input")
+
+        for i, (alpha_i, panel_i) in enumerate(
+            zip(self._alpha_aerodynamic_center, self.panels)
+        ):
+
+            # Defining directions wrt airfoils
+            into_plane = panel_i.z_airf  # along the span
+            tangential = panel_i.y_airf  # along the chord
+            normal = panel_i.x_airf  # normal to the chord
+
+            r_0 = into_plane  # bound["x2"] - bound["x1"]
+
+            # Relative wind speed direction
+            tangential = panel_i.y_airf
+            normal = panel_i.x_airf
+            dir_urel = np.cos(alpha_i) * tangential + np.sin(alpha_i) * normal
+            dir_urel = dir_urel / np.linalg.norm(dir_urel)
+
+            # Lift direction relative to urel
+            dir_L = np.cross(dir_urel, r_0)
+            dir_L = dir_L / np.linalg.norm(dir_L)
+
+            # TODO: why is the [0,1,0] hardcode needed?
+            # Drag direction relative to urel
+            dir_D = np.cross([0, 1, 0], dir_L)
+            dir_D = dir_D / np.linalg.norm(dir_D)
+
+            # TODO: old code the L,D,M was calculated with non-corrected alpha, why?
+            # TODO: change would be to swap self._alpha to self._alpha_aerodynamic_center
+            # Lift and drag relative to urel
+            q_inf = 0.5 * density * np.linalg.norm(Uinf) ** 2 * panel_i.chord
+            L_rel = dir_L * panel_i.calculate_cl(self._alpha_uncorrected[i]) * q_inf
+            D_rel = (
+                dir_D * panel_i.calculate_cd_cm(self._alpha_uncorrected[i])[0] * q_inf
+            )
+            F_rel.append([L_rel + D_rel])
+
+            # Lift direction relative to the wind speed
+            dir_L_gl = np.cross(Uinf, [0, 1, 0])
+            dir_L_gl = dir_L_gl / np.linalg.norm(dir_L_gl)
+
+            def vector_projection(v, u):
+                # Inputs:
+                #     u = direction vector
+                #     v = vector to be projected
+                unit_u = u / np.linalg.norm(u)
+                proj = np.dot(v, unit_u) * unit_u
+                return proj
+
+            # Lift and drag relative to the windspeed
+
+            L_gl = vector_projection(L_rel, dir_L_gl) + vector_projection(
+                D_rel, dir_L_gl
+            )
+            D_gl = vector_projection(L_rel, Uinf) + vector_projection(D_rel, Uinf)
+            F_gl.append([L_gl, D_gl])
+            Fmag_gl.append(
+                [
+                    np.dot(L_rel, dir_L_gl) + np.dot(D_rel, dir_L_gl),
+                    np.dot(L_rel, Uinf / np.linalg.norm(Uinf))
+                    + np.dot(D_rel, Uinf / np.linalg.norm(Uinf)),
+                ]
+            )
+            SideF.append(np.dot(L_rel, [0, 1, 0]) + np.dot(D_rel, [0, 1, 0]))
+
+            # Calculate Area of the panel
+            Atot += panel_i.chord * np.linalg.norm(panel_i.z_airf)
+
+        # Calculate total aerodynamic forces
+        for i, Fmag_gl_i in enumerate(Fmag_gl):
+            z_airf_i = self.panels[i].z_airf
+            r0_length = np.linalg.norm(z_airf_i)
+
+            Ltot += Fmag_gl_i[0] * r0_length
+            Dtot += Fmag_gl_i[1] * r0_length
+            SFtot += SideF[i] * r0_length
+
+        Umag = np.linalg.norm(Uinf)
+        CL = Ltot / (0.5 * Umag**2 * Atot * density)
+        CD = Dtot / (0.5 * Umag**2 * Atot * density)
+        CS = SFtot / (0.5 * Umag**2 * Atot * density)
+
+        results_dict = {}
+        results_dict.update([("cl", cl_array)])
+        results_dict.update([("cd", cd_array)])
+        results_dict.update([("cm", cm_array)])
 
         # Calculate global aerodynamics
-        results_dict.update([("cl_wing", 0.0)])
-        results_dict.update([("cd_wing", 0.0)])
-        results_dict.update([("cs_wing", 0.0)])
+        results_dict.update([("cl_wing", CL)])
+        results_dict.update([("cd_wing", CD)])
+        results_dict.update([("cs_wing", CS)])
         results_dict.update([("cmx_wing", 0.0)])
         results_dict.update([("cmy_wing", 0.0)])
         results_dict.update([("cmz_wing", 0.0)])
-        results_dict.update([("lift_wing", 0.0)])
-        results_dict.update([("drag_wing", 0.0)])
-        results_dict.update([("side_wing", 0.0)])
+        results_dict.update([("lift_wing", Ltot)])
+        results_dict.update([("drag_wing", Dtot)])
+        results_dict.update([("side_wing", SFtot)])
         results_dict.update([("mx_wing", 0.0)])
         results_dict.update([("my_wing", 0.0)])
         results_dict.update([("mz_wing", 0.0)])
+
+        # Additional info
+        results_dict.update([("alpha_at_ac", self._alpha_aerodynamic_center)])
+        results_dict.update([("alpha_uncorrected", self._alpha_uncorrected)])
+        results_dict.update([("gamma_distribution", self._gamma_distribution)])
 
         return results_dict
 
@@ -243,9 +343,10 @@ class WingAerodynamics:
     ## UPDATE FUNCTIONS
     ###########################
 
-    def update_effective_angle_of_attack(self):
+    def update_effective_angle_of_attack(self, alpha, aerodynamic_model_type):
         """Updates the angle of attack at the aerodynamic center of each panel,
-            Calculated at the AERODYNAMIC CENTER
+            Calculated at the AERODYNAMIC CENTER, which needs an update for VSM
+            And can just use the old value for the LLT
 
         Args:
             None
@@ -253,33 +354,61 @@ class WingAerodynamics:
         Returns:
             None
         """
-        for i, panel_i in enumerate(self.panels):
-            induced_velocity = self.calculate_wing_induced_velocity(
-                panel_i.aerodynamic_center
-            )
-            self._alpha_aerodynamic_center[i], _ = (
-                panel_i.calculate_relative_alpha_and_relative_velocity(induced_velocity)
-            )
+        self._alpha_uncorrected = alpha
+        # If VSM
+        if aerodynamic_model_type == "VSM":
+            # Initialize the matrices, WITHOUT U2D CORRECTION
+            # The correction is done by calculating the alpha at the aerodynamic center,
+            # where as before the control_point was used in the VSM method
+            n_panels = self._n_panels
+            MatrixU = np.empty((n_panels, n_panels))
+            MatrixV = np.empty((n_panels, n_panels))
+            MatrixW = np.empty((n_panels, n_panels))
 
-    def update_aerodynamic_coefficients_and_alpha(self):
-        """Updates the aerodynamic coefficients of each panel,
-            Calculated at the CONTROL POINT
+            evaluation_point = "aerodynamic_center"
+            for icp, panel_icp in enumerate(self.panels):
 
-        Args:
-            None
+                for jring, panel_jring in enumerate(self.panels):
+                    velocity_induced = panel_jring.calculate_velocity_induced_horseshoe(
+                        getattr(panel_icp, evaluation_point), gamma=1
+                    )
+                    # AIC Matrix,WITHOUT U2D CORRECTION
+                    MatrixU[icp, jring] = velocity_induced[0]
+                    MatrixV[icp, jring] = velocity_induced[1]
+                    MatrixW[icp, jring] = velocity_induced[2]
 
-        Returns:
-            None
-        """
-        for i, panel_i in enumerate(self.panels):
-            induced_velocity = self.calculate_wing_induced_velocity(
-                panel_i.control_point
-            )
-            alpha_i, _ = panel_i.calculate_relative_alpha_and_relative_velocity(
-                induced_velocity
-            )
-            self._cl[i], self._cd[i], self._cm[i] = panel_i.calculate_cl_cd_cm(alpha_i)
-            self._alpha_control_point[i] = alpha_i
+            gamma = self._gamma_distribution
+            alpha = np.zeros(len(self.panels))
+            for icp, panel in enumerate(self.panels):
+                # Initialize induced velocity to 0
+                u = 0
+                v = 0
+                w = 0
+                # Compute induced velocities with previous gamma distribution
+                for jring, gamma_jring in enumerate(gamma):
+                    u = u + MatrixU[icp][jring] * gamma_jring
+                    # x-component of velocity
+                    v = v + MatrixV[icp][jring] * gamma_jring
+                    # y-component of velocity
+                    w = w + MatrixW[icp][jring] * gamma_jring
+                    # z-component of velocity
+
+                induced_velocity = np.array([u, v, w])
+                alpha[icp], _ = panel.calculate_relative_alpha_and_relative_velocity(
+                    induced_velocity
+                )
+
+            self._alpha_aerodynamic_center = alpha
+
+        # if LTT: no updating is required
+        elif aerodynamic_model_type == "LLT":
+            self._alpha_aerodynamic_center = alpha
+        else:
+            raise ValueError("Invalid aerodynamic model type, should be VSM or LLT")
+
+    ###########################
+    ## PLOTTING FUNCTIONS
+    ###########################
 
     def plot_line_segment(self, ax, segment, color, label, width: float = 3):
         ax.plot(

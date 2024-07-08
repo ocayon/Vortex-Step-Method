@@ -41,7 +41,7 @@ class Solver:
         # Solve the circulation distribution
         wing_aero = self.solve_iterative_loop(wing_aero)
 
-        results = wing_aero.calculate_results()
+        results = wing_aero.calculate_results(self.density)
 
         return results, wing_aero
 
@@ -59,6 +59,7 @@ class Solver:
         z_airf_array = np.array([panel.z_airf for panel in panels])
         va_array = np.array([panel.va for panel in panels])
         chord_array = np.array([panel.chord for panel in panels])
+        alpha = np.zeros(len(panels))
         gamma = np.zeros(len(panels))
 
         converged = False
@@ -82,7 +83,7 @@ class Solver:
 
                 # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
                 induced_velocity = np.array([u, v, w])
-                alpha, relative_velocity = (
+                alpha[icp], relative_velocity = (
                     panel.calculate_relative_alpha_and_relative_velocity(
                         induced_velocity
                     )
@@ -95,7 +96,7 @@ class Solver:
 
                 # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
                 # Lookup cl for this specific alpha
-                cl = panel.calculate_cl(alpha)
+                cl = panel.calculate_cl(alpha[icp])
 
                 # Find the new gamma using Kutta-Joukouski law
                 gamma_new[icp] = 0.5 * Umag**2 / Umagw * cl * chord_array[icp]
@@ -109,6 +110,24 @@ class Solver:
                 # logging.info("Umagw: %f", Umagw)
                 # logging.info("chord: %f", chord_array[icp])
 
+            # Dealing with stalled cases
+            stall = False
+            aoa_stall = np.deg2rad(15.0)
+            for i in range(len(alpha) - 1):
+                if alpha[i] > aoa_stall:
+                    stall = True
+                    break
+            if not stall:
+                damp = 0
+            else:
+                damp = self.calculate_artificial_damping(gamma)
+            gamma_new = (
+                (1 - self.relaxation_factor) * gamma
+                + self.relaxation_factor * gamma_new
+                + damp
+            )
+
+            # Checking Convergence
             reference_error = np.amax(np.abs(gamma_new))
             reference_error = max(reference_error, self.tol_reference_error)
             error = np.amax(np.abs(gamma_new - gamma))
@@ -126,13 +145,6 @@ class Solver:
                 converged = True
                 break
 
-            gamma_new = (
-                1 - self.relaxation_factor
-            ) * gamma + self.relaxation_factor * gamma_new
-
-            # if self.artificial_damping is not None:
-            #     gamma_new = self.apply_artificial_damping(gamma_new)
-
         if converged:
             print(" ")
             print("Converged after " + str(i) + " iterations")
@@ -141,12 +153,13 @@ class Solver:
             print("Not converged after " + str(self.max_iterations) + " iterations")
 
         wing_aero.calculate_gamma_distribution(gamma)
+        wing_aero.update_effective_angle_of_attack(alpha, self.aerodynamic_model_type)
 
         return wing_aero
 
-    def apply_artificial_damping(self, gamma):
+    def calculate_artificial_damping(self, gamma):
         n_gamma = len(gamma)
-        gamma_damped = np.zeros(n_gamma)
+        damp = np.zeros(n_gamma)
         for ig, gamma_ig in enumerate(gamma):
             if ig == 0:
                 gim2 = gamma[0]
@@ -183,10 +196,8 @@ class Solver:
             dif4 = (gip2 - 3.0 * gip1 + 3.0 * gi - gim1) - (
                 gip1 - 3.0 * gi + 3.0 * gim1 - gim2
             )
-
-            k2, k4 = self.artificial_damping["k2"], self.artificial_damping["k4"]
-            gamma_damped[ig] = k2 * dif2 - k4 * dif4
-
-        gamma_new = gamma + gamma_damped
-
-        return gamma_new
+            damp[ig] = (
+                self.artificial_damping["k2"] * dif2
+                - self.artificial_damping["k4"] * dif4
+            )
+        return damp
