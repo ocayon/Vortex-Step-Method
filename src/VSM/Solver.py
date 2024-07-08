@@ -112,10 +112,14 @@ class Solver:
 
             # Dealing with stalled cases
             stall = False
-            aoa_stall = np.deg2rad(15.0)
-            for i in range(len(alpha) - 1):
-                if alpha[i] > aoa_stall:
+            aoa_stall = np.deg2rad(17.0)
+            for ia, alpha_i in enumerate(alpha):
+                if alpha_i > aoa_stall:
                     stall = True
+                    logging.info(
+                        "Stall detected, alpha[i]: %f, it: %d, panel_number: %d"
+                        % (np.rad2deg(alpha_i), i, ia)
+                    )
                     break
             if not stall:
                 damp = 0
@@ -135,7 +139,7 @@ class Solver:
 
             # logging.info("Iteration: %d, normalized_error: %f", _, normalized_error)
             # logging.info("Iteration: %d, reference_error: %f", _, reference_error)
-            logging.info("Iteration: %d", i)
+            # logging.info("Iteration: %d", i)
             # logging.info("gamma: %s", gamma)
             # logging.info("gamma_new: %s", gamma_new)
 

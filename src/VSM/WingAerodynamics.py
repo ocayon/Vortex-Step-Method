@@ -527,5 +527,8 @@ class WingAerodynamics:
         # Set equal axis limits
         self.set_axes_equal(ax)
 
+        # Flip the z-axis (to stick to body reference frame)
+        ax.invert_zaxis()
+
         # Display the plot
         plt.show()

@@ -33,10 +33,11 @@ wing_aero = WingAerodynamics([wing])
 LLT = Solver(aerodynamic_model_type="LLT")
 VSM = Solver(aerodynamic_model_type="VSM")
 
-Umag = -20
+Umag = 20
 aoa = 3
-aoa = aoa * np.pi / 180
-Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
+aoa = np.deg2rad(aoa)
+Uinf = np.array([np.cos(aoa), 0, -np.sin(aoa)]) * -Umag
+
 # Define inflow conditions
 wing_aero.va = Uinf
 wing_aero_LLT = deepcopy(wing_aero)
