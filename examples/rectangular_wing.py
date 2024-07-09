@@ -1,8 +1,13 @@
 from VSM.WingAerodynamics import WingAerodynamics
-from VSM.WingGeometry import Wing, Section
+from VSM.WingGeometry import Wing
 from VSM.Solver import Solver
 import numpy as np
+import logging
 from copy import deepcopy
+
+
+logging.basicConfig(level=logging.INFO)
+
 
 # Use example
 ################# CAREFULL WITH REFERENCE FRAMES, CHANGING FROM ORIGINAL CODE #################
@@ -32,8 +37,8 @@ wing_aero = WingAerodynamics([wing])
 
 # Initialize solver
 # Default parameters are used (VSM, no artificial damping)
-LLT = Solver(aerodynamic_model_type="LLT")
-VSM = Solver(aerodynamic_model_type="VSM")
+LLT = Solver(aerodynamic_model_type="LLT", core_radius_fraction=1e-5)
+VSM = Solver(aerodynamic_model_type="VSM", core_radius_fraction=1e-5)
 
 Umag = 20
 aoa = 3

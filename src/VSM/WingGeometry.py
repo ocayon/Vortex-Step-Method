@@ -109,8 +109,6 @@ class Wing:
                     TE[TE_section_index + 1] - TE[TE_section_index]
                 )
 
-            print(f"new_LE[i]: {new_LE[i]}, new_TE[i]: {new_TE[i]}")
-
             # Edge case: different aero models over the span
             if aero_input[LE_section_index][0] != aero_input[LE_section_index + 1][0]:
                 raise NotImplementedError(
@@ -146,13 +144,13 @@ class Wing:
                     [tube_diameter_i, chamber_height_i],
                 ]
 
-                print(f"left_distance: {left_distance}")
-                print(f"right_distance: {right_distance}")
-                print(f"left_weight: {left_weight}")
-                print(f"right_weight: {right_weight}")
-                print(f"tube_diameter_left: {tube_diameter_left}")
-                print(f"tube_diameter_right: {tube_diameter_right}")
-                print(f"tube_diameter_i: {tube_diameter_i}")
+                logging.debug(f"left_distance: {left_distance}")
+                logging.debug(f"right_distance: {right_distance}")
+                logging.debug(f"left_weight: {left_weight}")
+                logging.debug(f"right_weight: {right_weight}")
+                logging.debug(f"tube_diameter_left: {tube_diameter_left}")
+                logging.debug(f"tube_diameter_right: {tube_diameter_right}")
+                logging.debug(f"tube_diameter_i: {tube_diameter_i}")
 
             new_sections.append(Section(new_LE[i], new_TE[i], new_aero_input[i]))
 

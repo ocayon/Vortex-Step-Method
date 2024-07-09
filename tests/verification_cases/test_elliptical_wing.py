@@ -22,7 +22,7 @@ def x_coords(y_coords, chord_root, span):
     return chord_root * np.sqrt(1 - (2 * y_coords / span) ** 2)
 
 
-def calculate_elliptical_wing(n_panels=20, plot_wing=False):
+def calculate_elliptical_wing(n_panels, plot_wing=False):
     # Constants
     density = 1.225  # kg/m^3
     span = 5  # m
@@ -34,20 +34,16 @@ def calculate_elliptical_wing(n_panels=20, plot_wing=False):
     wing = Wing(n_panels)  # Adjust the number of panels as needed
 
     # Add sections to the wing using cosine distribution
-    y_coords = cosspace(-span / 2, span / 2, 100)
+    y_coords = cosspace(-span / 2, span / 2, 10)
     x_chords = x_coords(y_coords, chord_root, span)
 
     for y, x in zip(y_coords, x_chords):
         wing.add_section([0.25 * x, y, 0], [-0.75 * x, y, 0], ["inviscid"])
 
-    # span = 20
-    # wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
-    # wing.add_section([0, span / 2, 0], [-1, span / 2, 0], ["inviscid"])
-
     # Initialize wing aerodynamics
     wing_aero = WingAerodynamics([wing])
     aoa_deg = np.linspace(0, 15, 10)  # Angles of attack in degrees
-    aoa_deg = [3, 6, 9]
+    aoa_deg = [3]
     results = []
 
     # plotting the geometry wing
@@ -118,7 +114,7 @@ def calculate_elliptical_wing(n_panels=20, plot_wing=False):
 #         )
 
 
-def plot_elliptic_wing(n_panels=20, plot_wing=False):
+def plot_elliptic_wing(n_panels, plot_wing=False):
     results = calculate_elliptical_wing(n_panels, plot_wing)
 
     # Extract results for plotting
@@ -149,7 +145,9 @@ def plot_elliptic_wing(n_panels=20, plot_wing=False):
     fig, ax = plt.subplots(1, 2, figsize=(12, 6))
 
     ax[0].plot(aoa_list, CL_wing_VSM_list, "g-o", label="VSM CL")
-    ax[0].plot(aoa_list, CL_wing_LLT_list, "r-o", label="LLT CL")
+    ax[0].plot(
+        aoa_list, CL_wing_LLT_list, "r-o", label="LLT CL", linewidth=2, alpha=0.5
+    )
     ax[0].plot(aoa_list, CL_analytic_list, "b-x", label="Analytical LLT CL")
     ax[0].set_xlabel("Angle of Attack (deg)")
     ax[0].set_ylabel("CL")
@@ -157,7 +155,9 @@ def plot_elliptic_wing(n_panels=20, plot_wing=False):
     ax[0].set_title(f"Lift Coefficient Comparison (n_panels:{n_panels})")
 
     ax[1].plot(aoa_list, CD_wing_VSM_list, "g-o", label="VSM CD")
-    ax[1].plot(aoa_list, CD_wing_LLT_list, "r-o", label="LLT CD")
+    ax[1].plot(
+        aoa_list, CD_wing_LLT_list, "r-o", label="LLT CD", linewidth=2, alpha=0.5
+    )
     ax[1].plot(aoa_list, CDi_analytic_list, "b-x", label="Analytical LLT CD")
     ax[1].set_xlabel("Angle of Attack (deg)")
     ax[1].set_ylabel("CD")
@@ -173,4 +173,4 @@ def plot_elliptic_wing(n_panels=20, plot_wing=False):
 
 if __name__ == "__main__":
     # plot_elliptic_wing(3, True)
-    plot_elliptic_wing(20, True)
+    plot_elliptic_wing(40, True)

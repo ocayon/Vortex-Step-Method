@@ -34,5 +34,4 @@ def frozen_wake(
                 panel.TE_point_2, direction, vel_mag, filament_direction=1
             )
         )
-        print("Wake filaments updated")
     return panels

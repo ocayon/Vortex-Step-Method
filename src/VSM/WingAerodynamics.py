@@ -9,15 +9,13 @@ import logging
 from VSM.Panel import Panel
 import VSM.Wake as Wake
 
-logging.basicConfig(level=logging.INFO)
-
 
 # TODO: should change name to deal with multiple wings
 class WingAerodynamics:
+
     def __init__(
         self,
         wings: list,  # List of Wing object instances
-        initial_gamma_distribution: str = "elliptic",
     ):
         """
         A class to represent a vortex system.
@@ -39,8 +37,8 @@ class WingAerodynamics:
         self._n_panels_per_wing = n_panels_per_wing
         self._n_panels = n_panels
         self._va = None
-        self._initial_gamma_distribution = initial_gamma_distribution
         self._gamma_distribution = None
+        self._alpha_uncorrected = None
 
     ###########################
     ## GETTER FUNCTIONS
@@ -75,6 +73,9 @@ class WingAerodynamics:
         self._va = np.array(va)
         self._yaw_rate = yaw_rate
 
+        if yaw_rate != 0.0:
+            raise ValueError("Yaw rate not yet implemented")
+
         if len(va) == 3:
             va_distribution = np.repeat([va], len(self.panels), axis=0)
         elif len(va) == len(self.panels):
@@ -96,7 +97,7 @@ class WingAerodynamics:
     ###########################
 
     # TODO: this method should be properly tested against the old code and analytics
-    def calculate_AIC_matrices(self, model: str = "VSM"):
+    def calculate_AIC_matrices(self, model, core_radius_fraction):
         """Calculates the AIC matrices for the given aerodynamic model
 
         Args:
@@ -125,7 +126,9 @@ class WingAerodynamics:
 
             for jring, panel_jring in enumerate(self.panels):
                 velocity_induced = panel_jring.calculate_velocity_induced_horseshoe(
-                    getattr(panel_icp, evaluation_point), gamma=1
+                    getattr(panel_icp, evaluation_point),
+                    gamma=1,
+                    core_radius_fraction=core_radius_fraction,
                 )
                 # AIC Matrix
                 MatrixU[icp, jring] = velocity_induced[0]
@@ -135,7 +138,9 @@ class WingAerodynamics:
                 if icp == jring:
                     if evaluation_point != "aerodynamic_center":
                         U_2D = panel_jring.calculate_velocity_induced_bound_2D(
-                            getattr(panel_icp, evaluation_point), gamma=1
+                            getattr(panel_icp, evaluation_point),
+                            gamma=1,
+                            core_radius_fraction=core_radius_fraction,
                         )
                         MatrixU[icp, jring] -= U_2D[0]
                         MatrixV[icp, jring] -= U_2D[1]
@@ -143,7 +148,7 @@ class WingAerodynamics:
 
         return MatrixU, MatrixV, MatrixW
 
-    def calculate_circulation_distribution_elliptical_wing(self, gamma_0: float = 1):
+    def calculate_circulation_distribution_elliptical_wing(self, gamma_0):
         """
         Calculates the circulation distribution for an elliptical wing.
 
@@ -167,7 +172,10 @@ class WingAerodynamics:
 
         return gamma_i * 0
 
-    def calculate_gamma_distribution(self, gamma_distribution=None):
+    # TODO: needs work
+    def calculate_gamma_distribution(
+        self, gamma_distribution, initial_gamma_distribution
+    ):
         """Calculates the circulation distribution for the wing
 
         Args:
@@ -176,13 +184,11 @@ class WingAerodynamics:
         Returns:
             np.array: The circulation distribution
         """
-
-        if (
-            gamma_distribution is None
-            and self._initial_gamma_distribution == "elliptic"
-        ):
+        # remove hardcode
+        gamma_0 = 1
+        if gamma_distribution is None and initial_gamma_distribution == "elliptic":
             gamma_distribution = (
-                self.calculate_circulation_distribution_elliptical_wing()
+                self.calculate_circulation_distribution_elliptical_wing(gamma_0)
             )
         elif (
             gamma_distribution is not None and len(gamma_distribution) != self._n_panels
@@ -355,7 +361,9 @@ class WingAerodynamics:
     ## UPDATE FUNCTIONS
     ###########################
 
-    def update_effective_angle_of_attack(self, alpha, aerodynamic_model_type):
+    def update_effective_angle_of_attack(
+        self, alpha, aerodynamic_model_type, core_radius_fraction
+    ):
         """Updates the angle of attack at the aerodynamic center of each panel,
             Calculated at the AERODYNAMIC CENTER, which needs an update for VSM
             And can just use the old value for the LLT
@@ -382,7 +390,9 @@ class WingAerodynamics:
 
                 for jring, panel_jring in enumerate(self.panels):
                     velocity_induced = panel_jring.calculate_velocity_induced_horseshoe(
-                        getattr(panel_icp, evaluation_point), gamma=1
+                        getattr(panel_icp, evaluation_point),
+                        gamma=1,
+                        core_radius_fraction=core_radius_fraction,
                     )
                     # AIC Matrix,WITHOUT U2D CORRECTION
                     MatrixU[icp, jring] = velocity_induced[0]
@@ -528,7 +538,7 @@ class WingAerodynamics:
 
             for filament, legend in zip(filaments, legends):
                 x1, x2, color = filament
-                logging.info("Legend: %s", legend)
+                logging.debug("Legend: %s", legend)
                 self.plot_line_segment(ax, [x1, x2], color, legend)
 
         # Add legends for the first occurrence of each label

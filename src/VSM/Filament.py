@@ -21,7 +21,7 @@ class Filament(ABC):
         pass
 
     @abstractmethod
-    def calculate_induced_velocity(self, point, gamma):
+    def calculate_induced_velocity(self, point, gamma, core_radius_fraction):
         pass
 
 
@@ -51,7 +51,7 @@ class BoundFilament(Filament):
     def x2(self):
         return self._x2
 
-    def calculate_induced_velocity(self, point, gamma=1.0, core_radius_fraction=0.01):
+    def calculate_induced_velocity(self, point, gamma, core_radius_fraction):
         """Calculate the induced velocity at a control point due to the vortex filament.
 
             Checks if the evaluation point is on the filament and returns zero velocity to avoid singularity.
@@ -74,7 +74,7 @@ class BoundFilament(Filament):
         )  # Control point to the other end of the filament
 
         # Copmute distance from the control point to the filament
-        dist = np.linalg.norm(np.cross(r1, self._r0)) / self._length
+        dist = np.linalg.norm(np.cross(r1, self._r0)) / max(self._length, 1e-12)
 
         # Determine the core radius
         epsilon_bound = core_radius_fraction * self._length
@@ -83,9 +83,9 @@ class BoundFilament(Filament):
         r1_cross_r2 = np.cross(r1, r2)
         r1_cross_r2_norm = np.linalg.norm(r1_cross_r2)
         if r1_cross_r2_norm < 1e-12:
-            logging.warning(
-                "Control point is on the filament. Returning zero induced velocity to avoid singularity."
-            )
+            #  logging.warning(
+            #     "Control point is on the filament. Returning zero induced velocity to avoid singularity."
+            # )
             return np.zeros(3)
 
         # Outside of Core Radius
@@ -145,12 +145,7 @@ class SemiInfiniteFilament(Filament):
     def filament_direction(self):
         return self._filament_direction
 
-    # @property
-    # def x2(self):
-    #     return self._x2
-
-    # TODO: Uinf scales epsilon, why does this make sense?
-    def calculate_induced_velocity(self, point, gamma=1):
+    def calculate_induced_velocity(self, point, gamma, core_radius_fraction):
 
         # vector from the evaluation point to the start of the filament
         r1 = np.array(point) - self._x1
@@ -235,7 +230,7 @@ class Infinite2DFilament(Filament):
     def x2(self):
         return self._x2
 
-    def calculate_induced_velocity(self, point, gamma=1.0, core_radius_fraction=0.01):
+    def calculate_induced_velocity(self, point, gamma, core_radius_fraction):
 
         MP = np.array(point) - self._midpoint
 

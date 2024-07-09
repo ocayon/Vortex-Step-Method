@@ -1,8 +1,5 @@
-import logging
 import numpy as np
 from VSM.Filament import BoundFilament, Infinite2DFilament
-
-logging.basicConfig(level=logging.INFO)
 
 
 class Panel:
@@ -155,7 +152,7 @@ class Panel:
         self._va = value
 
     ###########################
-    ## CALCULATE FUNCTIONS      # All this return smthing
+    ## CALCULATE FUNCTIONS      # All this return something
     ###########################
 
     def calculate_relative_alpha_and_relative_velocity(
@@ -348,16 +345,22 @@ class Panel:
         else:
             raise NotImplementedError
 
-    def calculate_velocity_induced_bound_2D(self, control_point, gamma=None):
+    def calculate_velocity_induced_bound_2D(
+        self, control_point, gamma, core_radius_fraction
+    ):
         """ "
         This function calculates the 2D induced velocity at the control point due to the bound vortex filaments
         """
         if gamma is None:
             gamma = self._gamma
 
-        return self._filament_2d.calculate_induced_velocity(control_point, gamma)
+        return self._filament_2d.calculate_induced_velocity(
+            control_point, gamma, core_radius_fraction
+        )
 
-    def calculate_velocity_induced_horseshoe(self, control_point, gamma=None):
+    def calculate_velocity_induced_horseshoe(
+        self, control_point, gamma, core_radius_fraction
+    ):
         """ "
         This function calculates the induced velocity at the control point due to the bound vortex filaments
         """
@@ -366,7 +369,9 @@ class Panel:
 
         ind_vel = np.zeros(3)
         for filament in self.filaments:
-            ind_vel += filament.calculate_induced_velocity(control_point, gamma)
+            ind_vel += filament.calculate_induced_velocity(
+                control_point, gamma, core_radius_fraction
+            )
 
         return ind_vel
 
@@ -379,7 +384,7 @@ class Panel:
                 color = "magenta"
             else:
                 # For semi-infinite filaments
-                x2 = x1 + 5 * self.chord * (self.va / np.linalg.norm(self.va))
+                x2 = x1 + 2 * self.chord * (self.va / np.linalg.norm(self.va))
                 color = "orange"
                 if filament.filament_direction == -1:
                     x1, x2 = x2, x1

@@ -1,7 +1,6 @@
 import numpy as np
 import logging
 
-logging.basicConfig(level=logging.INFO)
 # Maurits-tips :)
 # call the methods of child-classes, inhereted or composed of
 # do not call the attributes of child-classes, call them through getter methods
@@ -14,6 +13,7 @@ logging.basicConfig(level=logging.INFO)
 
 # make abstract class
 class Solver:
+
     def __init__(
         self,
         # Below are all settings, with a default value, that can but don't have to be changed
@@ -24,6 +24,14 @@ class Solver:
         tol_reference_error: float = 0.001,
         relaxation_factor: float = 0.03,
         artificial_damping: dict = {"k2": 0.0, "k4": 0.0},
+        initial_gamma_distribution: str = "elliptic",
+        core_radius_fraction: float = 0.01,
+        ## TODO: would be nice to having these defined here instead of inside the panel class?
+        # aerodynamic_center_location: float = 0.25,
+        # control_point_location: float = 0.75,
+        ## TODO: these are hardcoded in the Filament, should be defined here
+        # alpha_0 = 1.25643
+        # nu = 1.48e-5
     ):
         self.aerodynamic_model_type = aerodynamic_model_type
         self.density = density
@@ -32,6 +40,8 @@ class Solver:
         self.tol_reference_error = tol_reference_error
         self.relaxation_factor = relaxation_factor
         self.artificial_damping = artificial_damping
+        self.initial_gamma_distribition = initial_gamma_distribution
+        self.core_radius_fraction = core_radius_fraction
 
     def solve(self, wing_aero):
 
@@ -47,10 +57,13 @@ class Solver:
 
     def solve_iterative_loop(self, wing_aero):
         AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
-            self.aerodynamic_model_type
+            self.aerodynamic_model_type, self.core_radius_fraction
         )
 
-        gamma_new = wing_aero.calculate_gamma_distribution()
+        gamma_new = wing_aero.calculate_gamma_distribution(
+            gamma_distribution=None,
+            initial_gamma_distribution=self.initial_gamma_distribition,
+        )
         # logging.info("Initial gamma_new: %s", gamma_new)
 
         # TODO: CPU optimization: instantiate non-changing (geometric dependent) attributes here
@@ -151,13 +164,20 @@ class Solver:
 
         if converged:
             print(" ")
-            print("Converged after " + str(i) + " iterations")
+            print(f"{self.aerodynamic_model_type} Converged after {i} iterations")
             print("------------------------------------")
         if not converged:
-            print("Not converged after " + str(self.max_iterations) + " iterations")
+            print(
+                f"{self.aerodynamic_model_type} Not converged after {str(self.max_iterations)} iterations"
+            )
 
-        wing_aero.calculate_gamma_distribution(gamma)
-        wing_aero.update_effective_angle_of_attack(alpha, self.aerodynamic_model_type)
+        wing_aero.calculate_gamma_distribution(
+            gamma_distribution=gamma,
+            initial_gamma_distribution=self.initial_gamma_distribition,
+        )
+        wing_aero.update_effective_angle_of_attack(
+            alpha, self.aerodynamic_model_type, self.core_radius_fraction
+        )
 
         return wing_aero
 
