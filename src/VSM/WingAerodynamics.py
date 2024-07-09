@@ -39,6 +39,7 @@ class WingAerodynamics:
         self._va = None
         self._gamma_distribution = None
         self._alpha_uncorrected = None
+        self._alpha_aerodynamic_center = None
 
     ###########################
     ## GETTER FUNCTIONS
@@ -70,6 +71,10 @@ class WingAerodynamics:
 
     @va.setter
     def va(self, va, yaw_rate: float = 0.0):
+
+        # Removing old wake filaments
+        self.panels = Wake.remove_frozen_wake(self.panels)
+
         self._va = np.array(va)
         self._yaw_rate = yaw_rate
 

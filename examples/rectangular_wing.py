@@ -26,9 +26,13 @@ wing = Wing(n_panels=50)
 # ['inviscid']
 # ['lei_airfoil_breukels', [tube_diameter, chamber_height]]
 # ['polars', []]
+
+
+## Rectangular wing
 span = 20
 wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
 wing.add_section([0, span / 2, 0], [-1, span / 2, 0], ["inviscid"])
+
 
 # Initialize wing aerodynamics
 # Default parameters are used (elliptic circulation distribution, 5 filaments per ring)
@@ -41,7 +45,7 @@ LLT = Solver(aerodynamic_model_type="LLT", core_radius_fraction=1e-5)
 VSM = Solver(aerodynamic_model_type="VSM", core_radius_fraction=1e-5)
 
 Umag = 20
-aoa = 3
+aoa = 20
 aoa = np.deg2rad(aoa)
 Uinf = np.array([np.cos(aoa), 0, -np.sin(aoa)]) * -Umag
 

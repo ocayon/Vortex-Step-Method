@@ -59,7 +59,7 @@ class Solver:
         AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
             self.aerodynamic_model_type, self.core_radius_fraction
         )
-
+        # initialize gamma distribution
         gamma_new = wing_aero.calculate_gamma_distribution(
             gamma_distribution=None,
             initial_gamma_distribution=self.initial_gamma_distribition,
@@ -74,6 +74,8 @@ class Solver:
         chord_array = np.array([panel.chord for panel in panels])
         alpha = np.zeros(len(panels))
         gamma = np.zeros(len(panels))
+        # Adjust relaxation factor based on the number of panels
+        relaxation_factor = self.relaxation_factor * 20 / len(panels)
 
         converged = False
         for i in range(self.max_iterations):
@@ -139,9 +141,7 @@ class Solver:
             else:
                 damp = self.calculate_artificial_damping(gamma)
             gamma_new = (
-                (1 - self.relaxation_factor) * gamma
-                + self.relaxation_factor * gamma_new
-                + damp
+                (1 - relaxation_factor) * gamma + relaxation_factor * gamma_new + damp
             )
 
             # Checking Convergence
