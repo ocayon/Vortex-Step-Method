@@ -3,7 +3,18 @@ import numpy as np
 from VSM.Filament import SemiInfiniteFilament
 
 
-def test_calculate_induced_velocity_semi_infinite():
+# Define fixtures for core_radius_fraction and gamma
+@pytest.fixture
+def core_radius_fraction():
+    return 0.01
+
+
+@pytest.fixture
+def gamma():
+    return 1.0
+
+
+def test_calculate_induced_velocity_semi_infinite(core_radius_fraction):
     # Define a simple filament and control point
     x1 = np.array([0, 0, 0])
     direction = np.array([1, 0, 0])
@@ -16,7 +27,7 @@ def test_calculate_induced_velocity_semi_infinite():
     control_point = np.array([0.5, 0.5, 2])
     gamma = 5
     induced_velocity_calc = semi_infinite_filament.calculate_induced_velocity(
-        control_point, gamma
+        control_point, gamma, core_radius_fraction
     )
     print(f"induced_velocity_calc: {induced_velocity_calc}")
 
@@ -55,7 +66,7 @@ def test_calculate_induced_velocity_semi_infinite():
     )
 
 
-def test_a_very_close_point():
+def test_a_very_close_point(gamma, core_radius_fraction):
     """Test with a point that's super close, which should be almost zero."""
     x1 = np.array([0, 0, 0])
     direction = np.array([1, 0, 0])
@@ -65,7 +76,9 @@ def test_a_very_close_point():
         x1, direction, Uinf, filament_direction
     )
     point = [0.5, 1e-10, 0]
-    induced_velocity = semi_infinite_filament.calculate_induced_velocity(point)
+    induced_velocity = semi_infinite_filament.calculate_induced_velocity(
+        point, gamma, core_radius_fraction
+    )
     assert not np.isnan(induced_velocity).any()
     assert not np.isinf(induced_velocity).any()
 
@@ -78,7 +91,7 @@ def test_a_very_close_point():
         [5, 0, 0],  # Further along filament
     ],
 )
-def test_point_exactly_on_filament(point):
+def test_point_exactly_on_filament(point, gamma, core_radius_fraction):
     x1 = np.array([0, 0, 0])
     direction = np.array([1, 0, 0])
     filament_direction = 1
@@ -88,13 +101,14 @@ def test_point_exactly_on_filament(point):
     )
 
     point = np.array([0.5, 0, 0])  # Point on the filament
-    gamma = 1.0
 
-    velocity = semi_infinite_filament.calculate_induced_velocity(point, gamma)
+    velocity = semi_infinite_filament.calculate_induced_velocity(
+        point, gamma, core_radius_fraction
+    )
     assert np.allclose(velocity, np.zeros(3), atol=1e-6)
 
 
-def test_point_far_from_filament():
+def test_point_far_from_filament(gamma, core_radius_fraction):
     x1 = np.array([0, 0, 0])
     direction = np.array([1, 0, 0])
     filament_direction = 1
@@ -104,17 +118,16 @@ def test_point_far_from_filament():
     )
 
     far_point = np.array([0, 1e6, 0])
-    gamma = 1.0
 
     induced_velocity = semi_infinite_filament.calculate_induced_velocity(
-        far_point, gamma
+        far_point, gamma, core_radius_fraction
     )
 
     # Velocity should decrease with distance^2, due to Biot-Savart law
     assert not np.isnan(induced_velocity).any()
 
 
-def test_different_gamma_values():
+def test_different_gamma_values(core_radius_fraction):
     """Test with different gamma values to ensure linear scaling."""
     x1 = np.array([0, 0, 0])
     direction = np.array([1, 0, 0])
@@ -124,13 +137,19 @@ def test_different_gamma_values():
         x1, direction, Uinf, filament_direction
     )
     control_point = [0.5, 1, 0]
-    v1 = semi_infinite_filament.calculate_induced_velocity(control_point, gamma=1.0)
-    v2 = semi_infinite_filament.calculate_induced_velocity(control_point, gamma=2.0)
-    v4 = semi_infinite_filament.calculate_induced_velocity(control_point, gamma=4.0)
+    v1 = semi_infinite_filament.calculate_induced_velocity(
+        control_point, gamma=1.0, core_radius_fraction=core_radius_fraction
+    )
+    v2 = semi_infinite_filament.calculate_induced_velocity(
+        control_point, gamma=2.0, core_radius_fraction=core_radius_fraction
+    )
+    v4 = semi_infinite_filament.calculate_induced_velocity(
+        control_point, gamma=4.0, core_radius_fraction=core_radius_fraction
+    )
     assert np.allclose(v4, 2 * v2, 4 * v1)
 
 
-def test_symmetry():
+def test_symmetry(gamma, core_radius_fraction):
     """Test symmetry of induced velocity for symmetric points."""
     x1 = np.array([0, 0, 0])
     direction = np.array([1, 0, 0])
@@ -139,26 +158,29 @@ def test_symmetry():
     semi_infinite_filament = SemiInfiniteFilament(
         x1, direction, Uinf, filament_direction
     )
-    vel_point_pos_y = semi_infinite_filament.calculate_induced_velocity([0, 1, 0])
-    vel_point_neg_y = semi_infinite_filament.calculate_induced_velocity([0, -1, 0])
+    vel_point_pos_y = semi_infinite_filament.calculate_induced_velocity(
+        [0, 1, 0], gamma, core_radius_fraction
+    )
+    vel_point_neg_y = semi_infinite_filament.calculate_induced_velocity(
+        [0, -1, 0], gamma, core_radius_fraction
+    )
 
     semi_infinite_filament = SemiInfiniteFilament(
         x1, direction, Uinf, -filament_direction
     )
     vel_point_pos_y_neg_dir = semi_infinite_filament.calculate_induced_velocity(
-        [0, 1, 0]
+        [0, 1, 0], gamma, core_radius_fraction
     )
     assert np.allclose(vel_point_pos_y, -vel_point_neg_y)
     assert np.allclose(vel_point_pos_y, -vel_point_pos_y_neg_dir)
 
 
-def test_uinf_effect():
+def test_uinf_effect(gamma, core_radius_fraction):
     x1 = np.array([0, 0, 0])
     direction = np.array([1, 0, 0])
     filament_direction = 1
 
     control_point = np.array([0, 2, 0])  # Point away from filament
-    gamma = 1.0
     Uinf1 = 1.0
     Uinf2 = 10.0
 
@@ -169,14 +191,18 @@ def test_uinf_effect():
         x1, direction, Uinf2, filament_direction
     )
 
-    velocity1 = semi_infinite_filament1.calculate_induced_velocity(control_point, gamma)
-    velocity2 = semi_infinite_filament2.calculate_induced_velocity(control_point, gamma)
+    velocity1 = semi_infinite_filament1.calculate_induced_velocity(
+        control_point, gamma, core_radius_fraction
+    )
+    velocity2 = semi_infinite_filament2.calculate_induced_velocity(
+        control_point, gamma, core_radius_fraction
+    )
 
     # Velocity should be equal for the same gamma
     assert np.allclose(np.linalg.norm(velocity1), np.linalg.norm(velocity2))
 
 
-def test_around_core_radius():
+def test_around_core_radius(gamma, core_radius_fraction):
     """Test with a points around the core radius to the filament to check handling of near-singularities."""
     x1 = np.array([0, 0, 0])
     direction = np.array([1, 0, 0])
@@ -191,11 +217,11 @@ def test_around_core_radius():
     control_point2 = [0.5, core_radius_fraction, 0]
     control_point3 = [0.5, core_radius_fraction + delta, 0]
     induced_velocity1 = semi_infinite_filament.calculate_induced_velocity(
-        control_point1
+        control_point1, gamma, core_radius_fraction
     )
     induced_velocity2 = semi_infinite_filament.calculate_induced_velocity(
-        control_point2
+        control_point2, gamma, core_radius_fraction
     )
     induced_velocity3 = semi_infinite_filament.calculate_induced_velocity(
-        control_point3
+        control_point3, gamma, core_radius_fraction
     )

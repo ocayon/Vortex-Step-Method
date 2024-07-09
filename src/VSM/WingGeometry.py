@@ -17,7 +17,6 @@ class Wing:
         self.sections.append(Section(LE_point, TE_point, aero_input))
 
     def refine_aerodynamic_mesh(self):
-
         # Extract LE, TE, and aero_input from the sections
         LE, TE, aero_input = (
             np.zeros((len(self.sections), 3)),
@@ -39,118 +38,113 @@ class Wing:
             ]
             return new_sections
 
-        # Calculate the length of each segment for LE and TE
-        LE_lengths = np.linalg.norm(LE[1:] - LE[:-1], axis=1)
-        TE_lengths = np.linalg.norm(TE[1:] - TE[:-1], axis=1)
+        # 1. Compute the 1/4 chord line
+        quarter_chord = LE + 0.25 * (TE - LE)
 
-        LE_total_length = np.sum(LE_lengths)
-        TE_total_length = np.sum(TE_lengths)
+        # Calculate the length of each segment for the quarter chord line
+        qc_lengths = np.linalg.norm(quarter_chord[1:] - quarter_chord[:-1], axis=1)
+        qc_total_length = np.sum(qc_lengths)
 
-        # Make cumulative arrays from 0 to the total length
-        LE_cum_length = np.concatenate(([0], np.cumsum(LE_lengths)))
-        TE_cum_length = np.concatenate(([0], np.cumsum(TE_lengths)))
+        # Make cumulative array from 0 to the total length
+        qc_cum_length = np.concatenate(([0], np.cumsum(qc_lengths)))
 
-        # Defining target_lengths array for LE and TE based on desired spacing
+        # 2. Define target lengths based on desired spacing
         if self.spanwise_panel_distribution == "linear":
-            LE_target_lengths = np.linspace(0, LE_total_length, self.n_panels + 1)
-            TE_target_lengths = np.linspace(0, TE_total_length, self.n_panels + 1)
+            target_lengths = np.linspace(0, qc_total_length, self.n_panels + 1)
         elif self.spanwise_panel_distribution == "cosine":
             theta = np.linspace(0, np.pi, self.n_panels + 1)
-            LE_target_lengths = LE_total_length * (1 - np.cos(theta)) / 2
-            TE_target_lengths = TE_total_length * (1 - np.cos(theta)) / 2
+            target_lengths = qc_total_length * (1 - np.cos(theta)) / 2
         else:
             raise ValueError("Unsupported spanwise panel distribution")
 
+        new_quarter_chord = np.zeros((self.n_panels + 1, 3))
         new_LE = np.zeros((self.n_panels + 1, 3))
         new_TE = np.zeros((self.n_panels + 1, 3))
         new_aero_input = np.empty((self.n_panels + 1,), dtype=object)
         new_sections = []
 
-        # loop over each new section, and populate it
+        # 3. Calculate new quarter chord points and interpolate aero inputs
         for i in range(self.n_panels + 1):
-            LE_target_length = LE_target_lengths[i]
-            TE_target_length = TE_target_lengths[i]
+            target_length = target_lengths[i]
 
-            # Find which segment the target length falls into for LE
-            LE_section_index = np.searchsorted(LE_cum_length, LE_target_length) - 1
-            LE_section_index = min(max(LE_section_index, 0), len(LE_cum_length) - 2)
+            # Find which segment the target length falls into
+            section_index = np.searchsorted(qc_cum_length, target_length) - 1
+            section_index = min(max(section_index, 0), len(qc_cum_length) - 2)
 
-            # Find which segment the target length falls into for TE
-            TE_section_index = np.searchsorted(TE_cum_length, TE_target_length) - 1
-            TE_section_index = min(max(TE_section_index, 0), len(TE_cum_length) - 2)
-
-            # Interpolation for LE
-            LE_segment_start_length = LE_cum_length[LE_section_index]
-            LE_segment_end_length = LE_cum_length[LE_section_index + 1]
-            LE_t = (LE_target_length - LE_segment_start_length) / (
-                LE_segment_end_length - LE_segment_start_length
+            # 4. Determine weights
+            segment_start_length = qc_cum_length[section_index]
+            segment_end_length = qc_cum_length[section_index + 1]
+            t = (target_length - segment_start_length) / (
+                segment_end_length - segment_start_length
             )
-            # Interpolation for TE
-            TE_segment_start_length = TE_cum_length[TE_section_index]
-            TE_segment_end_length = TE_cum_length[TE_section_index + 1]
-            TE_t = (TE_target_length - TE_segment_start_length) / (
-                TE_segment_end_length - TE_segment_start_length
+            left_weight = 1 - t
+            right_weight = t
+
+            # 3. Calculate new quarter chord point
+            new_quarter_chord[i] = quarter_chord[section_index] + t * (
+                quarter_chord[section_index + 1] - quarter_chord[section_index]
             )
 
-            # Keep the corner points fixed
-            if i == 0:
-                new_LE[i] = LE[0]
-                new_TE[i] = TE[0]
-                new_aero_input[i] = aero_input[0]
-            elif i == self.n_panels:
-                new_LE[i] = LE[-1]
-                new_TE[i] = TE[-1]
-                new_aero_input[i] = aero_input[-1]
-            else:
-                new_LE[i] = LE[LE_section_index] + LE_t * (
-                    LE[LE_section_index + 1] - LE[LE_section_index]
-                )
-                new_TE[i] = TE[TE_section_index] + TE_t * (
-                    TE[TE_section_index + 1] - TE[TE_section_index]
-                )
+            # 5. Compute average chord vector (corrected method)
+            left_chord = TE[section_index] - LE[section_index]
+            right_chord = TE[section_index + 1] - LE[section_index + 1]
 
-            # Edge case: different aero models over the span
-            if aero_input[LE_section_index][0] != aero_input[LE_section_index + 1][0]:
+            # Normalize the chord vectors
+            left_chord_norm = left_chord / max(np.linalg.norm(left_chord), 1e-12)
+            right_chord_norm = right_chord / max(np.linalg.norm(right_chord), 1e-12)
+
+            # Interpolate the direction
+            avg_direction = (
+                left_weight * left_chord_norm + right_weight * right_chord_norm
+            )
+            avg_direction = avg_direction / max(np.linalg.norm(avg_direction), 1e-12)
+
+            # Interpolate the length
+            left_length = np.linalg.norm(left_chord)
+            right_length = np.linalg.norm(right_chord)
+            avg_length = left_weight * left_length + right_weight * right_length
+
+            # Compute the final average chord vector
+            avg_chord = avg_direction * avg_length
+
+            # 6. Calculate new LE and TE points
+            new_LE[i] = new_quarter_chord[i] - 0.25 * avg_chord
+            new_TE[i] = new_quarter_chord[i] + 0.75 * avg_chord
+
+            # Interpolate aero_input
+            if aero_input[section_index][0] != aero_input[section_index + 1][0]:
                 raise NotImplementedError(
                     "Different aero models over the span are not supported"
                 )
 
-            if aero_input[LE_section_index][0] == "inviscid":
+            if aero_input[section_index][0] == "inviscid":
                 new_aero_input[i] = ["inviscid"]
-            elif aero_input[LE_section_index][0] == "polars":
+            elif aero_input[section_index][0] == "polars":
                 raise NotImplementedError("Polar interpolation not implemented")
-            elif aero_input[LE_section_index][0] == "lei_airfoil_breukels":
-                # Calculate how close we are to the provided sections left and right
-                left_distance = LE_target_length - LE_cum_length[LE_section_index]
-                right_distance = LE_cum_length[LE_section_index + 1] - LE_target_length
-                total_distance = left_distance + right_distance
-                left_weight = right_distance / total_distance
-                right_weight = left_distance / total_distance
-                # Interpolate the aero_input values
-                tube_diameter_left = aero_input[LE_section_index][1][0]
-                tube_diameter_right = aero_input[LE_section_index + 1][1][0]
+            elif aero_input[section_index][0] == "lei_airfoil_breukels":
+                tube_diameter_left = aero_input[section_index][1][0]
+                tube_diameter_right = aero_input[section_index + 1][1][0]
                 tube_diameter_i = (
                     tube_diameter_left * left_weight
                     + tube_diameter_right * right_weight
                 )
-                chamber_height_left = aero_input[LE_section_index][1][1]
-                chamber_height_right = aero_input[LE_section_index + 1][1][1]
+
+                chamber_height_left = aero_input[section_index][1][1]
+                chamber_height_right = aero_input[section_index + 1][1][1]
                 chamber_height_i = (
                     chamber_height_left * left_weight
                     + chamber_height_right * right_weight
                 )
+
                 new_aero_input[i] = [
                     "lei_airfoil_breukels",
                     [tube_diameter_i, chamber_height_i],
                 ]
 
-                logging.debug(f"left_distance: {left_distance}")
-                logging.debug(f"right_distance: {right_distance}")
                 logging.debug(f"left_weight: {left_weight}")
                 logging.debug(f"right_weight: {right_weight}")
-                logging.debug(f"tube_diameter_left: {tube_diameter_left}")
-                logging.debug(f"tube_diameter_right: {tube_diameter_right}")
                 logging.debug(f"tube_diameter_i: {tube_diameter_i}")
+                logging.debug(f"chamber_height_i: {chamber_height_i}")
 
             new_sections.append(Section(new_LE[i], new_TE[i], new_aero_input[i]))
 

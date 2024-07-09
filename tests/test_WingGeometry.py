@@ -133,26 +133,67 @@ def test_refine_aeordynamic_mesh_more_sections_than_panels():
         np.testing.assert_allclose(sections[i].TE_point, expected_TE, rtol=1e-4)
 
 
-def test_refine_aerodynamic_mesh_for_different_LE_and_TE_distances():
+def test_refine_aerodynamic_mesh_for_symmetrical_wing():
     n_panels = 2
-    span = 20
+    span = 10  # Total span from -5 to 5
 
     wing = Wing(n_panels, spanwise_panel_distribution="linear")
-    wing.add_section([0, -10, 0], [-1, -10, 0], ["inviscid"])
-    wing.add_section([0, 5, 0], [-1, 10, 0], ["inviscid"])
+    wing.add_section([0, -5, 0], [-1, -5, 0], ["inviscid"])
+    wing.add_section([0, 5, 0], [-1, 5, 0], ["inviscid"])
 
     sections = wing.refine_aerodynamic_mesh()
 
-    expected_LE_y = [-10, -2.5, 5]
+    # Calculate expected quarter-chord points
+    qc_start = np.array([0.25 * -1, -5, 0])
+    qc_end = np.array([0.25 * -1, 5, 0])
+    expected_qc_y = np.linspace(qc_start[1], qc_end[1], n_panels + 1)
 
     for i, section in enumerate(sections):
-        # Calculate expected points for linear interpolation
-        expected_LE = np.array([0, expected_LE_y[i], 0])
-        expected_TE = np.array([-1, -span / 2 + i * span / n_panels, 0])
+        # Calculate expected quarter-chord point
+        expected_qc = np.array([0.25 * -1, expected_qc_y[i], 0])
+
+        # Calculate expected chord vector
+        chord_start = np.array([-1, -5, 0]) - np.array([0, -5, 0])
+        chord_end = np.array([-1, 5, 0]) - np.array([0, 5, 0])
+        t = (expected_qc_y[i] - qc_start[1]) / (qc_end[1] - qc_start[1])
+
+        # Normalize chord vectors
+        chord_start_norm = chord_start / np.linalg.norm(chord_start)
+        chord_end_norm = chord_end / np.linalg.norm(chord_end)
+
+        # Interpolate direction
+        avg_direction = (1 - t) * chord_start_norm + t * chord_end_norm
+        avg_direction = avg_direction / np.linalg.norm(avg_direction)
+
+        # Interpolate length
+        chord_start_length = np.linalg.norm(chord_start)
+        chord_end_length = np.linalg.norm(chord_end)
+        avg_length = (1 - t) * chord_start_length + t * chord_end_length
+
+        expected_chord = avg_direction * avg_length
+
+        # Calculate expected LE and TE points
+        expected_LE = expected_qc - 0.25 * expected_chord
+        expected_TE = expected_qc + 0.75 * expected_chord
+
+        print(f"Section {i}:")
+        print(f"  Expected LE: {expected_LE}")
+        print(f"  Actual LE:   {section.LE_point}")
+        print(f"  Expected TE: {expected_TE}")
+        print(f"  Actual TE:   {section.TE_point}")
+        print(f"  Expected chord: {expected_chord}")
+        print(f"  Actual chord:   {section.TE_point - section.LE_point}")
 
         # Check interpolated points with adjusted tolerance
-        np.testing.assert_allclose(section.LE_point, expected_LE, rtol=1e-5)
-        np.testing.assert_allclose(section.TE_point, expected_TE, rtol=1e-4)
+        np.testing.assert_allclose(section.LE_point, expected_LE, rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(section.TE_point, expected_TE, rtol=1e-5, atol=1e-5)
+
+    # Additional checks
+    assert len(sections) == n_panels + 1
+    assert sections[0].LE_point[1] == pytest.approx(-5, abs=1e-5)
+    assert sections[-1].LE_point[1] == pytest.approx(5, abs=1e-5)
+    assert sections[0].TE_point[1] == pytest.approx(-5, abs=1e-5)
+    assert sections[-1].TE_point[1] == pytest.approx(5, abs=1e-5)
 
 
 def test_refine_aeordynamic_mesh_lei_airfoil_interpolation():

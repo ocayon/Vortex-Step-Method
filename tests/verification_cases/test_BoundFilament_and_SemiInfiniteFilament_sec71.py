@@ -70,7 +70,7 @@ def test_combined_filaments():
         velocity_induced = 0
         for filament in horseshoes[i]:
             velocity_induced += filament.calculate_induced_velocity(
-                control_point, gammas[i]
+                control_point, gammas[i], core_radius_fraction=0.01
             )[2]
 
         solution[i] = velocity_induced

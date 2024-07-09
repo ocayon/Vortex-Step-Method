@@ -22,7 +22,7 @@ def x_coords(y_coords, chord_root, span):
     return chord_root * np.sqrt(1 - (2 * y_coords / span) ** 2)
 
 
-def calculate_elliptical_wing(n_panels, plot_wing=False):
+def calculate_elliptical_wing(n_panels, plot_wing=False, spacing="linear"):
     # Constants
     density = 1.225  # kg/m^3
     span = 5  # m
@@ -31,7 +31,7 @@ def calculate_elliptical_wing(n_panels, plot_wing=False):
     Umag = 10  # m/s
 
     # Create the wing
-    wing = Wing(n_panels)  # Adjust the number of panels as needed
+    wing = Wing(n_panels, spacing)  # Adjust the number of panels as needed
 
     # Add sections to the wing using cosine distribution
     y_coords = cosspace(-span / 2, span / 2, 10)
@@ -114,8 +114,8 @@ def calculate_elliptical_wing(n_panels, plot_wing=False):
 #         )
 
 
-def plot_elliptic_wing(n_panels, plot_wing=False):
-    results = calculate_elliptical_wing(n_panels, plot_wing)
+def plot_elliptic_wing(n_panels, plot_wing=False, spacing="linear"):
+    results = calculate_elliptical_wing(n_panels, plot_wing, spacing)
 
     # Extract results for plotting
     aoa_list = []
@@ -173,4 +173,4 @@ def plot_elliptic_wing(n_panels, plot_wing=False):
 
 if __name__ == "__main__":
     # plot_elliptic_wing(3, True)
-    plot_elliptic_wing(40, True)
+    plot_elliptic_wing(20, plot_wing=True, spacing="cosine")

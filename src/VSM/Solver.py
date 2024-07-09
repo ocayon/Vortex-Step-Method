@@ -163,13 +163,15 @@ class Solver:
                 break
 
         if converged:
-            print(" ")
+            print("------------------------------------")
             print(f"{self.aerodynamic_model_type} Converged after {i} iterations")
             print("------------------------------------")
         if not converged:
+            print("------------------------------------")
             print(
                 f"{self.aerodynamic_model_type} Not converged after {str(self.max_iterations)} iterations"
             )
+            print("------------------------------------")
 
         wing_aero.calculate_gamma_distribution(
             gamma_distribution=gamma,

@@ -441,7 +441,7 @@ def test_calculate_velocity_induced_bound_2D(sample_panel):
     control_point = np.array([0.5, 5, 0])
     gamma = 1.0
     induced_velocity = sample_panel.calculate_velocity_induced_bound_2D(
-        control_point, gamma
+        control_point, gamma, core_radius_fraction=0.01
     )
 
     assert isinstance(induced_velocity, np.ndarray)
@@ -452,7 +452,7 @@ def test_calculate_velocity_induced_horseshoe(sample_panel):
     control_point = np.array([0.5, 5, 0])
     gamma = 1.0
     induced_velocity = sample_panel.calculate_velocity_induced_horseshoe(
-        control_point, gamma
+        control_point, gamma, core_radius_fraction=0.01
     )
 
     assert isinstance(induced_velocity, np.ndarray)

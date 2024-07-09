@@ -3,11 +3,21 @@ import numpy as np
 from VSM.Filament import BoundFilament
 
 
-def test_calculate_induced_velocity():
+# Define fixtures for core_radius_fraction and gamma
+@pytest.fixture
+def core_radius_fraction():
+    return 0.01
+
+
+@pytest.fixture
+def gamma():
+    return 1.0
+
+
+def test_calculate_induced_velocity(gamma, core_radius_fraction):
     # Define a simple filament and control point
     filament = BoundFilament([0, 0, 0], [1, 0, 0])
     control_point = [0.5, 1, 0]
-    gamma = 1.0
 
     # Analytical solution using Biot-Savart law
     A = np.array([0, 0, 0])
@@ -27,7 +37,7 @@ def test_calculate_induced_velocity():
 
     # Calculated solution using the BoundFilament class method
     induced_velocity_calculated = filament.calculate_induced_velocity(
-        control_point, gamma
+        control_point, gamma, core_radius_fraction
     )
 
     # Assert the induced velocities are almost equal
@@ -36,27 +46,28 @@ def test_calculate_induced_velocity():
     )
 
 
-@pytest.mark.parametrize(
-    "point",
-    [
-        [0, 0, 0],  # Start point
-        [1, 0, 0],  # End point
-        [0.5, 0, 0],  # Middle point
-    ],
-)
-def test_point_exactly_on_filament(point):
+def test_point_exactly_on_filament(gamma, core_radius_fraction):
     """Test points exactly on the filament."""
+    point = [
+        [0, 0, 0],  # start point
+        [1, 0, 0],  # end point
+        [0.5, 0, 0],  # middle point
+    ]
     filament = BoundFilament([0, 0, 0], [1, 0, 0])
-    induced_velocity = filament.calculate_induced_velocity(point)
+    induced_velocity = filament.calculate_induced_velocity(
+        point, gamma, core_radius_fraction
+    )
     assert np.allclose(induced_velocity, [0, 0, 0])
     assert not np.isnan(induced_velocity).any()
 
 
-def test_long_filament():
+def test_long_filament(gamma, core_radius_fraction):
     """Test with a very long filament to ensure numerical stability."""
     filament = BoundFilament([0, 0, 0], [1e6, 0, 0])
     control_point = [5e5, 1, 0]
-    induced_velocity = filament.calculate_induced_velocity(control_point)
+    induced_velocity = filament.calculate_induced_velocity(
+        control_point, gamma, core_radius_fraction
+    )
     assert not np.isnan(induced_velocity).any()
     assert np.allclose(
         induced_velocity[0], 0, atol=1e-10
@@ -65,46 +76,59 @@ def test_long_filament():
     assert np.isclose(induced_velocity[2], 0)  # z-component should be zero
 
 
-def test_point_far_from_filament():
+def test_point_far_from_filament(gamma, core_radius_fraction):
     """Test with a point far from the filament."""
     filament = BoundFilament([0, 0, 0], [1, 0, 0])
     control_point = [0.5, 1e6, 0]
-    induced_velocity = filament.calculate_induced_velocity(control_point)
+    induced_velocity = filament.calculate_induced_velocity(
+        control_point, gamma, core_radius_fraction
+    )
     assert not np.isnan(induced_velocity).any()
     assert np.allclose(
         induced_velocity, [0, 0, 0], atol=1e-12
     )  # Velocity should be very close to zero
 
 
-def test_different_gamma_values():
+def test_different_gamma_values(core_radius_fraction):
     """Test with different gamma values to ensure linear scaling."""
     filament = BoundFilament([0, 0, 0], [1, 0, 0])
     control_point = [0.5, 1, 0]
-    v1 = filament.calculate_induced_velocity(control_point, gamma=1.0)
-    v2 = filament.calculate_induced_velocity(control_point, gamma=2.0)
-    v4 = filament.calculate_induced_velocity(control_point, gamma=4.0)
+    v1 = filament.calculate_induced_velocity(
+        control_point, gamma=1.0, core_radius_fraction=core_radius_fraction
+    )
+    v2 = filament.calculate_induced_velocity(
+        control_point, gamma=2.0, core_radius_fraction=core_radius_fraction
+    )
+    v4 = filament.calculate_induced_velocity(
+        control_point, gamma=4.0, core_radius_fraction=core_radius_fraction
+    )
     assert np.allclose(v4, 2 * v2, 4 * v1)
 
 
-def test_symmetry():
+def test_symmetry(gamma, core_radius_fraction):
     """Test symmetry of induced velocity for symmetric points."""
     filament = BoundFilament([-1, 0, 0], [1, 0, 0])
-    v1 = filament.calculate_induced_velocity([0, 1, 0])
-    v2 = filament.calculate_induced_velocity([0, -1, 0])
+    v1 = filament.calculate_induced_velocity([0, 1, 0], gamma, core_radius_fraction)
+    v2 = filament.calculate_induced_velocity([0, -1, 0], gamma, core_radius_fraction)
     assert np.allclose(v1, -v2)
 
 
-def test_around_core_radius():
+def test_around_core_radius(gamma, core_radius_fraction):
     """Test with a points around the core radius to the filament to check handling of near-singularities."""
     filament = BoundFilament([0, 0, 0], [1, 0, 0])
-    core_radius_fraction = 0.01
     delta = 1e-5
     control_point1 = [0.5, core_radius_fraction - delta, 0]
     control_point2 = [0.5, core_radius_fraction, 0]
     control_point3 = [0.5, core_radius_fraction + delta, 0]
-    induced_velocity1 = filament.calculate_induced_velocity(control_point1)
-    induced_velocity2 = filament.calculate_induced_velocity(control_point2)
-    induced_velocity3 = filament.calculate_induced_velocity(control_point3)
+    induced_velocity1 = filament.calculate_induced_velocity(
+        control_point1, gamma, core_radius_fraction
+    )
+    induced_velocity2 = filament.calculate_induced_velocity(
+        control_point2, gamma, core_radius_fraction
+    )
+    induced_velocity3 = filament.calculate_induced_velocity(
+        control_point3, gamma, core_radius_fraction
+    )
 
     # Check for NaN values
     assert not np.isnan(induced_velocity1).any()
@@ -138,6 +162,6 @@ def test_around_core_radius():
 
     # Optional: Check for symmetry if we flip the y-coordinate
     induced_velocity_neg = filament.calculate_induced_velocity(
-        [0.5, -core_radius_fraction, 0]
+        [0.5, -core_radius_fraction, 0], gamma, core_radius_fraction
     )
     assert np.allclose(induced_velocity2, -induced_velocity_neg)
