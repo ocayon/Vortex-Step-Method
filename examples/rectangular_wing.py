@@ -13,7 +13,9 @@ from copy import deepcopy
 # Create a wing object
 wing = Wing(n_panels=50)
 
-# Add sections to the wing
+## Add sections to the wing
+# MUST be done in order from left-to-right
+# Sections MUST be defined perpendicular to the quarter-chord line
 # arguments are: (leading edge position [x,y,z], trailing edge position [x,y,z], airfoil data)
 # airfoil data can be:
 # ['inviscid']

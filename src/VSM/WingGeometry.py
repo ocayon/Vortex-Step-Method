@@ -17,20 +17,47 @@ class Wing:
         self.sections.append(Section(LE_point, TE_point, aero_input))
 
     def refine_aerodynamic_mesh(self):
-        LE = np.array([section.LE_point for section in self.sections])
-        TE = np.array([section.TE_point for section in self.sections])
-        aero_input = np.array([section.aero_input for section in self.sections])
 
-        lengths = np.linalg.norm(LE[1:] - LE[:-1], axis=1)
-        n_provided = np.sum(lengths)
-        cum_length = np.concatenate(([0], np.cumsum(lengths)))
+        # Extract LE, TE, and aero_input from the sections
+        LE, TE, aero_input = (
+            np.zeros((len(self.sections), 3)),
+            np.zeros((len(self.sections), 3)),
+            [],
+        )
+        for i, section in enumerate(self.sections):
+            LE[i] = section.LE_point
+            TE[i] = section.TE_point
+            aero_input.append(section.aero_input)
 
+        # Edge cases
+        if len(LE) != len(TE) or len(LE) != len(aero_input):
+            raise ValueError("LE, TE, and aero_input must have the same length")
+        if self.n_panels == 1:
+            new_sections = [
+                Section(LE[0], TE[0], aero_input[0]),
+                Section(LE[-1], TE[-1], aero_input[-1]),
+            ]
+            return new_sections
+
+        # Calculate the length of each segment for LE and TE
+        LE_lengths = np.linalg.norm(LE[1:] - LE[:-1], axis=1)
+        TE_lengths = np.linalg.norm(TE[1:] - TE[:-1], axis=1)
+
+        LE_total_length = np.sum(LE_lengths)
+        TE_total_length = np.sum(TE_lengths)
+
+        # Make cumulative arrays from 0 to the total length
+        LE_cum_length = np.concatenate(([0], np.cumsum(LE_lengths)))
+        TE_cum_length = np.concatenate(([0], np.cumsum(TE_lengths)))
+
+        # Defining target_lengths array for LE and TE based on desired spacing
         if self.spanwise_panel_distribution == "linear":
-            target_lengths = np.linspace(0, n_provided, self.n_panels + 1)
+            LE_target_lengths = np.linspace(0, LE_total_length, self.n_panels + 1)
+            TE_target_lengths = np.linspace(0, TE_total_length, self.n_panels + 1)
         elif self.spanwise_panel_distribution == "cosine":
-            # Cosine spacing formula
             theta = np.linspace(0, np.pi, self.n_panels + 1)
-            target_lengths = n_provided * (1 - np.cos(theta)) / 2
+            LE_target_lengths = LE_total_length * (1 - np.cos(theta)) / 2
+            TE_target_lengths = TE_total_length * (1 - np.cos(theta)) / 2
         else:
             raise ValueError("Unsupported spanwise panel distribution")
 
@@ -39,56 +66,97 @@ class Wing:
         new_aero_input = np.empty((self.n_panels + 1,), dtype=object)
         new_sections = []
 
-        for i, target_length in enumerate(target_lengths):
-            section_index = np.searchsorted(cum_length, target_length) - 1
-            section_index = min(max(section_index, 0), len(cum_length) - 2)
+        # loop over each new section, and populate it
+        for i in range(self.n_panels + 1):
+            LE_target_length = LE_target_lengths[i]
+            TE_target_length = TE_target_lengths[i]
+
+            # Find which segment the target length falls into for LE
+            LE_section_index = np.searchsorted(LE_cum_length, LE_target_length) - 1
+            LE_section_index = min(max(LE_section_index, 0), len(LE_cum_length) - 2)
+
+            # Find which segment the target length falls into for TE
+            TE_section_index = np.searchsorted(TE_cum_length, TE_target_length) - 1
+            TE_section_index = min(max(TE_section_index, 0), len(TE_cum_length) - 2)
+
+            # Interpolation for LE
+            LE_segment_start_length = LE_cum_length[LE_section_index]
+            LE_segment_end_length = LE_cum_length[LE_section_index + 1]
+            LE_t = (LE_target_length - LE_segment_start_length) / (
+                LE_segment_end_length - LE_segment_start_length
+            )
+            # Interpolation for TE
+            TE_segment_start_length = TE_cum_length[TE_section_index]
+            TE_segment_end_length = TE_cum_length[TE_section_index + 1]
+            TE_t = (TE_target_length - TE_segment_start_length) / (
+                TE_segment_end_length - TE_segment_start_length
+            )
 
             # Keep the corner points fixed
             if i == 0:
-                print(f"first section index: {section_index}")
                 new_LE[i] = LE[0]
                 new_TE[i] = TE[0]
                 new_aero_input[i] = aero_input[0]
             elif i == self.n_panels:
-                print(f"last section index: {section_index}")
                 new_LE[i] = LE[-1]
                 new_TE[i] = TE[-1]
                 new_aero_input[i] = aero_input[-1]
             else:
-                segment_start_length = cum_length[section_index]
-                segment_end_length = cum_length[section_index + 1]
-                t = (target_length - segment_start_length) / (
-                    segment_end_length - segment_start_length
+                new_LE[i] = LE[LE_section_index] + LE_t * (
+                    LE[LE_section_index + 1] - LE[LE_section_index]
                 )
-
-                new_LE[i] = LE[section_index] + t * (
-                    LE[section_index + 1] - LE[section_index]
-                )
-                new_TE[i] = TE[section_index] + t * (
-                    TE[section_index + 1] - TE[section_index]
+                new_TE[i] = TE[TE_section_index] + TE_t * (
+                    TE[TE_section_index + 1] - TE[TE_section_index]
                 )
 
             print(f"new_LE[i]: {new_LE[i]}, new_TE[i]: {new_TE[i]}")
 
-            if aero_input[section_index][0] != aero_input[section_index + 1][0]:
+            # Edge case: different aero models over the span
+            if aero_input[LE_section_index][0] != aero_input[LE_section_index + 1][0]:
                 raise NotImplementedError(
                     "Different aero models over the span are not supported"
                 )
 
-            if aero_input[section_index][0] == "inviscid":
+            if aero_input[LE_section_index][0] == "inviscid":
                 new_aero_input[i] = ["inviscid"]
-            elif aero_input[section_index][0] == "polars":
+            elif aero_input[LE_section_index][0] == "polars":
                 raise NotImplementedError("Polar interpolation not implemented")
-            elif aero_input[section_index][0] == "lei_airfoil_breukels":
-                raise NotImplementedError("Geometric interpolation not implemented")
+            elif aero_input[LE_section_index][0] == "lei_airfoil_breukels":
+                # Calculate how close we are to the provided sections left and right
+                left_distance = LE_target_length - LE_cum_length[LE_section_index]
+                right_distance = LE_cum_length[LE_section_index + 1] - LE_target_length
+                total_distance = left_distance + right_distance
+                left_weight = right_distance / total_distance
+                right_weight = left_distance / total_distance
+                # Interpolate the aero_input values
+                tube_diameter_left = aero_input[LE_section_index][1][0]
+                tube_diameter_right = aero_input[LE_section_index + 1][1][0]
+                tube_diameter_i = (
+                    tube_diameter_left * left_weight
+                    + tube_diameter_right * right_weight
+                )
+                chamber_height_left = aero_input[LE_section_index][1][1]
+                chamber_height_right = aero_input[LE_section_index + 1][1][1]
+                chamber_height_i = (
+                    chamber_height_left * left_weight
+                    + chamber_height_right * right_weight
+                )
+                new_aero_input[i] = [
+                    "lei_airfoil_breukels",
+                    [tube_diameter_i, chamber_height_i],
+                ]
+
+                print(f"left_distance: {left_distance}")
+                print(f"right_distance: {right_distance}")
+                print(f"left_weight: {left_weight}")
+                print(f"right_weight: {right_weight}")
+                print(f"tube_diameter_left: {tube_diameter_left}")
+                print(f"tube_diameter_right: {tube_diameter_right}")
+                print(f"tube_diameter_i: {tube_diameter_i}")
 
             new_sections.append(Section(new_LE[i], new_TE[i], new_aero_input[i]))
 
         return new_sections
-
-    # @property
-    # def n_panels(self):
-    #     return self.n_panels
 
     # TODO: add test here, assessing for example the types of the inputs
     def calculate_wing_span(self):
@@ -120,11 +188,3 @@ class Section:
     LE_point: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
     TE_point: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
     aero_input: list = field(default_factory=list)
-
-    # Ideas on what the other aero_input could be populated with:
-    # ['polars', [CL_alpha, CD_alpha, CM_alpha]]
-    # ['lei_airfoil_breukels', [tube_diameter, chamber_height]]
-
-    # CL_alpha: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
-    # CD_alpha: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
-    # CM_alpha: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
