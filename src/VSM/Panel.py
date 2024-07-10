@@ -304,7 +304,7 @@ class Panel:
                 cl = 2 * np.cos(alpha) * np.sin(alpha) ** 2
             return cl
         elif self._panel_aero_model == "inviscid":
-            return 2 * np.pi * np.sin(alpha)
+            return 2 * np.pi * alpha
         elif self._panel_aero_model == "polar_data":
             return np.interp(
                 alpha, self._panel_polar_data[:, 0], self._panel_polar_data[:, 1]

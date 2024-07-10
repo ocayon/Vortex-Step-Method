@@ -74,9 +74,9 @@ def calculate_elliptical_wing(
         results_VSM, wing_aero_VSM = VSM.solve(wing_aero, VSM_gamma_distribution)
         results_LLT, wing_aero_LLT = LLT.solve(wing_aero, LLT_gamma_distribution)
 
-        # Populate gamma_distributions for next iteration
-        VSM_gamma_distribution = wing_aero_VSM.gamma_distribution
-        LLT_gamma_distribution = wing_aero_LLT.gamma_distribution
+        # # Populate gamma_distributions for next iteration
+        # VSM_gamma_distribution = wing_aero_VSM.gamma_distribution
+        # LLT_gamma_distribution = wing_aero_LLT.gamma_distribution
 
         # Analytical solutions
         CL_analytic = (2 * np.pi * aoa_rad) / (1 + 2 / AR)
@@ -194,7 +194,11 @@ def plot_elliptic_wing(n_panels, AR, plot_wing=False, spacing="linear", aoa_deg=
 
 if __name__ == "__main__":
 
-    aoa_deg = np.linspace(0, 19, 19)
-    aoa_deg = [3]
-    # plot_elliptic_wing(60, AR=3, plot_wing=True, spacing="cosine", aoa_deg=aoa_deg)
-    plot_elliptic_wing(40, AR=20, plot_wing=True, spacing="cosine", aoa_deg=aoa_deg)
+    # aoa_deg = np.linspace(0, 19, 19)
+    aoa_deg = [3, 6, 9]
+    # aoa_deg = [0]
+    # plot_elliptic_wing(20, AR=3, plot_wing=True, spacing="cosine", aoa_deg=aoa_deg)
+    plot_elliptic_wing(
+        40, AR=20, plot_wing=True, spacing="cosine_van_Garrel", aoa_deg=aoa_deg
+    )
+    # plot_elliptic_wing(40, AR=20, plot_wing=True, spacing="cosine", aoa_deg=aoa_deg)

@@ -175,7 +175,7 @@ class WingAerodynamics:
 
         wing_span = self.wings[0].calculate_wing_span()
 
-        logging.info(f"wing_span: {wing_span}")
+        logging.debug(f"wing_span: {wing_span}")
 
         y = np.array([panel.control_point[1] for panel in self.panels])
         gamma_i_wing = gamma_0 * np.sqrt(1 - (2 * y / wing_span) ** 2)
@@ -199,30 +199,10 @@ class WingAerodynamics:
             self._gamma_distribution = (
                 self.calculate_circulation_distribution_elliptical_wing()
             )
-
-            plt.figure()
-            plt.title("gamma_distribution")
-            x_values = np.linspace(
-                -self.wings[0].calculate_wing_span(),
-                self.wings[0].calculate_wing_span(),
-                len(self._gamma_distribution),
-            )
-            plt.plot(x_values, self._gamma_distribution)
-            plt.show()
-
             return self._gamma_distribution
         elif (
             gamma_distribution is not None and len(gamma_distribution) == self._n_panels
         ):
-            plt.figure()
-            plt.title("gamma_distribution")
-            x_values = np.linspace(
-                -self.wings[0].calculate_wing_span(),
-                self.wings[0].calculate_wing_span(),
-                len(self._gamma_distribution),
-            )
-            plt.plot(x_values, self._gamma_distribution)
-            plt.show()
             return self._gamma_distribution
 
     def calculate_results(self, density):
