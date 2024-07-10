@@ -61,6 +61,10 @@ class WingAerodynamics:
     def gamma_distribution(self):
         return self._gamma_distribution
 
+    @property
+    def wings(self):
+        return self._wings
+
     ###########################
     ## SETTER FUNCTIONS
     ###########################
@@ -72,8 +76,8 @@ class WingAerodynamics:
     @va.setter
     def va(self, va, yaw_rate: float = 0.0):
 
-        # Removing old wake filaments
-        self.panels = Wake.remove_frozen_wake(self.panels)
+        # # Removing old wake filaments
+        # self.panels = Wake.remove_frozen_wake(self.panels)
 
         self._va = np.array(va)
         self._yaw_rate = yaw_rate
@@ -153,33 +157,34 @@ class WingAerodynamics:
 
         return MatrixU, MatrixV, MatrixW
 
-    def calculate_circulation_distribution_elliptical_wing(self, gamma_0):
+    # TODO: be aware that gamma_0 is NEGATIVE, to accompany the weird reference frame
+    def calculate_circulation_distribution_elliptical_wing(self, gamma_0=-1):
         """
         Calculates the circulation distribution for an elliptical wing.
 
         Args:
+            wings (list): List of wing instances
             gamma_0 (float): The circulation at the wing root
 
         Returns:
             np.array: The circulation distribution
         """
         gamma_i = np.array([])
-        # Calculating the wing_span from the panels
-        for _, (wing_instance, n_panels) in enumerate(
-            zip(self._wings, self._n_panels_per_wing)
-        ):
-            # calculating the wing-span of each wing
-            wing_span = wing_instance.calculate_wing_span()
+        if len(self.wings) > 1:
+            raise NotImplementedError("Multiple wings not yet implemented")
 
-            y = np.linspace(-wing_span / 2, wing_span / 2, int(n_panels - 1))
-            gamma_i_wing = gamma_0 * np.sqrt(1 - (2 * y / wing_span) ** 2)
-            gamma_i = np.append(gamma_i, gamma_i_wing)
+        wing_span = self.wings[0].calculate_wing_span()
 
-        return gamma_i * 0
+        logging.info(f"wing_span: {wing_span}")
 
-    # TODO: needs work
+        y = np.array([panel.control_point[1] for panel in self.panels])
+        gamma_i_wing = gamma_0 * np.sqrt(1 - (2 * y / wing_span) ** 2)
+        gamma_i = np.append(gamma_i, gamma_i_wing)
+
+        return gamma_i
+
     def calculate_gamma_distribution(
-        self, gamma_distribution, initial_gamma_distribution
+        self, gamma_distribution, type_initial_gamma_distribution
     ):
         """Calculates the circulation distribution for the wing
 
@@ -189,20 +194,36 @@ class WingAerodynamics:
         Returns:
             np.array: The circulation distribution
         """
-        # remove hardcode
-        gamma_0 = 1
-        if gamma_distribution is None and initial_gamma_distribution == "elliptic":
-            gamma_distribution = (
-                self.calculate_circulation_distribution_elliptical_wing(gamma_0)
+
+        if gamma_distribution is None and type_initial_gamma_distribution == "elliptic":
+            self._gamma_distribution = (
+                self.calculate_circulation_distribution_elliptical_wing()
             )
+
+            plt.figure()
+            plt.title("gamma_distribution")
+            x_values = np.linspace(
+                -self.wings[0].calculate_wing_span(),
+                self.wings[0].calculate_wing_span(),
+                len(self._gamma_distribution),
+            )
+            plt.plot(x_values, self._gamma_distribution)
+            plt.show()
+
+            return self._gamma_distribution
         elif (
-            gamma_distribution is not None and len(gamma_distribution) != self._n_panels
+            gamma_distribution is not None and len(gamma_distribution) == self._n_panels
         ):
-            raise ValueError(
-                f"Invalid gamma distribution, len(gamma_distribution) :{len(gamma_distribution)} != self._n_panels:{self._n_panels}"
+            plt.figure()
+            plt.title("gamma_distribution")
+            x_values = np.linspace(
+                -self.wings[0].calculate_wing_span(),
+                self.wings[0].calculate_wing_span(),
+                len(self._gamma_distribution),
             )
-        self._gamma_distribution = gamma_distribution
-        return gamma_distribution
+            plt.plot(x_values, self._gamma_distribution)
+            plt.show()
+            return self._gamma_distribution
 
     def calculate_results(self, density):
         """Update spanwise local values and calculate the aerodynamics of the wing

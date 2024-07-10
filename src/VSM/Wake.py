@@ -24,38 +24,26 @@ def frozen_wake(
         va_i = va_distribution[i]
         vel_mag = np.linalg.norm(va_i)
         direction = va_i / np.linalg.norm(va_i)
-        panel.filaments.append(
-            SemiInfiniteFilament(
+
+        # Ensuring that not older runs, their filaments remain present
+        if len(panel.filaments) == 3:
+            panel.filaments.append(
+                SemiInfiniteFilament(
+                    panel.TE_point_1, direction, vel_mag, filament_direction=-1
+                )
+            )
+            panel.filaments.append(
+                SemiInfiniteFilament(
+                    panel.TE_point_2, direction, vel_mag, filament_direction=1
+                )
+            )
+        elif len(panel.filaments) == 5:
+            panel.filaments[3] = SemiInfiniteFilament(
                 panel.TE_point_1, direction, vel_mag, filament_direction=-1
             )
-        )
-        panel.filaments.append(
-            SemiInfiniteFilament(
+            panel.filaments[4] = SemiInfiniteFilament(
                 panel.TE_point_2, direction, vel_mag, filament_direction=1
             )
-        )
+        else:
+            raise ValueError("The panel has an unexpected number of filaments")
     return panels
-
-
-def remove_frozen_wake(panels):
-    """Remove the wake filaments from the panels
-
-    Arguments:
-        panels {List[Panel]} -- List of Panel Objects
-
-    Returns:
-        List[Panel] -- List of Panel Objects without the wake filaments
-    """
-    panels_without_wake = []
-    # looping through each panel
-    for i, panel in enumerate(panels):
-        filament_without_wake = []
-        # looping through each filament in the panel
-        for filament in panel.filaments:
-            # only if the filament is not a SemiInfiniteFilament, it may stay
-            if not isinstance(filament, SemiInfiniteFilament):
-                filament_without_wake.append(filament)
-        # Updating the panel definition
-        panel.filaments = filament_without_wake
-        panels_without_wake.append(panel)
-    return panels_without_wake

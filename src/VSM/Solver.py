@@ -24,7 +24,7 @@ class Solver:
         tol_reference_error: float = 0.001,
         relaxation_factor: float = 0.03,
         artificial_damping: dict = {"k2": 0.0, "k4": 0.0},
-        initial_gamma_distribution: str = "elliptic",
+        type_initial_gamma_distribution: str = "elliptic",
         core_radius_fraction: float = 0.01,
         ## TODO: would be nice to having these defined here instead of inside the panel class?
         # aerodynamic_center_location: float = 0.25,
@@ -40,29 +40,29 @@ class Solver:
         self.tol_reference_error = tol_reference_error
         self.relaxation_factor = relaxation_factor
         self.artificial_damping = artificial_damping
-        self.initial_gamma_distribition = initial_gamma_distribution
+        self.type_initial_gamma_distribution = type_initial_gamma_distribution
         self.core_radius_fraction = core_radius_fraction
 
-    def solve(self, wing_aero):
+    def solve(self, wing_aero, gamma_distribution=None):
 
         if wing_aero.va is None:
             raise ValueError("Inflow conditions are not set")
 
         # Solve the circulation distribution
-        wing_aero = self.solve_iterative_loop(wing_aero)
+        wing_aero = self.solve_iterative_loop(wing_aero, gamma_distribution)
 
         results = wing_aero.calculate_results(self.density)
 
         return results, wing_aero
 
-    def solve_iterative_loop(self, wing_aero):
+    def solve_iterative_loop(self, wing_aero, gamma_distribution):
         AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
             self.aerodynamic_model_type, self.core_radius_fraction
         )
         # initialize gamma distribution
         gamma_new = wing_aero.calculate_gamma_distribution(
-            gamma_distribution=None,
-            initial_gamma_distribution=self.initial_gamma_distribition,
+            gamma_distribution,
+            type_initial_gamma_distribution=self.type_initial_gamma_distribution,
         )
         # logging.info("Initial gamma_new: %s", gamma_new)
 
@@ -175,7 +175,7 @@ class Solver:
 
         wing_aero.calculate_gamma_distribution(
             gamma_distribution=gamma,
-            initial_gamma_distribution=self.initial_gamma_distribition,
+            type_initial_gamma_distribution=self.type_initial_gamma_distribution,
         )
         wing_aero.update_effective_angle_of_attack(
             alpha, self.aerodynamic_model_type, self.core_radius_fraction
