@@ -216,19 +216,6 @@ class WingAerodynamics:
             wing_aero (WingAerodynamics): The updated WingAerodynamics object
         """
 
-        # Update the aerodynamic coefficients of each panel
-        cl_array, cd_array, cm_array = (
-            np.zeros(len(self.panels)),
-            np.zeros(len(self.panels)),
-            np.zeros(len(self.panels)),
-        )
-        for i, panel_i in enumerate(self.panels):
-            cl = panel_i.calculate_cl(self._alpha_aerodynamic_center[i])
-            cd, cm = panel_i.calculate_cd_cm(self._alpha_aerodynamic_center[i])
-            cl_array[i] = cl
-            cd_array[i] = cd
-            cm_array[i] = cm
-
         # Calculate the global aerodynamics of the wing
         F_rel = []
         F_gl = []
@@ -351,8 +338,15 @@ class WingAerodynamics:
         results_dict.update([("cs", cs)])
 
         # Local aerodynamics
-        cl_distribution = [-cl for cl in cl_array]
-        cd_distribution = [-cd for cd in cd_array]
+        cl_distribution, cd_distribution, cm_array = [], [], []
+        for i, panel_i in enumerate(self.panels):
+            cl = panel_i.calculate_cl(self._alpha_aerodynamic_center[i])
+            cd, cm = panel_i.calculate_cd_cm(self._alpha_aerodynamic_center[i])
+            # Flipping reference frame, to conventional frame
+            # x (+) downstream, y(+) left and z-up reference frame
+            cl_distribution.append(-cl)
+            cd_distribution.append(-cd)
+
         results_dict.update([("cl_distribution", cl_distribution)])
         results_dict.update([("cd_distribution", cd_distribution)])
 

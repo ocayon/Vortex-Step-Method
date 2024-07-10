@@ -15,7 +15,13 @@ logging.basicConfig(level=logging.INFO)
 # x: forward
 # y: right
 # z: down
-# Create a wing object
+## Create a wing object
+# optional arguments are:
+#   spanwise_panel_distribution: str = "linear"
+#   - "linear"
+#   - "cosine"
+#   - "cosine_van_Garrel" (http://dx.doi.org/10.13140/RG.2.1.2773.8000)
+# spanwise_direction: np.array = np.array([0, 1, 0])
 wing = Wing(n_panels=50)
 
 ## Add sections to the wing
