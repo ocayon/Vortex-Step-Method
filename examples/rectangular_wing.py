@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO)
 #   - "cosine"
 #   - "cosine_van_Garrel" (http://dx.doi.org/10.13140/RG.2.1.2773.8000)
 # spanwise_direction: np.array = np.array([0, 1, 0])
-wing = Wing(n_panels=40)
+wing = Wing(n_panels=20)
 
 ## Add sections to the wing
 # MUST be done in order from left-to-right
@@ -73,10 +73,6 @@ wing_aero.plot()
 # x (+) downstream, y(+) left and z-up reference frame
 results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
 results_LLT, wing_aero_LLT = LLT.solve(wing_aero_LLT)
-
-# Print
-print(results_VSM)
-
 
 ###############
 # Plotting

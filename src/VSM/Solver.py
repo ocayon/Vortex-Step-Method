@@ -97,12 +97,13 @@ class Solver:
 
                 # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
                 induced_velocity = np.array([u, v, w])
+
+                # This is double checked
                 alpha[icp], relative_velocity = (
                     panel.calculate_relative_alpha_and_relative_velocity(
                         induced_velocity
                     )
                 )
-
                 relative_velocity_crossz = np.cross(relative_velocity, panel.z_airf)
                 Umag = np.linalg.norm(relative_velocity_crossz)
                 Uinfcrossz = np.cross(panel.va, panel.z_airf)

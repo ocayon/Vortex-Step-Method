@@ -88,6 +88,14 @@ class Panel:
         )
         self._x_airf = np.cross(self._y_airf, self._z_airf)
 
+        # Calculate the width of the panel
+        self._average_width = np.average(
+            [
+                np.linalg.norm(self._TE_point_1 - self._TE_point_2),
+                np.linalg.norm(self._LE_point_1 - self._LE_point_2),
+            ]
+        )
+
     ###########################
     ## GETTER FUNCTIONS
     ###########################
@@ -123,6 +131,10 @@ class Panel:
         return np.array(
             [self._LE_point_1, self._TE_point_1, self._TE_point_2, self._LE_point_2]
         )
+
+    @property
+    def width(self):
+        return self._average_width
 
     @property
     def chord(self):
@@ -169,8 +181,8 @@ class Panel:
         """
         # Calculate relative velocity and angle of attack
         relative_velocity = self.va + induced_velocity
-        v_normal = np.dot(self._x_airf, relative_velocity)
-        v_tangential = np.dot(self._y_airf, relative_velocity)
+        v_normal = np.dot(self.x_airf, relative_velocity)
+        v_tangential = np.dot(self.y_airf, relative_velocity)
         alpha = np.arctan(v_normal / v_tangential)
         return alpha, relative_velocity
 

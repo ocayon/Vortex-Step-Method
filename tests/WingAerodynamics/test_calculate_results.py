@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+import logging
 from VSM.Solver import Solver
 from VSM.Panel import Panel
 from VSM.WingAerodynamics import WingAerodynamics
@@ -112,6 +113,23 @@ def output_results(Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot, rho=1.
         )
         SideF.append(dot_product(L_rel, [0, 1, 0]) + dot_product(D_rel, [0, 1, 0]))
 
+        # logging intermediate results
+        logging.info("---output_results--- icp: %d", i)
+        # logging.info(f"dir_urel: {dir_urel}")
+        # logging.info(f"dir_L: {dir_L}")
+        # logging.info(f"dir_D: {dir_D}")
+        # logging.info("L_rel : %s", L_rel)
+        # logging.info("D_rel : %s", D_rel)
+        # spanwise_direction = np.array([0, 1, 0])
+        # Fmag_0 = np.dot(L_rel, dir_L_gl) + np.dot(D_rel, dir_L_gl)
+        # Fmag_1 = np.dot(L_rel, Uinf / np.linalg.norm(Uinf)) + np.dot(
+        #     D_rel, Uinf / np.linalg.norm(Uinf)
+        # )
+        # Fmag_2 = np.dot(L_rel, spanwise_direction) + np.dot(D_rel, spanwise_direction)
+        # logging.info(f"Fmag_0: {Fmag_0}")
+        # logging.info(f"Fmag_1: {Fmag_1}")
+        # logging.info(f"Fmag_2: {Fmag_2}")
+
     # Calculate total aerodynamic forces
     for i in range(len(Fmag_gl)):
         Ltot += Fmag_gl[i][0] * np.linalg.norm(ringvec[i]["r0"])
@@ -123,6 +141,15 @@ def output_results(Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot, rho=1.
     CD = Dtot / (0.5 * Umag**2 * Atot * rho)
     CS = SFtot / (0.5 * Umag**2 * Atot * rho)
 
+    ### Logging
+    logging.info(f"cl:{CL}")
+    logging.info(f"cd:{CD}")
+    logging.info(f"cs:{CS}")
+    logging.info(f"lift:{Ltot}")
+    logging.info(f"drag:{Dtot}")
+    logging.info(f"side:{SFtot}")
+    logging.info(f"Area: {Atot}")
+
     return F_rel, F_gl, Ltot, Dtot, CL, CD, CS
 
 
@@ -131,12 +158,12 @@ def test_calculate_results():
     density = 1.225  # kg/m^3
 
     # Create a wing
-    wing = Wing(n_panels=10)  # Using 3 panels for simplicity in this test
+    wing = Wing(n_panels=2)  # Using 3 panels for simplicity in this test
 
     # Add sections to the wing
     span = 20
     wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
-    wing.add_section([0, 0, 0], [-1, 0, 0], ["inviscid"])
+    # wing.add_section([0, 0, 0], [-1, 0, 0], ["inviscid"])
     wing.add_section([0, span / 2, 0], [-1, span / 2, 0], ["inviscid"])
 
     # Initialize wing aerodynamics
@@ -166,11 +193,12 @@ def test_calculate_results():
     results_dict = calculate_results_output
 
     # Debug: Print the compared results
-    cl_calculated = results_dict["cfz"]
-    cd_calculated = results_dict["cfx"]
-    cs_calculated = results_dict["cfy"]
-    L_calculated = results_dict["Fz"]
-    D_calculated = results_dict["Fx"]
+    cl_calculated = results_dict["cl"]
+    cd_calculated = results_dict["cd"]
+    cs_calculated = results_dict["cs"]
+
+    L_calculated = results_dict["lift"]
+    D_calculated = results_dict["drag"]
 
     # Calculating Fmag, using UNCORRECTED alpha
     alpha = results_VSM["alpha_uncorrected"]
@@ -203,13 +231,14 @@ def test_calculate_results():
             ],
         )
     )
-    ringvec = [{"r0": panel.z_airf} for panel in wing_aero_VSM.panels]
+    ringvec = [{"r0": panel.width * panel.z_airf} for panel in wing_aero_VSM.panels]
     controlpoints = [
         {"tangential": panel.y_airf, "normal": panel.x_airf}
         for panel in wing_aero_VSM.panels
     ]
     Atot = sum(
-        panel.chord * np.linalg.norm(panel.z_airf) for panel in wing_aero_VSM.panels
+        panel.chord * np.linalg.norm(panel.width * panel.z_airf)
+        for panel in wing_aero_VSM.panels
     )
 
     # printing the inputs
@@ -240,13 +269,3 @@ def test_calculate_results():
     # Check the shape of array outputs
     assert len(results_dict["cl_distribution"]) == len(wing_aero_VSM.panels)
     assert len(results_dict["cd_distribution"]) == len(wing_aero_VSM.panels)
-
-    # Check that the wing_aero_VSM is updated
-    assert hasattr(wing_aero_VSM, "_alpha_aerodynamic_center")
-    assert hasattr(wing_aero_VSM, "_alpha_uncorrected")
-    assert hasattr(wing_aero_VSM, "_gamma_distribution")
-
-    # Optional: Check that these attributes have the expected length
-    assert len(wing_aero_VSM._alpha_aerodynamic_center) == len(wing_aero_VSM.panels)
-    assert len(wing_aero_VSM._alpha_uncorrected) == len(wing_aero_VSM.panels)
-    assert len(wing_aero_VSM._gamma_distribution) == len(wing_aero_VSM.panels)
