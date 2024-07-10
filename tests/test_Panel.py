@@ -65,7 +65,7 @@ def test_polar_data_input():
     aoa = np.arange(-180, 180, 1)
     airfoil_data = np.empty((len(aoa), 4))
     for j, alpha in enumerate(aoa):
-        cl, cd, cm = 2 * np.pi * np.sin(np.deg2rad(alpha)), 0.05, 0.01
+        cl, cd, cm = 2 * np.pi * np.deg2rad(alpha), 0.05, 0.01
         airfoil_data[j, 0] = np.deg2rad(alpha)
         airfoil_data[j, 1] = cl
         airfoil_data[j, 2] = cd
@@ -351,7 +351,7 @@ def test_calculate_cl_and_cd_cm(sample_panel):
     aoa = np.arange(-180, 180, 1)
     airfoil_data = np.empty((len(aoa), 4))
     for j, alpha in enumerate(aoa):
-        cl, cd, cm = 2 * np.pi * np.sin(np.deg2rad(alpha)), 0.05, 0.01
+        cl, cd, cm = 2 * np.pi * np.deg2rad(alpha), 0.05, 0.01
         airfoil_data[j, 0] = np.deg2rad(alpha)
         airfoil_data[j, 1] = cl
         airfoil_data[j, 2] = cd
@@ -403,7 +403,7 @@ def test_calculate_cl_and_cd_cm(sample_panel):
 
         # inviscid panel
         cl_inviscid = inviscid_panel_instance.calculate_cl(alpha_rad)
-        expected_cl_inviscid = 2 * np.pi * np.sin(alpha_rad)
+        expected_cl_inviscid = 2 * np.pi * alpha_rad
         assert np.isclose(cl_inviscid, expected_cl_inviscid)
 
         cd_cm_inviscid = inviscid_panel_instance.calculate_cd_cm(alpha_rad)
@@ -412,7 +412,7 @@ def test_calculate_cl_and_cd_cm(sample_panel):
 
         # polar data panel
         cl_polar_data = polar_data_panel_instance.calculate_cl(alpha_rad)
-        expected_cl_polar_data = 2 * np.pi * np.sin(alpha_rad)
+        expected_cl_polar_data = 2 * np.pi * alpha_rad
         assert np.isclose(cl_polar_data, expected_cl_polar_data)
 
         cd_cm_polar_data = polar_data_panel_instance.calculate_cd_cm(alpha_rad)

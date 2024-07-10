@@ -199,6 +199,6 @@ if __name__ == "__main__":
     # aoa_deg = [0]
     # plot_elliptic_wing(20, AR=3, plot_wing=True, spacing="cosine", aoa_deg=aoa_deg)
     plot_elliptic_wing(
-        40, AR=20, plot_wing=True, spacing="cosine_van_Garrel", aoa_deg=aoa_deg
+        60, AR=20, plot_wing=True, spacing="cosine_van_Garrel", aoa_deg=aoa_deg
     )
     # plot_elliptic_wing(40, AR=20, plot_wing=True, spacing="cosine", aoa_deg=aoa_deg)

@@ -252,9 +252,9 @@ class WingAerodynamics:
             dir_L = np.cross(dir_urel, r_0)
             dir_L = dir_L / np.linalg.norm(dir_L)
 
-            # TODO: why is the [0,1,0] hardcode needed?
             # Drag direction relative to urel
-            dir_D = np.cross([0, 1, 0], dir_L)
+            spanwise_direction = self.wings[0].spanwise_direction
+            dir_D = np.cross(spanwise_direction, dir_L)
             dir_D = dir_D / np.linalg.norm(dir_D)
 
             # TODO: old code the L,D,M was calculated with non-corrected alpha, why?
@@ -265,10 +265,13 @@ class WingAerodynamics:
             D_rel = (
                 dir_D * panel_i.calculate_cd_cm(self._alpha_uncorrected[i])[0] * q_inf
             )
+            # L_rel = dir_L * panel_i.calculate_cl(alpha_i) * q_inf
+            # D_rel = dir_D * panel_i.calculate_cd_cm(alpha_i)[0] * q_inf
+
             F_rel.append([L_rel + D_rel])
 
             # Lift direction relative to the wind speed
-            dir_L_gl = np.cross(Uinf, [0, 1, 0])
+            dir_L_gl = np.cross(Uinf, spanwise_direction)
             dir_L_gl = dir_L_gl / np.linalg.norm(dir_L_gl)
 
             def vector_projection(v, u):
@@ -329,6 +332,7 @@ class WingAerodynamics:
 
         # Flipping reference frame, to conventional frame
         # x (+) downstream, y(+) left and z-up reference frame
+        # taking NEGATIVE of results
         cl = -cfz
         cd = -cfx
         cs = -cfy
@@ -344,6 +348,7 @@ class WingAerodynamics:
             cd, cm = panel_i.calculate_cd_cm(self._alpha_aerodynamic_center[i])
             # Flipping reference frame, to conventional frame
             # x (+) downstream, y(+) left and z-up reference frame
+            # taking NEGATIVE of results
             cl_distribution.append(-cl)
             cd_distribution.append(-cd)
 

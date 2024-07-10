@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 #   - "cosine"
 #   - "cosine_van_Garrel" (http://dx.doi.org/10.13140/RG.2.1.2773.8000)
 # spanwise_direction: np.array = np.array([0, 1, 0])
-wing = Wing(n_panels=50)
+wing = Wing(n_panels=40)
 
 ## Add sections to the wing
 # MUST be done in order from left-to-right
