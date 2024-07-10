@@ -217,6 +217,7 @@ class WingAerodynamics:
         """
 
         # Calculate the global aerodynamics of the wing
+        F_distribution = []
         F_rel = []
         F_gl = []
         Fmag_gl = []
@@ -283,7 +284,6 @@ class WingAerodynamics:
                 return proj
 
             # Lift and drag relative to the windspeed
-
             L_gl = vector_projection(L_rel, dir_L_gl) + vector_projection(
                 D_rel, dir_L_gl
             )
@@ -297,6 +297,9 @@ class WingAerodynamics:
                 ]
             )
             SideF.append(np.dot(L_rel, [0, 1, 0]) + np.dot(D_rel, [0, 1, 0]))
+
+            # TODO: Finish this
+            # Calculat the total aerodynamic force on each panel
 
             # Calculate Area of the panel
             Atot += panel_i.chord * np.linalg.norm(panel_i.z_airf)
@@ -342,6 +345,7 @@ class WingAerodynamics:
         results_dict.update([("cs", cs)])
 
         # Local aerodynamics
+        F_distribution = F_rel
         cl_distribution, cd_distribution, cm_array = [], [], []
         for i, panel_i in enumerate(self.panels):
             cl = panel_i.calculate_cl(self._alpha_aerodynamic_center[i])

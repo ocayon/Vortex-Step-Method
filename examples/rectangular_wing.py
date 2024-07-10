@@ -11,10 +11,17 @@ logging.basicConfig(level=logging.INFO)
 
 # Use example
 ################# CAREFULL WITH REFERENCE FRAMES, CHANGING FROM ORIGINAL CODE #################
-# Aircraft reference frame
+# Aircraft Body reference frame
 # x: forward
 # y: right
 # z: down
+
+# TODO: Check if this works
+# Body EastNorthUp Reference Frame (aligned with Earth direction)
+# x: along the chord
+# y: left
+# z: up
+
 ## Create a wing object
 # optional arguments are:
 #   spanwise_panel_distribution: str = "linear"
