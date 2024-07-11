@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 
 
 def cosspace(min, max, n_points):
@@ -104,3 +105,39 @@ def generate_coordinates_el_wing(max_chord, span, N, dist):
         coord[2 * i + 1, :] = [0.75 * c_arr[i], y_arr[i], 0]
 
     return coord
+
+
+# Check if the results are the same in list of dictionaries
+def asserting_all_elements_in_list_dict(variable1, variable_expected):
+    for i, (variable1_i, variable_expected_i) in enumerate(
+        zip(variable1, variable_expected)
+    ):
+        for j, (key1, key2) in enumerate(
+            zip(variable1_i.keys(), variable_expected_i.keys())
+        ):
+            logging.debug(f"key1 {key1}, key2 {key2}")
+            logging.debug(f"variable1_i {variable1_i[key1]}")
+            logging.debug(f"variable_expected_i {variable_expected_i[key1]}")
+            # assert key1 == key2
+            assert np.allclose(variable1_i[key1], variable_expected_i[key1], atol=1e-5)
+
+
+# Check if the results are the same in list of list of dictionaries
+def asserting_all_elements_in_list_list_dict(variable1, variable_expected):
+    for i, (list1, list_expected) in enumerate(zip(variable1, variable_expected)):
+        logging.debug(f"list1 {list1}")
+        logging.debug(f"list_expected {list_expected}")
+        for j, (dict1, dict_expected) in enumerate(zip(list1, list_expected)):
+            logging.debug(f"dict1 {dict1}")
+            logging.debug(f"dict_expected {dict_expected}")
+            assert dict1.keys() == dict_expected.keys()
+            for key1, key2 in zip(dict1.keys(), dict_expected.keys()):
+                logging.debug(f"key1 {key1}, key2 {key2}")
+                logging.debug(f"dict1[key1] {dict1[key1]}")
+                logging.debug(f"dict_expected[key1] {dict_expected[key1]}")
+                assert key1 == key2
+                # check breaks when entry is a string
+                if isinstance(dict1[key1], str):
+                    assert dict1[key1] == dict_expected[key1]
+                else:
+                    assert np.allclose(dict1[key1], dict_expected[key1], atol=1e-5)

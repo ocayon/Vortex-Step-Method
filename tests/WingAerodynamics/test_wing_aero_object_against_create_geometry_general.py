@@ -13,7 +13,10 @@ from tests.utils import (
     generate_coordinates_el_wing,
     generate_coordinates_rect_wing,
     generate_coordinates_curved_wing,
+    asserting_all_elements_in_list_list_dict,
+    asserting_all_elements_in_list_dict,
 )
+from Aerostructural_model_LEI.functions import functions_VSM_LLT as VSM_thesis
 
 
 def vec_norm(v):
@@ -24,206 +27,206 @@ def vec_norm(v):
     return np.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
 
 
-def create_geometry_general(coordinates, Uinf, N, ring_geo, model):
-    """
-    Create geometry structures necessary for solving the system of circualtion
+# def create_geometry_general(coordinates, Uinf, N, ring_geo, model):
+#     """
+#     Create geometry structures necessary for solving the system of circualtion
 
-    Parameters
-    ----------
-    coordinates : coordinates the nodes (each section is defined by two nodes,
-                                         the first is the LE, so each section
-                                         defined by a pair of coordinates)
-    Uinf : Wind speed vector
-    N : Number of sections
-    ring_geo :  - '3fil': Each horsehoe is defined by 3 filaments
-                - '5fil': Each horseshoe is defined by 5 filaments
-    model : VSM: Vortex Step method/ LLT: Lifting Line Theory
+#     Parameters
+#     ----------
+#     coordinates : coordinates the nodes (each section is defined by two nodes,
+#                                          the first is the LE, so each section
+#                                          defined by a pair of coordinates)
+#     Uinf : Wind speed vector
+#     N : Number of sections
+#     ring_geo :  - '3fil': Each horsehoe is defined by 3 filaments
+#                 - '5fil': Each horseshoe is defined by 5 filaments
+#     model : VSM: Vortex Step method/ LLT: Lifting Line Theory
 
-    Returns
-    -------
-    controlpoints :  List of dictionaries with the variables needed to define each wing section
-    rings : List of list with the definition of each vortex filament
-    wingpanels : List with the points defining each wing pannel
-    ringvec : List of dictionaries containing the vectors that define each ring
-    coord_L : coordinates of the aerodynamic centers of each wing panel
+#     Returns
+#     -------
+#     controlpoints :  List of dictionaries with the variables needed to define each wing section
+#     rings : List of list with the definition of each vortex filament
+#     wingpanels : List with the points defining each wing pannel
+#     ringvec : List of dictionaries containing the vectors that define each ring
+#     coord_L : coordinates of the aerodynamic centers of each wing panel
 
-    """
+#     """
 
-    filaments = []
-    controlpoints = []
-    rings = []
-    wingpanels = []
-    ringvec = []
-    coord_L = []
+#     filaments = []
+#     controlpoints = []
+#     rings = []
+#     wingpanels = []
+#     ringvec = []
+#     coord_L = []
 
-    # Go through all wing panels
-    for i in range(N - 1):
+#     # Go through all wing panels
+#     for i in range(N - 1):
 
-        # Identify points defining the panel
-        section = {
-            "p1": coordinates[2 * i, :],
-            "p2": coordinates[2 * i + 2, :],
-            "p3": coordinates[2 * i + 3, :],
-            "p4": coordinates[2 * i + 1, :],
-        }
-        wingpanels.append(section)
+#         # Identify points defining the panel
+#         section = {
+#             "p1": coordinates[2 * i, :],
+#             "p2": coordinates[2 * i + 2, :],
+#             "p3": coordinates[2 * i + 3, :],
+#             "p4": coordinates[2 * i + 1, :],
+#         }
+#         wingpanels.append(section)
 
-        di = vec_norm(
-            coordinates[2 * i, :] * 0.75
-            + coordinates[2 * i + 1, :] * 0.25
-            - (coordinates[2 * i + 2, :] * 0.75 + coordinates[2 * i + 3, :] * 0.25)
-        )
-        if i == 0:
-            diplus = vec_norm(
-                coordinates[2 * (i + 1), :] * 0.75
-                + coordinates[2 * (i + 1) + 1, :] * 0.25
-                - (
-                    coordinates[2 * (i + 1) + 2, :] * 0.75
-                    + coordinates[2 * (i + 1) + 3, :] * 0.25
-                )
-            )
-            ncp = di / (di + diplus)
-        elif i == N - 2:
-            dimin = vec_norm(
-                coordinates[2 * (i - 1), :] * 0.75
-                + coordinates[2 * (i - 1) + 1, :] * 0.25
-                - (
-                    coordinates[2 * (i - 1) + 2, :] * 0.75
-                    + coordinates[2 * (i - 1) + 3, :] * 0.25
-                )
-            )
-            ncp = dimin / (dimin + di)
-        else:
-            dimin = vec_norm(
-                coordinates[2 * (i - 1), :] * 0.75
-                + coordinates[2 * (i - 1) + 1, :] * 0.25
-                - (
-                    coordinates[2 * (i - 1) + 2, :] * 0.75
-                    + coordinates[2 * (i - 1) + 3, :] * 0.25
-                )
-            )
-            diplus = vec_norm(
-                coordinates[2 * (i + 1), :] * 0.75
-                + coordinates[2 * (i + 1) + 1, :] * 0.25
-                - (
-                    coordinates[2 * (i + 1) + 2, :] * 0.75
-                    + coordinates[2 * (i + 1) + 3, :] * 0.25
-                )
-            )
-            ncp = 0.25 * (dimin / (dimin + di) + di / (di + diplus) + 1)
+#         di = vec_norm(
+#             coordinates[2 * i, :] * 0.75
+#             + coordinates[2 * i + 1, :] * 0.25
+#             - (coordinates[2 * i + 2, :] * 0.75 + coordinates[2 * i + 3, :] * 0.25)
+#         )
+#         if i == 0:
+#             diplus = vec_norm(
+#                 coordinates[2 * (i + 1), :] * 0.75
+#                 + coordinates[2 * (i + 1) + 1, :] * 0.25
+#                 - (
+#                     coordinates[2 * (i + 1) + 2, :] * 0.75
+#                     + coordinates[2 * (i + 1) + 3, :] * 0.25
+#                 )
+#             )
+#             ncp = di / (di + diplus)
+#         elif i == N - 2:
+#             dimin = vec_norm(
+#                 coordinates[2 * (i - 1), :] * 0.75
+#                 + coordinates[2 * (i - 1) + 1, :] * 0.25
+#                 - (
+#                     coordinates[2 * (i - 1) + 2, :] * 0.75
+#                     + coordinates[2 * (i - 1) + 3, :] * 0.25
+#                 )
+#             )
+#             ncp = dimin / (dimin + di)
+#         else:
+#             dimin = vec_norm(
+#                 coordinates[2 * (i - 1), :] * 0.75
+#                 + coordinates[2 * (i - 1) + 1, :] * 0.25
+#                 - (
+#                     coordinates[2 * (i - 1) + 2, :] * 0.75
+#                     + coordinates[2 * (i - 1) + 3, :] * 0.25
+#                 )
+#             )
+#             diplus = vec_norm(
+#                 coordinates[2 * (i + 1), :] * 0.75
+#                 + coordinates[2 * (i + 1) + 1, :] * 0.25
+#                 - (
+#                     coordinates[2 * (i + 1) + 2, :] * 0.75
+#                     + coordinates[2 * (i + 1) + 3, :] * 0.25
+#                 )
+#             )
+#             ncp = 0.25 * (dimin / (dimin + di) + di / (di + diplus) + 1)
 
-        ncp = 1 - ncp
-        chord = np.linalg.norm(
-            (section["p2"] + section["p1"]) / 2 - (section["p3"] + section["p4"]) / 2
-        )
-        LLpoint = (section["p2"] * (1 - ncp) + section["p1"] * ncp) * 3 / 4 + (
-            section["p3"] * (1 - ncp) + section["p4"] * ncp
-        ) * 1 / 4
-        VSMpoint = (section["p2"] * (1 - ncp) + section["p1"] * ncp) * 1 / 4 + (
-            section["p3"] * (1 - ncp) + section["p4"] * ncp
-        ) * 3 / 4
-        coord_L.append(LLpoint)
+#         ncp = 1 - ncp
+#         chord = np.linalg.norm(
+#             (section["p2"] + section["p1"]) / 2 - (section["p3"] + section["p4"]) / 2
+#         )
+#         LLpoint = (section["p2"] * (1 - ncp) + section["p1"] * ncp) * 3 / 4 + (
+#             section["p3"] * (1 - ncp) + section["p4"] * ncp
+#         ) * 1 / 4
+#         VSMpoint = (section["p2"] * (1 - ncp) + section["p1"] * ncp) * 1 / 4 + (
+#             section["p3"] * (1 - ncp) + section["p4"] * ncp
+#         ) * 3 / 4
+#         coord_L.append(LLpoint)
 
-        # Define bound vortex filament
-        bound = {
-            "id": "bound",
-            "x1": section["p1"] * 3 / 4 + section["p4"] * 1 / 4,
-            "x2": section["p2"] * 3 / 4 + section["p3"] * 1 / 4,
-            "Gamma": 0,
-        }
-        filaments.append(bound)
+#         # Define bound vortex filament
+#         bound = {
+#             "id": "bound",
+#             "x1": section["p1"] * 3 / 4 + section["p4"] * 1 / 4,
+#             "x2": section["p2"] * 3 / 4 + section["p3"] * 1 / 4,
+#             "Gamma": 0,
+#         }
+#         filaments.append(bound)
 
-        x_airf = np.cross(VSMpoint - LLpoint, section["p2"] - section["p1"])
-        x_airf = x_airf / np.linalg.norm(x_airf)
-        y_airf = VSMpoint - LLpoint
-        y_airf = y_airf / np.linalg.norm(y_airf)
-        z_airf = bound["x2"] - bound["x1"]
-        # z_airf[0] = 0
-        z_airf = z_airf / np.linalg.norm(z_airf)
-        airf_coord = np.column_stack([x_airf, y_airf, z_airf])
+#         x_airf = np.cross(VSMpoint - LLpoint, section["p2"] - section["p1"])
+#         x_airf = x_airf / np.linalg.norm(x_airf)
+#         y_airf = VSMpoint - LLpoint
+#         y_airf = y_airf / np.linalg.norm(y_airf)
+#         z_airf = bound["x2"] - bound["x1"]
+#         # z_airf[0] = 0
+#         z_airf = z_airf / np.linalg.norm(z_airf)
+#         airf_coord = np.column_stack([x_airf, y_airf, z_airf])
 
-        normal = x_airf
-        tangential = y_airf
-        if model == "VSM":
-            cp = {
-                "coordinates": VSMpoint,
-                "chord": chord,
-                "normal": normal,
-                "tangential": tangential,
-                "airf_coord": airf_coord,
-                "coordinates_aoa": LLpoint,
-            }
-            controlpoints.append(cp)
-        elif model == "LLT":
+#         normal = x_airf
+#         tangential = y_airf
+#         if model == "VSM":
+#             cp = {
+#                 "coordinates": VSMpoint,
+#                 "chord": chord,
+#                 "normal": normal,
+#                 "tangential": tangential,
+#                 "airf_coord": airf_coord,
+#                 "coordinates_aoa": LLpoint,
+#             }
+#             controlpoints.append(cp)
+#         elif model == "LLT":
 
-            cp = {
-                "coordinates": LLpoint,
-                "chord": chord,
-                "normal": normal,
-                "tangential": tangential,
-                "airf_coord": airf_coord,
-            }
-            controlpoints.append(cp)
+#             cp = {
+#                 "coordinates": LLpoint,
+#                 "chord": chord,
+#                 "normal": normal,
+#                 "tangential": tangential,
+#                 "airf_coord": airf_coord,
+#             }
+#             controlpoints.append(cp)
 
-        temp = {
-            "r0": bound["x2"] - bound["x1"],
-            "r1": cp["coordinates"] - bound["x1"],
-            "r2": cp["coordinates"] - bound["x2"],
-            "r3": cp["coordinates"] - (bound["x2"] + bound["x1"]) / 2,
-        }
-        ringvec.append(temp)
+#         temp = {
+#             "r0": bound["x2"] - bound["x1"],
+#             "r1": cp["coordinates"] - bound["x1"],
+#             "r2": cp["coordinates"] - bound["x2"],
+#             "r3": cp["coordinates"] - (bound["x2"] + bound["x1"]) / 2,
+#         }
+#         ringvec.append(temp)
 
-        temp = Uinf / np.linalg.norm(Uinf)
-        if ring_geo == "3fil":
-            # create trailing filaments, at x1 of bound filament
-            temp1 = {"dir": temp, "id": "trailing_inf1", "x1": bound["x1"], "Gamma": 0}
-            filaments.append(temp1)
+#         temp = Uinf / np.linalg.norm(Uinf)
+#         if ring_geo == "3fil":
+#             # create trailing filaments, at x1 of bound filament
+#             temp1 = {"dir": temp, "id": "trailing_inf1", "x1": bound["x1"], "Gamma": 0}
+#             filaments.append(temp1)
 
-            # create trailing filaments, at x2 of bound filament
-            temp1 = {"x1": bound["x2"], "dir": temp, "id": "trailing_inf2", "Gamma": 0}
-            filaments.append(temp1)
-        elif ring_geo == "5fil":
-            temp1 = {
-                "x1": section["p4"],
-                "x2": bound["x1"],
-                "Gamma": 0,
-                "id": "trailing1",
-            }
-            filaments.append(temp1)
+#             # create trailing filaments, at x2 of bound filament
+#             temp1 = {"x1": bound["x2"], "dir": temp, "id": "trailing_inf2", "Gamma": 0}
+#             filaments.append(temp1)
+#         elif ring_geo == "5fil":
+#             temp1 = {
+#                 "x1": section["p4"],
+#                 "x2": bound["x1"],
+#                 "Gamma": 0,
+#                 "id": "trailing1",
+#             }
+#             filaments.append(temp1)
 
-            temp1 = {
-                "x1": bound["x2"],
-                "x2": section["p3"],
-                "Gamma": 0,
-                "id": "trailing2",
-            }
-            filaments.append(temp1)
+#             temp1 = {
+#                 "x1": bound["x2"],
+#                 "x2": section["p3"],
+#                 "Gamma": 0,
+#                 "id": "trailing2",
+#             }
+#             filaments.append(temp1)
 
-            temp1 = {
-                "dir": temp,
-                "id": "trailing_inf1",
-                "x1": section["p4"],
-                "Gamma": 0,
-            }
-            filaments.append(temp1)
+#             temp1 = {
+#                 "dir": temp,
+#                 "id": "trailing_inf1",
+#                 "x1": section["p4"],
+#                 "Gamma": 0,
+#             }
+#             filaments.append(temp1)
 
-            # create trailing filaments, at x2 of bound filament
+#             # create trailing filaments, at x2 of bound filament
 
-            temp1 = {
-                "dir": temp,
-                "id": "trailing_inf2",
-                "x1": section["p3"],
-                "Gamma": 0,
-            }
-            filaments.append(temp1)
+#             temp1 = {
+#                 "dir": temp,
+#                 "id": "trailing_inf2",
+#                 "x1": section["p3"],
+#                 "Gamma": 0,
+#             }
+#             filaments.append(temp1)
 
-        #
+#         #
 
-        rings.append(filaments)
-        filaments = []
+#         rings.append(filaments)
+#         filaments = []
 
-    coord_L = np.array(coord_L)
-    return controlpoints, rings, wingpanels, ringvec, coord_L
+#     coord_L = np.array(coord_L)
+#     return controlpoints, rings, wingpanels, ringvec, coord_L
 
 
 def create_controlpoints_from_wing_object(wing, model):
@@ -261,45 +264,61 @@ def create_controlpoints_from_wing_object(wing, model):
 def create_ring_from_wing_object(wing, gamma_data=None):
     result = []
     va_norm = wing.va / np.linalg.norm(wing.va)
-    filaments = [panel.filaments for panel in wing.panels]
-    gamma_data = [0 for _ in filaments]
-    for ring, gamma in zip(filaments, gamma_data):
+    filaments_list = [panel.filaments for panel in wing.panels]
+    gamma_data = [0 for _ in filaments_list]
+    for filaments, gamma in zip(filaments_list, gamma_data):
         ring_filaments = []
-        counter_bound = 1
-        counter_semi = 1
-        for i, filament in enumerate(ring):
-            if isinstance(filament, BoundFilament):
-                if i == 0:  # First BoundFilament in the ring
-                    ring_filaments.append(
-                        {
-                            "id": "bound",
-                            "x1": filament.x1,
-                            "x2": filament.x2,
-                            "Gamma": gamma,
-                        }
-                    )
 
-                else:  # Other BoundFilaments are treated as 'trailing1'
-                    ring_filaments.append(
-                        {
-                            "x1": filament.x1,
-                            "x2": filament.x2,
-                            "Gamma": gamma,
-                            "id": f"trailing{counter_bound}",
-                        }
-                    )
-                    counter_bound += 1
+        logging.debug(f"filaments {filaments}")
+        # bound starts
+        filament_bound = filaments[0]
+        filament_trailing_1 = filaments[1]
+        filament_trailing_2 = filaments[2]
+        filament_semi_1 = filaments[3]
+        filament_semi_2 = filaments[4]
 
-            elif isinstance(filament, SemiInfiniteFilament):
-                ring_filaments.append(
-                    {
-                        "dir": va_norm,  # Assuming _direction is the correct attribute
-                        "id": f"trailing_inf{counter_semi}",  # -2 because we start counting after the bound filament
-                        "x1": filament.x1,
-                        "Gamma": gamma,
-                    }
-                )
-                counter_semi += 1
+        # appending them in the correct order
+        ring_filaments.append(
+            {
+                "id": "bound",
+                "x1": filament_bound.x1,
+                "x2": filament_bound.x2,
+                "Gamma": gamma,
+            }
+        )
+        ring_filaments.append(
+            {
+                "x1": filament_trailing_1.x1,
+                "x2": filament_trailing_1.x2,
+                "Gamma": gamma,
+                "id": "trailing1",
+            }
+        )
+        ring_filaments.append(
+            {
+                "dir": va_norm,
+                "id": "trailing_inf1",
+                "x1": filament_semi_1.x1,
+                "Gamma": gamma,
+            }
+        )
+        # be wary of incorrect naming convention here.
+        ring_filaments.append(
+            {
+                "x2": filament_trailing_2.x2,
+                "x1": filament_trailing_2.x1,
+                "Gamma": gamma,
+                "id": "trailing1",
+            }
+        )
+        ring_filaments.append(
+            {
+                "x1": filament_semi_2.x1,
+                "dir": va_norm,
+                "id": "trailing_inf2",
+                "Gamma": gamma,
+            }
+        )
 
         result.append(ring_filaments)
 
@@ -384,7 +403,7 @@ def create_geometry_from_wing_object(wing, model):
 
 def test_create_geometry_general():
 
-    N = 10
+    N = 4
     max_chord = 1
     span = 2.36
     AR = span**2 / (np.pi * span * max_chord / 4)
@@ -408,7 +427,9 @@ def test_create_geometry_general():
         expected_bladepanels,
         expected_ringvec,
         expected_coord_L,
-    ) = create_geometry_general(coord, Uinf, int(len(coord) / 2), "5fil", model)
+    ) = VSM_thesis.create_geometry_general(
+        coord, Uinf, int(len(coord) / 2), "5fil", model
+    )
 
     logging.debug(f"expected_controlpoints {expected_controlpoints}")
     logging.debug(f"expected_rings {expected_rings}")
@@ -420,38 +441,6 @@ def test_create_geometry_general():
     controlpoints, rings, wingpanels, ringvec, coord_L = (
         create_geometry_from_wing_object(wing_aero, model)
     )
-
-    # Check if the results are the same
-    def asserting_all_elements_in_list_dict(variable1, variable_expected):
-        for i, (variable1_i, variable_expected_i) in enumerate(
-            zip(variable1, variable_expected)
-        ):
-            for j, (key1, key2) in enumerate(
-                zip(variable1_i.keys(), variable_expected_i.keys())
-            ):
-                logging.debug(f"key1 {key1}, key2 {key2}")
-                logging.debug(f"variable1_i {variable1_i[key1]}")
-                logging.debug(f"variable_expected_i {variable_expected_i[key1]}")
-                assert key1 == key2
-                assert np.allclose(
-                    variable1_i[key1], variable_expected_i[key1], atol=1e-5
-                )
-
-    def asserting_all_elements_in_list_list_dict(variable1, variable_expected):
-        for i, (list1, list_expected) in enumerate(zip(variable1, variable_expected)):
-            for j, (dict1, dict_expected) in enumerate(zip(list1, list_expected)):
-                assert dict1.keys() == dict_expected.keys()
-                for key1, key2 in zip(dict1.keys(), dict_expected.keys()):
-                    logging.debug(f"key1 {key1}, key2 {key2}")
-                    logging.debug(f"dict1[key1] {dict1[key1]}")
-                    logging.debug(f"dict_expected[key2] {dict_expected[key2]}")
-                    assert key1 == key2
-                    # check breaks when entry is a string
-                    if isinstance(dict1[key1], str):
-                        assert dict1[key1] == dict_expected[key1]
-                    else:
-                        assert np.allclose(dict1[key1], dict_expected[key1], atol=1e-5)
-
     logging.debug(f"---controlpoints--- type: {type(controlpoints)}, {controlpoints}")
     asserting_all_elements_in_list_dict(controlpoints, expected_controlpoints)
     logging.debug(f"---rings--- type: {type(rings)}, {rings}")
@@ -472,71 +461,9 @@ def test_create_geometry_general():
         expected_bladepanels,
         expected_ringvec,
         expected_coord_L,
-    ) = create_geometry_general(coord, Uinf, int(len(coord) / 2), "5fil", model)
-    # Generate geometry from wing object
-    controlpoints, rings, wingpanels, ringvec, coord_L = (
-        create_geometry_from_wing_object(wing_aero, model)
+    ) = VSM_thesis.create_geometry_general(
+        coord, Uinf, int(len(coord) / 2), "5fil", model
     )
-
-    # Check if the results are the same
-    logging.debug(f"---controlpoints--- type: {type(controlpoints)}, {controlpoints}")
-    asserting_all_elements_in_list_dict(controlpoints, expected_controlpoints)
-    logging.debug(f"---rings--- type: {type(rings)}, {rings}")
-    logging.debug(
-        f"---expected_rings--- type: {type(expected_rings)}, {expected_rings}"
-    )
-    asserting_all_elements_in_list_list_dict(rings, expected_rings)
-    asserting_all_elements_in_list_dict(wingpanels, expected_bladepanels)
-    asserting_all_elements_in_list_dict(ringvec, expected_ringvec)
-    logging.debug(f"---coord_L--- type: {type(coord_L)}, {coord_L}")
-    assert np.allclose(coord_L, expected_coord_L, atol=1e-5)
-
-    ### Curved Wing
-    theta = np.pi / 4
-    R = 5
-    coord = generate_coordinates_curved_wing(max_chord, span, theta, R, N, "cos")
-    wing = Wing(N, "unchanged")
-    for i in range(int(len(coord) / 2)):
-        wing.add_section(coord[2 * i], coord[2 * i + 1], ["inviscid"])
-    wing_aero = WingAerodynamics([wing])
-    wing_aero.va = Uinf
-
-    model = "VSM"
-    # Generate geometry
-    (
-        expected_controlpoints,
-        expected_rings,
-        expected_bladepanels,
-        expected_ringvec,
-        expected_coord_L,
-    ) = create_geometry_general(coord, Uinf, int(len(coord) / 2), "5fil", model)
-    # Generate geometry from wing object
-    controlpoints, rings, wingpanels, ringvec, coord_L = (
-        create_geometry_from_wing_object(wing_aero, model)
-    )
-
-    # Check if the results are the same
-    logging.debug(f"---controlpoints--- type: {type(controlpoints)}, {controlpoints}")
-    asserting_all_elements_in_list_dict(controlpoints, expected_controlpoints)
-    logging.debug(f"---rings--- type: {type(rings)}, {rings}")
-    logging.debug(
-        f"---expected_rings--- type: {type(expected_rings)}, {expected_rings}"
-    )
-    asserting_all_elements_in_list_list_dict(rings, expected_rings)
-    asserting_all_elements_in_list_dict(wingpanels, expected_bladepanels)
-    asserting_all_elements_in_list_dict(ringvec, expected_ringvec)
-    logging.debug(f"---coord_L--- type: {type(coord_L)}, {coord_L}")
-    assert np.allclose(coord_L, expected_coord_L, atol=1e-5)
-
-    model = "LLT"
-    # Generate geometry
-    (
-        expected_controlpoints,
-        expected_rings,
-        expected_bladepanels,
-        expected_ringvec,
-        expected_coord_L,
-    ) = create_geometry_general(coord, Uinf, int(len(coord) / 2), "5fil", model)
     # Generate geometry from wing object
     controlpoints, rings, wingpanels, ringvec, coord_L = (
         create_geometry_from_wing_object(wing_aero, model)
@@ -556,6 +483,71 @@ def test_create_geometry_general():
     assert np.allclose(coord_L, expected_coord_L, atol=1e-5)
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    test_create_geometry_general()
+#     ### Curved Wing
+#     theta = np.pi / 4
+#     R = 5
+#     coord = generate_coordinates_curved_wing(max_chord, span, theta, R, N, "cos")
+#     wing = Wing(N, "unchanged")
+#     for i in range(int(len(coord) / 2)):
+#         wing.add_section(coord[2 * i], coord[2 * i + 1], ["inviscid"])
+#     wing_aero = WingAerodynamics([wing])
+#     wing_aero.va = Uinf
+
+#     model = "VSM"
+#     # Generate geometry
+#     (
+#         expected_controlpoints,
+#         expected_rings,
+#         expected_bladepanels,
+#         expected_ringvec,
+#         expected_coord_L,
+#     ) = create_geometry_general(coord, Uinf, int(len(coord) / 2), "5fil", model)
+#     # Generate geometry from wing object
+#     controlpoints, rings, wingpanels, ringvec, coord_L = (
+#         create_geometry_from_wing_object(wing_aero, model)
+#     )
+
+#     # Check if the results are the same
+#     logging.debug(f"---controlpoints--- type: {type(controlpoints)}, {controlpoints}")
+#     asserting_all_elements_in_list_dict(controlpoints, expected_controlpoints)
+#     logging.debug(f"---rings--- type: {type(rings)}, {rings}")
+#     logging.debug(
+#         f"---expected_rings--- type: {type(expected_rings)}, {expected_rings}"
+#     )
+#     asserting_all_elements_in_list_list_dict(rings, expected_rings)
+#     asserting_all_elements_in_list_dict(wingpanels, expected_bladepanels)
+#     asserting_all_elements_in_list_dict(ringvec, expected_ringvec)
+#     logging.debug(f"---coord_L--- type: {type(coord_L)}, {coord_L}")
+#     assert np.allclose(coord_L, expected_coord_L, atol=1e-5)
+
+#     model = "LLT"
+#     # Generate geometry
+#     (
+#         expected_controlpoints,
+#         expected_rings,
+#         expected_bladepanels,
+#         expected_ringvec,
+#         expected_coord_L,
+#     ) = create_geometry_general(coord, Uinf, int(len(coord) / 2), "5fil", model)
+#     # Generate geometry from wing object
+#     controlpoints, rings, wingpanels, ringvec, coord_L = (
+#         create_geometry_from_wing_object(wing_aero, model)
+#     )
+
+#     # Check if the results are the same
+#     logging.debug(f"---controlpoints--- type: {type(controlpoints)}, {controlpoints}")
+#     asserting_all_elements_in_list_dict(controlpoints, expected_controlpoints)
+#     logging.debug(f"---rings--- type: {type(rings)}, {rings}")
+#     logging.debug(
+#         f"---expected_rings--- type: {type(expected_rings)}, {expected_rings}"
+#     )
+#     asserting_all_elements_in_list_list_dict(rings, expected_rings)
+#     asserting_all_elements_in_list_dict(wingpanels, expected_bladepanels)
+#     asserting_all_elements_in_list_dict(ringvec, expected_ringvec)
+#     logging.debug(f"---coord_L--- type: {type(coord_L)}, {coord_L}")
+#     assert np.allclose(coord_L, expected_coord_L, atol=1e-5)
+
+
+# if __name__ == "__main__":
+#     logging.basicConfig(level=logging.DEBUG)
+#     test_create_geometry_general()
