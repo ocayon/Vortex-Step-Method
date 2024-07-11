@@ -38,6 +38,9 @@ class Wing:
             ]
             return new_sections
 
+        if self.spanwise_panel_distribution == "unchanged":
+            return self.sections
+
         # 1. Compute the 1/4 chord line
         quarter_chord = LE + 0.25 * (TE - LE)
 

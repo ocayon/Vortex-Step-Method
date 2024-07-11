@@ -1,17 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import logging
 from VSM.Solver import Solver
 from VSM.WingAerodynamics import WingAerodynamics
 from VSM.WingGeometry import Wing
 
+import os
+import sys
 
-def cosspace(min, max, n_points):
-    """
-    Create an array with cosine spacing, from min to max values, with n points
-    """
-    mean = (max + min) / 2
-    amp = (max - min) / 2
-    return mean + amp * np.cos(np.linspace(np.pi, 0, n_points))
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, root_path)
+from tests.utils import generate_coordinates_el_wing
 
 
 def x_coords(y_coords, chord_root, span):
@@ -24,21 +23,33 @@ def x_coords(y_coords, chord_root, span):
 def calculate_elliptical_wing(
     n_panels, AR, plot_wing=False, spacing="linear", aoa_deg=[3]
 ):
-    chord_root = 1  # m
-    # Aspect Ratio Equation Inverted: AR = span**2 / (chord_root * span / 4) p.49 eq (7.1)
-    span = (np.pi * AR * chord_root) / 4
-    print(f"Aspect ratio: {AR}, span: {span} m, chord: {chord_root} m")
-    Umag = 10  # m/s
 
-    # Create the wing
-    wing = Wing(n_panels, spacing)  # Adjust the number of panels as needed
+    ##TODO: old own attempt at geometry
+    # chord_root = 1  # m
+    # # Aspect Ratio Equation Inverted: AR = span**2 / (chord_root * span / 4) p.49 eq (7.1)
+    # span = (np.pi * AR * chord_root) / 4
+    # print(f"Aspect ratio: {AR}, span: {span} m, chord: {chord_root} m")
+    # Umag = 20  # m/s
 
-    # Add sections to the wing using cosine distribution
-    y_coords = cosspace(-span / 2, span / 2, 10)
-    x_chords = x_coords(y_coords, chord_root, span)
+    # # Create the wing
+    # wing = Wing(n_panels, spacing)  # Adjust the number of panels as needed
 
-    for y, x in zip(y_coords, x_chords):
-        wing.add_section([0.25 * x, y, 0], [-0.75 * x, y, 0], ["inviscid"])
+    # # Add sections to the wing using cosine distribution
+    # y_coords = cosspace(-span / 2, span / 2, 10)
+    # x_chords = x_coords(y_coords, chord_root, span)
+
+    # for y, x in zip(y_coords, x_chords):
+    #     wing.add_section([0.25 * x, y, 0], [-0.75 * x, y, 0], ["inviscid"])
+
+    max_chord = 1
+    span = 2.36
+    AR = span**2 / (np.pi * span * max_chord / 4)
+    coord = generate_coordinates_el_wing(max_chord, span, n_panels, "cos")
+    Atot = max_chord / 2 * span / 2 * np.pi
+    Umag = 20
+    wing = Wing(n_panels, spacing)
+    for i in range(int(len(coord) / 2)):
+        wing.add_section(coord[2 * i], coord[2 * i + 1], ["inviscid"])
 
     # # Initialize wing aerodynamics
     wing_aero = WingAerodynamics([wing])
@@ -47,31 +58,52 @@ def calculate_elliptical_wing(
     if plot_wing:
         wing_aero.plot()
 
-    # Initialize gamma distributions, to speed up the solver
+    # Initialize gamma distributions to speed up the solver
     VSM_gamma_distribution = None
     LLT_gamma_distribution = None
+
+    ### Defining variables for logging
+    # Atot = chord_root / 2 * span / 2 * np.pi
+    coord = []
+    Atot = 0
+    for i, panel_i in enumerate(wing_aero.panels):
+        Atot += panel_i.width * panel_i.chord
+        coord.append(panel_i.LE_point_1)
+        coord.append(panel_i.TE_point_1)
+
+    # coord: list of coordinates LE, TE, LE, TE,...
+
+    # logging
+    logging.info("---New Geometry---:")
+    logging.debug("N = " + str(n_panels))
+    logging.debug("span = " + str(span))
+    logging.debug("AR = " + str(AR))
+    logging.info("Atot = " + str(Atot))
+    logging.debug("Umag = " + str(Umag))
+    logging.debug("coord = " + str(coord))
+    logging.info("AR = " + str(AR))
 
     results = []
     for aoa in aoa_deg:
 
         aoa_rad = np.deg2rad(aoa)
-        Uinf = np.array([np.cos(aoa_rad), 0, -np.sin(aoa_rad)]) * -Umag
+        Uinf = np.array([np.cos(aoa_rad), 0, np.sin(aoa_rad)]) * Umag
         wing_aero.va = Uinf
 
-        # Initialize solvers
-        VSM = Solver(
-            aerodynamic_model_type="VSM",
-            relaxation_factor=0.03,
-            max_iterations=int(2e3),
-        )
+        # # Initialize solvers
+        # VSM = Solver(
+        #     aerodynamic_model_type="VSM",
+        #     relaxation_factor=0.03,
+        #     max_iterations=int(2e3),
+        # )
         LLT = Solver(
             aerodynamic_model_type="LLT",
             relaxation_factor=0.03,
             max_iterations=int(2e3),
         )
 
-        # Solve the aerodynamics
-        results_VSM, wing_aero_VSM = VSM.solve(wing_aero, VSM_gamma_distribution)
+        # # Solve the aerodynamics
+        # results_VSM, wing_aero_VSM = VSM.solve(wing_aero, VSM_gamma_distribution)
         results_LLT, wing_aero_LLT = LLT.solve(wing_aero, LLT_gamma_distribution)
 
         # # Populate gamma_distributions for next iteration
@@ -83,7 +115,12 @@ def calculate_elliptical_wing(
         CL_analytic = -(2 * np.pi * aoa_rad) / (1 + 2 / AR)
         CDi_analytic = -(CL_analytic**2) / (np.pi * AR)
 
-        results.append([aoa, results_VSM, results_LLT, CL_analytic, CDi_analytic])
+        # TODO: get VSM back
+        results_VSM = None
+
+        results.append(
+            [aoa, results_VSM, results_LLT, CL_analytic, CDi_analytic, wing_aero_LLT]
+        )
 
     return results
 

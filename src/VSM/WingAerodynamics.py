@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-import matplotlib
 import logging
 
 from VSM.Panel import Panel
@@ -25,16 +24,21 @@ class WingAerodynamics:
         n_panels = 0
         for i, wing_instance in enumerate(wings):
             sections = wing_instance.refine_aerodynamic_mesh()
-            for j in range(len(sections) - 1):
-                panels.append(Panel(sections[j], sections[j + 1]))
+            n_panels_per_wing = len(sections) - 1
+            for j in range(n_panels):
+                panels.append(
+                    Panel(
+                        sections[j],
+                        sections[j + 1],
+                        index=j,
+                        n_panels=n_panels_per_wing,
+                    )
+                )
             # adding the number of panels of each wing
             n_panels += wing_instance.n_panels
-            # calculating the number of panels per wing
-            n_panels_per_wing[i] = len(sections)
 
         self._wings = wings
         self._panels = panels
-        self._n_panels_per_wing = n_panels_per_wing
         self._n_panels = n_panels
         self._va = None
         self._gamma_distribution = None
@@ -144,8 +148,11 @@ class WingAerodynamics:
                 MatrixV[icp, jring] = velocity_induced[1]
                 MatrixW[icp, jring] = velocity_induced[2]
 
+                # Only apply correction term when dealing with same horshoe vortex (see p.27 Uri Thesis)
                 if icp == jring:
-                    if evaluation_point != "aerodynamic_center":
+                    if evaluation_point != "aerodynamic_center":  # if VSM and not LLT
+                        # CORRECTION TERM (S.T.Piszkin and E.S.Levinsky,1976)
+                        # Not present in classic LLT, added to allow for "arbitrary" (3/4c) control point location [37].
                         U_2D = panel_jring.calculate_velocity_induced_bound_2D(
                             getattr(panel_icp, evaluation_point),
                             gamma=1,
