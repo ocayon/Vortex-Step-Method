@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 from VSM.Filament import BoundFilament, Infinite2DFilament
 
 
@@ -8,23 +9,31 @@ class Panel:
         self,
         section_1,
         section_2,
-        index,
-        n_panels,
-        aerodynamic_center_location=0.25,
-        control_point_location=0.75,
+        aerodynamic_center,
+        control_point,
+        bound_point_1,
+        bound_point_2,
+        x_airf,
+        y_airf,
+        z_airf,
     ):
+        TE_point_1 = section_1.TE_point
+        LE_point_1 = section_1.LE_point
+        TE_point_2 = section_2.TE_point
+        LE_point_2 = section_2.LE_point
 
-        self._TE_point_1 = section_1.TE_point
-        self._LE_point_1 = section_1.LE_point
-        self._TE_point_2 = section_2.TE_point
-        self._LE_point_2 = section_2.LE_point
+        self._TE_point_1 = TE_point_1
+        self._LE_point_1 = LE_point_1
+        self._TE_point_2 = TE_point_2
+        self._LE_point_2 = LE_point_2
         self._chord = np.average(
             [
-                np.linalg.norm(section_1.TE_point - section_1.LE_point),
-                np.linalg.norm(section_2.TE_point - section_2.LE_point),
+                np.linalg.norm(TE_point_1 - LE_point_1),
+                np.linalg.norm(TE_point_2 - LE_point_2),
             ]
         )
         self._va = None
+        self._corner_points = np.array([LE_point_1, TE_point_1, TE_point_2, LE_point_2])
 
         # Defining panel_aero_model
         if section_1.aero_input[0] != section_2.aero_input[0]:
@@ -55,65 +64,17 @@ class Panel:
         else:
             raise NotImplementedError
 
-        # Calculate the control point and aerodynamic center
-        (
-            self._aerodynamic_center,
-            self._control_point,
-        ) = self.calculate_aerodynamic_center_and_control_point(index, n_panels)
+        self._aerodynamic_center = aerodynamic_center
+        self._control_point = control_point
+        self._bound_point_1 = bound_point_1
+        self._bound_point_2 = bound_point_2
+        self._x_airf = x_airf
+        self._y_airf = y_airf
+        self._z_airf = z_airf
 
-        # TODO: old calculation of aerodynamic center and control point
-        # # Be wary that x is defined positive into the wind, so from TE to LE
-        # mid_LE_point = self.LE_point_1 + 0.5 * (self._LE_point_2 - self._LE_point_1)
-        # mid_TE_point = self.TE_point_1 + 0.5 * (self._TE_point_2 - self._TE_point_1)
-        # vec_LE_to_TE = mid_TE_point - mid_LE_point
-        # self._aerodynamic_center = (
-        #     mid_LE_point + aerodynamic_center_location * vec_LE_to_TE
-        # )
-        # self._control_point = mid_LE_point + control_point_location * vec_LE_to_TE
-
-        ### Setting up the filaments
-        self.filaments = []
-        self._bound_point_1 = self._LE_point_1 + aerodynamic_center_location * (
-            self._TE_point_1 - self._LE_point_1
-        )
-        self._bound_point_2 = self._LE_point_2 + aerodynamic_center_location * (
-            self._TE_point_2 - self._LE_point_2
-        )
-        self.filaments.append(
-            BoundFilament(x1=self._bound_point_1, x2=self._bound_point_2)
-        )
-        self.filaments.append(BoundFilament(x1=self.TE_point_1, x2=self._bound_point_1))
-        self.filaments.append(BoundFilament(x1=self._bound_point_2, x2=self.TE_point_2))
-        self._filament_2d = Infinite2DFilament(self._bound_point_1, self._bound_point_2)
-        self._gamma = None  # Initialize the gamma attribute
-
-        ### Calculate the local reference frame, below are all unit_vectors
-        # NORMAL x_airf defined upwards from the chord-line, perpendicular to the panel
-        x_airf = np.cross(
-            self._control_point - self._aerodynamic_center,
-            self._LE_point_2 - self._LE_point_1,
-        )
-        self._x_airf = x_airf / np.linalg.norm(x_airf)
-
-        # TANGENTIAL y_airf defined parallel to the chord-line, from LE-to-TE
-        y_airf = self._control_point - self._aerodynamic_center
-        self._y_airf = y_airf / np.linalg.norm(y_airf)
-
-        # SPAN z_airf along the LE, in plane (towards left tip, along span) from the airfoil perspective
-        z_airf = self._bound_point_2 - self._bound_point_1
-        self._z_airf = z_airf / np.linalg.norm(z_airf)
-
-        # TODO: OLD
-        # self._y_airf = vec_LE_to_TE / np.linalg.norm(vec_LE_to_TE)
-        # self._z_airf = (self._bound_point_2 - self._bound_point_1) / np.linalg.norm(
-        #     self._bound_point_2 - self._bound_point_1
-        # )
-        # self._x_airf = np.cross(self._y_airf, self._z_airf)
-
-        # Calculate the width of the panel
-
-        # TODO: remove this later, and use average_width should be the above
-        self._width = np.linalg.norm(self._bound_point_2 - self._bound_point_1)
+        # TODO:
+        # Calculuting width at the bound, should be done averaged over whole panel
+        self._width = np.linalg.norm(bound_point_2 - bound_point_1)
         # self._width = np.average(
         #     [
         #         np.linalg.norm(self._TE_point_1 - self._TE_point_2),
@@ -121,12 +82,17 @@ class Panel:
         #     ]
         # )
 
+        ### Setting up the filaments
+        self.filaments = []
+        self.filaments.append(BoundFilament(x1=bound_point_1, x2=bound_point_2))
+        self.filaments.append(BoundFilament(x1=TE_point_1, x2=bound_point_1))
+        self.filaments.append(BoundFilament(x1=bound_point_2, x2=TE_point_2))
+        self._filament_2d = Infinite2DFilament(bound_point_1, bound_point_2)
+        self._gamma = None  # Initialize the gamma attribute
+
     ###########################
     ## GETTER FUNCTIONS
     ###########################
-    @property
-    def control_point(self):
-        return self._control_point
 
     @property
     def z_airf(self):
@@ -149,18 +115,23 @@ class Panel:
 
     @property
     def aerodynamic_center(self):
+        """The aerodynamic center of the panel, also LLTpoint, at 1/4c"""
         return self._aerodynamic_center
 
     @property
+    def control_point(self):
+        """The control point of the panel, also VSMpoint, at 3/4c"""
+        return self._control_point
+
+    @property
     def corner_points(self):
-        return np.array(
-            [self._LE_point_1, self._TE_point_1, self._TE_point_2, self._LE_point_2]
-        )
+        return self._corner_points
 
     @property
     def bound_point_1(self):
         return self._bound_point_1
 
+    @property
     def bound_point_2(self):
         return self._bound_point_2
 
@@ -198,75 +169,6 @@ class Panel:
     ###########################
     ## CALCULATE FUNCTIONS      # All this return something
     ###########################
-
-    def calculate_aerodynamic_center_and_control_point(self, i, N):
-        # Define points for the current section
-        coordinates = np.array(
-            [self._LE_point_1, self._TE_point_1, self._LE_point_2, self._TE_point_2]
-        )
-
-        section = {
-            "p1": coordinates[0],
-            "p2": coordinates[2],
-            "p3": coordinates[3],
-            "p4": coordinates[1],
-        }
-        di = np.linalg.norm(
-            coordinates[2 * i, :] * 0.75
-            + coordinates[2 * i + 1, :] * 0.25
-            - (coordinates[2 * i + 2, :] * 0.75 + coordinates[2 * i + 3, :] * 0.25)
-        )
-        if i == 0:
-            diplus = np.linalg.norm(
-                coordinates[2 * (i + 1), :] * 0.75
-                + coordinates[2 * (i + 1) + 1, :] * 0.25
-                - (
-                    coordinates[2 * (i + 1) + 2, :] * 0.75
-                    + coordinates[2 * (i + 1) + 3, :] * 0.25
-                )
-            )
-            ncp = di / (di + diplus)
-        elif i == N - 2:
-            dimin = np.linalg.norm(
-                coordinates[2 * (i - 1), :] * 0.75
-                + coordinates[2 * (i - 1) + 1, :] * 0.25
-                - (
-                    coordinates[2 * (i - 1) + 2, :] * 0.75
-                    + coordinates[2 * (i - 1) + 3, :] * 0.25
-                )
-            )
-            ncp = dimin / (dimin + di)
-        else:
-            dimin = np.linalg.norm(
-                coordinates[2 * (i - 1), :] * 0.75
-                + coordinates[2 * (i - 1) + 1, :] * 0.25
-                - (
-                    coordinates[2 * (i - 1) + 2, :] * 0.75
-                    + coordinates[2 * (i - 1) + 3, :] * 0.25
-                )
-            )
-            diplus = np.linalg.norm(
-                coordinates[2 * (i + 1), :] * 0.75
-                + coordinates[2 * (i + 1) + 1, :] * 0.25
-                - (
-                    coordinates[2 * (i + 1) + 2, :] * 0.75
-                    + coordinates[2 * (i + 1) + 3, :] * 0.25
-                )
-            )
-            ncp = 0.25 * (dimin / (dimin + di) + di / (di + diplus) + 1)
-
-        ncp = 1 - ncp
-
-        # aerodynamic center at 1/4c
-        LLpoint = (section["p2"] * (1 - ncp) + section["p1"] * ncp) * 3 / 4 + (
-            section["p3"] * (1 - ncp) + section["p4"] * ncp
-        ) * 1 / 4
-        # control point at 3/4c
-        VSMpoint = (section["p2"] * (1 - ncp) + section["p1"] * ncp) * 1 / 4 + (
-            section["p3"] * (1 - ncp) + section["p4"] * ncp
-        ) * 3 / 4
-
-        return LLpoint, VSMpoint
 
     def calculate_relative_alpha_and_relative_velocity(
         self, induced_velocity: np.array
@@ -458,7 +360,7 @@ class Panel:
         else:
             raise NotImplementedError
 
-    def calculate_velocity_induced_bound_2D(
+    def calculate_velocity_induced_bound_point_2D(
         self, control_point, gamma, core_radius_fraction
     ):
         """ "

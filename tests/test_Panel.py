@@ -15,9 +15,13 @@ class MockSection:
 def sample_panel():
     section1 = MockSection([0, 0, 0], [-1, 0, 0], ["inviscid"])
     section2 = MockSection([0, 10, 0], [-1, 10, 0], ["inviscid"])
+    index = 0
+    n_panels = 2
     return Panel(
         section1,
         section2,
+        index,
+        n_panels,
         aerodynamic_center_location=0.25,
         control_point_location=0.75,
     )
@@ -82,6 +86,8 @@ def test_polar_data_input():
     panel = Panel(
         section1,
         section2,
+        index=0,
+        n_panels=2,
         aerodynamic_center_location=0.25,
         control_point_location=0.75,
     )
@@ -204,6 +210,8 @@ def test_lei_airfoil_breukels_input():
     panel = Panel(
         section1,
         section2,
+        index=0,
+        n_panels=2,
         aerodynamic_center_location=0.25,
         control_point_location=0.75,
     )
@@ -375,18 +383,24 @@ def test_calculate_cl_and_cd_cm(sample_panel):
     inviscid_panel_instance = Panel(
         inviscid_section1,
         inviscid_section2,
+        index=0,
+        n_panels=2,
         aerodynamic_center_location=0.25,
         control_point_location=0.75,
     )
     polar_data_panel_instance = Panel(
         polar_data_section1,
         polar_data_section2,
+        index=0,
+        n_panels=2,
         aerodynamic_center_location=0.25,
         control_point_location=0.75,
     )
     lei_airfoil_panel_instance = Panel(
         lei_airfoil_section1,
         lei_airfoil_section2,
+        index=0,
+        n_panels=2,
         aerodynamic_center_location=0.25,
         control_point_location=0.75,
     )

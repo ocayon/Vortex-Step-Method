@@ -23,15 +23,34 @@ class WingAerodynamics:
         n_panels_per_wing = np.empty(len(wings))
         n_panels = 0
         for i, wing_instance in enumerate(wings):
-            sections = wing_instance.refine_aerodynamic_mesh()
-            n_panels_per_wing = len(sections) - 1
-            for j in range(n_panels):
+            section_list = wing_instance.refine_aerodynamic_mesh()
+            n_panels_per_wing = len(section_list) - 1
+            (
+                aerodynamic_center_list,
+                control_point_list,
+                bound_point_1_list,
+                bound_point_2_list,
+                x_airf_list,
+                y_airf_list,
+                z_airf_list,
+            ) = self.calculate_panel_properties(
+                section_list,
+                n_panels_per_wing,
+                aerodynamic_center_location=0.25,
+                control_point_location=0.75,
+            )
+            for j in range(n_panels_per_wing):
                 panels.append(
                     Panel(
-                        sections[j],
-                        sections[j + 1],
-                        index=j,
-                        n_panels=n_panels_per_wing,
+                        section_list[j],
+                        section_list[j + 1],
+                        aerodynamic_center_list[j],
+                        control_point_list[j],
+                        bound_point_1_list[j],
+                        bound_point_2_list[j],
+                        x_airf_list[j],
+                        y_airf_list[j],
+                        z_airf_list[j],
                     )
                 )
             # adding the number of panels of each wing
@@ -108,6 +127,136 @@ class WingAerodynamics:
     ###########################
     ## CALCULATE FUNCTIONS
     ###########################
+
+    # TODO: implement usaged of the .25 and .75 variables
+    # TODO: could be CPU optimized
+    def calculate_panel_properties(
+        self,
+        section_list,
+        n_panels,
+        aerodynamic_center_location=0.25,
+        control_point_location=0.75,
+    ):
+        # Initialize lists
+        aerodynamic_center_list = []
+        control_point_list = []
+        bound_point_1_list = []
+        bound_point_2_list = []
+        x_airf_list = []
+        y_airf_list = []
+        z_airf_list = []
+
+        # defining coordinates
+        coordinates = np.zeros((2 * (n_panels + 1), 3))
+        logging.debug(f"shape of coordinates: {coordinates.shape}")
+        for i in range(n_panels):
+            logging.debug(f"i: {i}")
+            coordinates[2 * i] = section_list[i].LE_point
+            coordinates[2 * i + 1] = section_list[i].TE_point
+            coordinates[2 * i + 2] = section_list[i + 1].LE_point
+            coordinates[2 * i + 3] = section_list[i + 1].TE_point
+
+        logging.debug(f"coordinates: {coordinates}")
+
+        for i in range(n_panels):
+            # Identify points defining the panel
+            section = {
+                "p1": coordinates[2 * i, :],
+                "p2": coordinates[2 * i + 2, :],
+                "p3": coordinates[2 * i + 3, :],
+                "p4": coordinates[2 * i + 1, :],
+            }
+
+            di = np.linalg.norm(
+                coordinates[2 * i, :] * 0.75
+                + coordinates[2 * i + 1, :] * 0.25
+                - (coordinates[2 * i + 2, :] * 0.75 + coordinates[2 * i + 3, :] * 0.25)
+            )
+            if i == 0:
+                diplus = np.linalg.norm(
+                    coordinates[2 * (i + 1), :] * 0.75
+                    + coordinates[2 * (i + 1) + 1, :] * 0.25
+                    - (
+                        coordinates[2 * (i + 1) + 2, :] * 0.75
+                        + coordinates[2 * (i + 1) + 3, :] * 0.25
+                    )
+                )
+                ncp = di / (di + diplus)
+            elif i == n_panels - 1:
+                dimin = np.linalg.norm(
+                    coordinates[2 * (i - 1), :] * 0.75
+                    + coordinates[2 * (i - 1) + 1, :] * 0.25
+                    - (
+                        coordinates[2 * (i - 1) + 2, :] * 0.75
+                        + coordinates[2 * (i - 1) + 3, :] * 0.25
+                    )
+                )
+                ncp = dimin / (dimin + di)
+            else:
+                dimin = np.linalg.norm(
+                    coordinates[2 * (i - 1), :] * 0.75
+                    + coordinates[2 * (i - 1) + 1, :] * 0.25
+                    - (
+                        coordinates[2 * (i - 1) + 2, :] * 0.75
+                        + coordinates[2 * (i - 1) + 3, :] * 0.25
+                    )
+                )
+                diplus = np.linalg.norm(
+                    coordinates[2 * (i + 1), :] * 0.75
+                    + coordinates[2 * (i + 1) + 1, :] * 0.25
+                    - (
+                        coordinates[2 * (i + 1) + 2, :] * 0.75
+                        + coordinates[2 * (i + 1) + 3, :] * 0.25
+                    )
+                )
+                ncp = 0.25 * (dimin / (dimin + di) + di / (di + diplus) + 1)
+
+            ncp = 1 - ncp
+
+            # aerodynamic center at 1/4c
+            LLpoint = (section["p2"] * (1 - ncp) + section["p1"] * ncp) * 3 / 4 + (
+                section["p3"] * (1 - ncp) + section["p4"] * ncp
+            ) * 1 / 4
+            # control point at 3/4c
+            VSMpoint = (section["p2"] * (1 - ncp) + section["p1"] * ncp) * 1 / 4 + (
+                section["p3"] * (1 - ncp) + section["p4"] * ncp
+            ) * 3 / 4
+
+            # Calculating the bound
+            bound_1 = section["p1"] * 3 / 4 + section["p4"] * 1 / 4
+            bound_2 = section["p2"] * 3 / 4 + section["p3"] * 1 / 4
+
+            ### Calculate the local reference frame, below are all unit_vectors
+            # NORMAL x_airf defined upwards from the chord-line, perpendicular to the panel
+            x_airf = np.cross(VSMpoint - LLpoint, section["p2"] - section["p1"])
+            x_airf = x_airf / np.linalg.norm(x_airf)
+
+            # TANGENTIAL y_airf defined parallel to the chord-line, from LE-to-TE
+            y_airf = VSMpoint - LLpoint
+            y_airf = y_airf / np.linalg.norm(y_airf)
+
+            # SPAN z_airf along the LE, in plane (towards left tip, along span) from the airfoil perspective
+            z_airf = bound_2 - bound_1
+            z_airf = z_airf / np.linalg.norm(z_airf)
+
+            # Appending
+            aerodynamic_center_list.append(LLpoint)
+            control_point_list.append(VSMpoint)
+            bound_point_1_list.append(bound_1)
+            bound_point_2_list.append(bound_2)
+            x_airf_list.append(x_airf)
+            y_airf_list.append(y_airf)
+            z_airf_list.append(z_airf)
+
+        return (
+            aerodynamic_center_list,
+            control_point_list,
+            bound_point_1_list,
+            bound_point_2_list,
+            x_airf_list,
+            y_airf_list,
+            z_airf_list,
+        )
 
     # TODO: this method should be properly tested against the old code and analytics
     def calculate_AIC_matrices(self, model, core_radius_fraction):
@@ -219,16 +368,16 @@ class WingAerodynamics:
             raise ValueError("Calc.results not ready for va_distributed input")
 
         # Initializing variables
-        cl_prescribed_va_array = []
-        cd_prescribed_va_array = []
-        cs_prescribed_va_array = []
-        lift_prescribed_va_array = []
-        drag_prescribed_va_array = []
-        side_prescribed_va_array = []
-        ftotal_prescribed_va_array = []
-        fx_global_array = []
-        fy_global_array = []
-        fz_global_array = []
+        cl_prescribed_va_list = []
+        cd_prescribed_va_list = []
+        cs_prescribed_va_list = []
+        lift_prescribed_va_list = []
+        drag_prescribed_va_list = []
+        side_prescribed_va_list = []
+        ftotal_prescribed_va_list = []
+        fx_global_list = []
+        fy_global_list = []
+        fz_global_list = []
         area_all_panels = 0
         lift_wing = 0
         drag_wing = 0
@@ -333,16 +482,16 @@ class WingAerodynamics:
             fz_global = np.dot(ftotal_prescribed_va, np.array([0, 0, 1]))
 
             ### Storing results that are useful
-            lift_prescribed_va_array.append(lift_prescribed_va)
-            drag_prescribed_va_array.append(drag_prescribed_va)
-            side_prescribed_va_array.append(side_prescribed_va)
-            cl_prescribed_va_array.append(lift_prescribed_va / (q_inf * panel_chord))
-            cd_prescribed_va_array.append(drag_prescribed_va / (q_inf * panel_chord))
-            cs_prescribed_va_array.append(side_prescribed_va / (q_inf * panel_chord))
-            ftotal_prescribed_va_array.append(ftotal_prescribed_va)
-            fx_global_array.append(fx_global)
-            fy_global_array.append(fy_global)
-            fz_global_array.append(fz_global)
+            lift_prescribed_va_list.append(lift_prescribed_va)
+            drag_prescribed_va_list.append(drag_prescribed_va)
+            side_prescribed_va_list.append(side_prescribed_va)
+            cl_prescribed_va_list.append(lift_prescribed_va / (q_inf * panel_chord))
+            cd_prescribed_va_list.append(drag_prescribed_va / (q_inf * panel_chord))
+            cs_prescribed_va_list.append(side_prescribed_va / (q_inf * panel_chord))
+            ftotal_prescribed_va_list.append(ftotal_prescribed_va)
+            fx_global_list.append(fx_global)
+            fy_global_list.append(fy_global)
+            fz_global_list.append(fz_global)
 
             ### Logging
             logging.debug("----calculate_results_new----- icp: %d", i)
@@ -383,11 +532,11 @@ class WingAerodynamics:
         results_dict.update([("cd", drag_wing / (q_inf * area_all_panels))])
         results_dict.update([("cs", side_wing / (q_inf * area_all_panels))])
         # Local panel aerodynamics
-        results_dict.update([("cl_distribution", cl_prescribed_va_array)])
-        results_dict.update([("cd_distribution", cd_prescribed_va_array)])
-        results_dict.update([("cs_distribution", cs_prescribed_va_array)])
+        results_dict.update([("cl_distribution", cl_prescribed_va_list)])
+        results_dict.update([("cd_distribution", cd_prescribed_va_list)])
+        results_dict.update([("cs_distribution", cs_prescribed_va_list)])
 
-        results_dict.update([("Ftotal_distribution", ftotal_prescribed_va_array)])
+        results_dict.update([("Ftotal_distribution", ftotal_prescribed_va_list)])
 
         # Additional info
         results_dict.update([("cfz", fz_global / (q_inf * area_all_panels))])

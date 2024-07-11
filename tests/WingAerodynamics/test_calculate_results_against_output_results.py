@@ -7,6 +7,18 @@ from VSM.WingAerodynamics import WingAerodynamics
 from VSM.WingGeometry import Wing
 
 
+import os
+import sys
+
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, root_path)
+from tests.utils import (
+    generate_coordinates_el_wing,
+    generate_coordinates_rect_wing,
+    generate_coordinates_curved_wing,
+)
+
+
 def vec_norm(v):
     """
     Norm of a vector
@@ -142,37 +154,36 @@ def output_results(Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot, rho=1.
     CS = SFtot / (0.5 * Umag**2 * Atot * rho)
 
     ### Logging
-    logging.info(f"cl:{CL}")
-    logging.info(f"cd:{CD}")
-    logging.info(f"cs:{CS}")
-    logging.info(f"lift:{Ltot}")
-    logging.info(f"drag:{Dtot}")
-    logging.info(f"side:{SFtot}")
-    logging.info(f"Area: {Atot}")
+    logging.debug(f"cl:{CL}")
+    logging.debug(f"cd:{CD}")
+    logging.debug(f"cs:{CS}")
+    logging.debug(f"lift:{Ltot}")
+    logging.debug(f"drag:{Dtot}")
+    logging.debug(f"side:{SFtot}")
+    logging.debug(f"Area: {Atot}")
 
     return F_rel, F_gl, Ltot, Dtot, CL, CD, CS
 
 
 def test_calculate_results():
+
     # Setup
     density = 1.225  # kg/m^3
-
-    # Create a wing
-    wing = Wing(n_panels=2)  # Using 3 panels for simplicity in this test
-
-    # Add sections to the wing
-    span = 20
-    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
-    # wing.add_section([0, 0, 0], [-1, 0, 0], ["inviscid"])
-    wing.add_section([0, span / 2, 0], [-1, span / 2, 0], ["inviscid"])
-
-    # Initialize wing aerodynamics
-    wing_aero = WingAerodynamics([wing])
-
-    # Define inflow conditions
+    N = 4
+    max_chord = 1
+    span = 2.36
+    AR = span**2 / (np.pi * span * max_chord / 4)
     Umag = 20
-    aoa = 3 * np.pi / 180
-    Uinf = np.array([np.cos(aoa), 0, -np.sin(aoa)]) * -Umag
+    aoa = 5.7106 * np.pi / 180
+    Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
+
+    ### Elliptical Wing
+    coord = generate_coordinates_el_wing(max_chord, span, N, "cos")
+    logging.debug(f"len(coord/2): {len(coord)/2}")
+    wing = Wing(N, "unchanged")
+    for i in range(int(len(coord) / 2)):
+        wing.add_section(coord[2 * i], coord[2 * i + 1], ["inviscid"])
+    wing_aero = WingAerodynamics([wing])
     wing_aero.va = Uinf
 
     # Initialize solver
@@ -242,13 +253,13 @@ def test_calculate_results():
     )
 
     # printing the inputs
-    print("Fmag:", Fmag)
-    print("aero_coeffs:", aero_coeffs)
-    print("ringvec:", ringvec)
-    print("Uinf:", Uinf)
-    print("controlpoints:", controlpoints)
-    print("Atot:", Atot)
-    print("density:", density)
+    logging.debug(f"Fmag: {Fmag}")
+    logging.debug(f"aero_coeffs: {aero_coeffs}")
+    logging.debug(f"ringvec: {ringvec}")
+    logging.debug(f"Uinf: {Uinf}")
+    logging.debug(f"controlpoints: {controlpoints}")
+    logging.debug(f"Atot: {Atot}")
+    logging.debug(f"density: {density}")
 
     # Calculate results using the reference function
     F_rel_ref, F_gl_ref, Ltot_ref, Dtot_ref, CL_ref, CD_ref, CS_ref = output_results(
@@ -258,6 +269,12 @@ def test_calculate_results():
     ##########################
     ### COMPARING
     ##########################
+
+    logging.debug(f"cl_calculated: {cl_calculated}, CL_ref: {CL_ref}")
+    logging.debug(f"cd_calculated: {cd_calculated}, CD_ref: {CD_ref}")
+    logging.debug(f"cs_calculated: {cs_calculated}, CS_ref: {CS_ref}")
+    logging.debug(f"L_calculated: {L_calculated}, Ltot_ref: {Ltot_ref}")
+    logging.debug(f"D_calculated: {D_calculated}, Dtot_ref: {Dtot_ref}")
 
     # Assert that the results are close
     np.testing.assert_allclose(cl_calculated, CL_ref, rtol=1e-5)

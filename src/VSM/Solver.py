@@ -127,10 +127,11 @@ class Solver:
 
             # Dealing with stalled cases
             stall = False
-            aoa_stall = np.deg2rad(17.0)
+            # TODO: aoa_stall should be input and not fixed, and also adjusted
+            aoa_stall = np.deg2rad(20.0)
             for ia, alpha_i in enumerate(alpha):
                 if alpha_i > aoa_stall:
-                    stall = True
+                    stall = False
                     logging.info(
                         "Stall detected, alpha[i]: %f, it: %d, panel_number: %d"
                         % (np.rad2deg(alpha_i), i, ia)

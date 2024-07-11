@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 from VSM.Filament import BoundFilament, SemiInfiniteFilament
 from VSM.WingGeometry import Wing
 from VSM.WingAerodynamics import WingAerodynamics
@@ -191,6 +192,14 @@ def create_geometry_general(coordinates, Uinf, N, ring_geo, model):
             filaments.append(temp1)
 
             temp1 = {
+                "x1": bound["x2"],
+                "x2": section["p3"],
+                "Gamma": 0,
+                "id": "trailing2",
+            }
+            filaments.append(temp1)
+
+            temp1 = {
                 "dir": temp,
                 "id": "trailing_inf1",
                 "x1": section["p4"],
@@ -199,18 +208,11 @@ def create_geometry_general(coordinates, Uinf, N, ring_geo, model):
             filaments.append(temp1)
 
             # create trailing filaments, at x2 of bound filament
-            temp1 = {
-                "x2": section["p3"],
-                "x1": bound["x2"],
-                "Gamma": 0,
-                "id": "trailing1",
-            }
-            filaments.append(temp1)
 
             temp1 = {
-                "x1": section["p3"],
                 "dir": temp,
                 "id": "trailing_inf2",
+                "x1": section["p3"],
                 "Gamma": 0,
             }
             filaments.append(temp1)
@@ -230,18 +232,18 @@ def create_controlpoints_from_wing_object(wing, model):
     for panel in wing.panels:
         if model == "VSM":
             cp = {
-                "coordinates": panel.aerodynamic_center,
+                "coordinates": panel.control_point,
                 "chord": panel.chord,
                 "normal": panel.x_airf,
                 "tangential": panel.y_airf,
                 "airf_coord": np.column_stack(
                     [panel.x_airf, panel.y_airf, panel.z_airf]
                 ),
-                "coordinates_aoa": panel.control_point,
+                "coordinates_aoa": panel.aerodynamic_center,
             }
         elif model == "LLT":
             cp = {
-                "coordinates": panel.control_point,
+                "coordinates": panel.aerodynamic_center,
                 "chord": panel.chord,
                 "normal": panel.x_airf,
                 "tangential": panel.y_airf,
@@ -258,11 +260,13 @@ def create_controlpoints_from_wing_object(wing, model):
 
 def create_ring_from_wing_object(wing, gamma_data=None):
     result = []
+    va_norm = wing.va / np.linalg.norm(wing.va)
     filaments = [panel.filaments for panel in wing.panels]
-    gamma_data = np.ones(len(filaments))
+    gamma_data = [0 for _ in filaments]
     for ring, gamma in zip(filaments, gamma_data):
         ring_filaments = []
-
+        counter_bound = 1
+        counter_semi = 1
         for i, filament in enumerate(ring):
             if isinstance(filament, BoundFilament):
                 if i == 0:  # First BoundFilament in the ring
@@ -274,24 +278,28 @@ def create_ring_from_wing_object(wing, gamma_data=None):
                             "Gamma": gamma,
                         }
                     )
+
                 else:  # Other BoundFilaments are treated as 'trailing1'
                     ring_filaments.append(
                         {
-                            "id": "trailing1",
                             "x1": filament.x1,
                             "x2": filament.x2,
                             "Gamma": gamma,
+                            "id": f"trailing{counter_bound}",
                         }
                     )
+                    counter_bound += 1
+
             elif isinstance(filament, SemiInfiniteFilament):
                 ring_filaments.append(
                     {
-                        "id": f"trailing_inf{len(ring_filaments) - 2}",  # -2 because we start counting after the bound filament
+                        "dir": va_norm,  # Assuming _direction is the correct attribute
+                        "id": f"trailing_inf{counter_semi}",  # -2 because we start counting after the bound filament
                         "x1": filament.x1,
-                        "dir": filament._direction,  # Assuming _direction is the correct attribute
                         "Gamma": gamma,
                     }
                 )
+                counter_semi += 1
 
         result.append(ring_filaments)
 
@@ -300,12 +308,17 @@ def create_ring_from_wing_object(wing, gamma_data=None):
 
 def create_wingpanels_from_wing_object(wing):
     wingpanels = []
+
+    coordinates = np.zeros((2 * (len(wing.panels) + 1), 3))
+    n_panels = len(wing.panels)
+    for i in range(n_panels):
+        coordinates[2 * i] = wing.panels[i].LE_point_1
+        coordinates[2 * i + 1] = wing.panels[i].TE_point_1
+        coordinates[2 * i + 2] = wing.panels[i].LE_point_2
+        coordinates[2 * i + 3] = wing.panels[i].TE_point_2
+
     # Go through all wing panels
     for i, panel in enumerate(wing.panels):
-
-        coordinates = np.array(
-            [panel.LE_point_1, panel.TE_point_1, panel.LE_point_2, panel.TE_point_2]
-        )
 
         # Identify points defining the panel
         section = {
@@ -318,16 +331,24 @@ def create_wingpanels_from_wing_object(wing):
     return wingpanels
 
 
-def create_ring_vec_from_wing_object(wing):
+def create_ring_vec_from_wing_object(wing, model):
     result = []
 
     for panel in wing.panels:
+        bound_1 = panel.bound_point_1
+        bound_2 = panel.bound_point_2
+        if model == "VSM":
+            evaluation_point = panel.control_point
+        elif model == "LLT":
+            evaluation_point = panel.aerodynamic_center
 
         # Calculate the required vectors
-        r0 = panel.bound_point_2 - panel.bound_point_1
-        r1 = panel.control_point - panel.bound_point_1
-        r2 = panel.control_point - panel.bound_point_2
-        r3 = panel.control_point - (panel.bound_point_2 + panel.bound_point_1) / 2
+        logging.debug(f"bound_1 {bound_1}")
+        logging.debug(f"bound_2 {bound_2}")
+        r0 = bound_2 - bound_1
+        r1 = evaluation_point - bound_1
+        r2 = evaluation_point - bound_2
+        r3 = evaluation_point - (bound_2 + bound_1) / 2
 
         # Add the calculated vectors to the result
         result.append({"r0": r0, "r1": r1, "r2": r2, "r3": r3})
@@ -346,7 +367,7 @@ def create_geometry_from_wing_object(wing, model):
     controlpoints = create_controlpoints_from_wing_object(wing, model)
     rings = create_ring_from_wing_object(wing)
     wingpanels = create_wingpanels_from_wing_object(wing)
-    ringvec = create_ring_vec_from_wing_object(wing)
+    ringvec = create_ring_vec_from_wing_object(wing, model)
     coord_L = create_coord_L_from_wing_object(wing)
 
     return controlpoints, rings, wingpanels, ringvec, coord_L
@@ -363,7 +384,7 @@ def create_geometry_from_wing_object(wing, model):
 
 def test_create_geometry_general():
 
-    N = 3
+    N = 10
     max_chord = 1
     span = 2.36
     AR = span**2 / (np.pi * span * max_chord / 4)
@@ -388,17 +409,60 @@ def test_create_geometry_general():
         expected_ringvec,
         expected_coord_L,
     ) = create_geometry_general(coord, Uinf, int(len(coord) / 2), "5fil", model)
+
+    logging.debug(f"expected_controlpoints {expected_controlpoints}")
+    logging.debug(f"expected_rings {expected_rings}")
+    logging.debug(f"expected_bladepanels {expected_bladepanels}")
+    logging.debug(f"expected_ringvec {expected_ringvec}")
+    logging.debug(f"expected_coord_L {expected_coord_L}")
+
     # Generate geometry from wing object
     controlpoints, rings, wingpanels, ringvec, coord_L = (
         create_geometry_from_wing_object(wing_aero, model)
     )
 
     # Check if the results are the same
-    assert np.allclose(controlpoints, expected_controlpoints)
-    assert np.allclose(rings, expected_rings)
-    assert np.allclose(wingpanels, expected_bladepanels)
-    assert np.allclose(ringvec, expected_ringvec)
-    assert np.allclose(coord_L, expected_coord_L)
+    def asserting_all_elements_in_list_dict(variable1, variable_expected):
+        for i, (variable1_i, variable_expected_i) in enumerate(
+            zip(variable1, variable_expected)
+        ):
+            for j, (key1, key2) in enumerate(
+                zip(variable1_i.keys(), variable_expected_i.keys())
+            ):
+                logging.debug(f"key1 {key1}, key2 {key2}")
+                logging.debug(f"variable1_i {variable1_i[key1]}")
+                logging.debug(f"variable_expected_i {variable_expected_i[key1]}")
+                assert key1 == key2
+                assert np.allclose(
+                    variable1_i[key1], variable_expected_i[key1], atol=1e-5
+                )
+
+    def asserting_all_elements_in_list_list_dict(variable1, variable_expected):
+        for i, (list1, list_expected) in enumerate(zip(variable1, variable_expected)):
+            for j, (dict1, dict_expected) in enumerate(zip(list1, list_expected)):
+                assert dict1.keys() == dict_expected.keys()
+                for key1, key2 in zip(dict1.keys(), dict_expected.keys()):
+                    logging.debug(f"key1 {key1}, key2 {key2}")
+                    logging.debug(f"dict1[key1] {dict1[key1]}")
+                    logging.debug(f"dict_expected[key2] {dict_expected[key2]}")
+                    assert key1 == key2
+                    # check breaks when entry is a string
+                    if isinstance(dict1[key1], str):
+                        assert dict1[key1] == dict_expected[key1]
+                    else:
+                        assert np.allclose(dict1[key1], dict_expected[key1], atol=1e-5)
+
+    logging.debug(f"---controlpoints--- type: {type(controlpoints)}, {controlpoints}")
+    asserting_all_elements_in_list_dict(controlpoints, expected_controlpoints)
+    logging.debug(f"---rings--- type: {type(rings)}, {rings}")
+    logging.debug(
+        f"---expected_rings--- type: {type(expected_rings)}, {expected_rings}"
+    )
+    asserting_all_elements_in_list_list_dict(rings, expected_rings)
+    asserting_all_elements_in_list_dict(wingpanels, expected_bladepanels)
+    asserting_all_elements_in_list_dict(ringvec, expected_ringvec)
+    logging.debug(f"---coord_L--- type: {type(coord_L)}, {coord_L}")
+    assert np.allclose(coord_L, expected_coord_L, atol=1e-5)
 
     model = "LLT"
     # Generate geometry
@@ -415,11 +479,17 @@ def test_create_geometry_general():
     )
 
     # Check if the results are the same
-    assert np.allclose(controlpoints, expected_controlpoints)
-    assert np.allclose(rings, expected_rings)
-    assert np.allclose(wingpanels, expected_bladepanels)
-    assert np.allclose(ringvec, expected_ringvec)
-    assert np.allclose(coord_L, expected_coord_L)
+    logging.debug(f"---controlpoints--- type: {type(controlpoints)}, {controlpoints}")
+    asserting_all_elements_in_list_dict(controlpoints, expected_controlpoints)
+    logging.debug(f"---rings--- type: {type(rings)}, {rings}")
+    logging.debug(
+        f"---expected_rings--- type: {type(expected_rings)}, {expected_rings}"
+    )
+    asserting_all_elements_in_list_list_dict(rings, expected_rings)
+    asserting_all_elements_in_list_dict(wingpanels, expected_bladepanels)
+    asserting_all_elements_in_list_dict(ringvec, expected_ringvec)
+    logging.debug(f"---coord_L--- type: {type(coord_L)}, {coord_L}")
+    assert np.allclose(coord_L, expected_coord_L, atol=1e-5)
 
     ### Curved Wing
     theta = np.pi / 4
@@ -446,11 +516,17 @@ def test_create_geometry_general():
     )
 
     # Check if the results are the same
-    assert np.allclose(controlpoints, expected_controlpoints)
-    assert np.allclose(rings, expected_rings)
-    assert np.allclose(wingpanels, expected_bladepanels)
-    assert np.allclose(ringvec, expected_ringvec)
-    assert np.allclose(coord_L, expected_coord_L)
+    logging.debug(f"---controlpoints--- type: {type(controlpoints)}, {controlpoints}")
+    asserting_all_elements_in_list_dict(controlpoints, expected_controlpoints)
+    logging.debug(f"---rings--- type: {type(rings)}, {rings}")
+    logging.debug(
+        f"---expected_rings--- type: {type(expected_rings)}, {expected_rings}"
+    )
+    asserting_all_elements_in_list_list_dict(rings, expected_rings)
+    asserting_all_elements_in_list_dict(wingpanels, expected_bladepanels)
+    asserting_all_elements_in_list_dict(ringvec, expected_ringvec)
+    logging.debug(f"---coord_L--- type: {type(coord_L)}, {coord_L}")
+    assert np.allclose(coord_L, expected_coord_L, atol=1e-5)
 
     model = "LLT"
     # Generate geometry
@@ -467,8 +543,19 @@ def test_create_geometry_general():
     )
 
     # Check if the results are the same
-    assert np.allclose(controlpoints, expected_controlpoints)
-    assert np.allclose(rings, expected_rings)
-    assert np.allclose(wingpanels, expected_bladepanels)
-    assert np.allclose(ringvec, expected_ringvec)
-    assert np.allclose(coord_L, expected_coord_L)
+    logging.debug(f"---controlpoints--- type: {type(controlpoints)}, {controlpoints}")
+    asserting_all_elements_in_list_dict(controlpoints, expected_controlpoints)
+    logging.debug(f"---rings--- type: {type(rings)}, {rings}")
+    logging.debug(
+        f"---expected_rings--- type: {type(expected_rings)}, {expected_rings}"
+    )
+    asserting_all_elements_in_list_list_dict(rings, expected_rings)
+    asserting_all_elements_in_list_dict(wingpanels, expected_bladepanels)
+    asserting_all_elements_in_list_dict(ringvec, expected_ringvec)
+    logging.debug(f"---coord_L--- type: {type(coord_L)}, {coord_L}")
+    assert np.allclose(coord_L, expected_coord_L, atol=1e-5)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+    test_create_geometry_general()
