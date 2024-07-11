@@ -360,7 +360,7 @@ class Panel:
         else:
             raise NotImplementedError
 
-    def calculate_velocity_induced_bound_point_2D(
+    def calculate_velocity_induced_bound_2D(
         self, control_point, gamma, core_radius_fraction
     ):
         """ "

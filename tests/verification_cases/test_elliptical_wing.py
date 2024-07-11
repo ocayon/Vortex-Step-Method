@@ -53,9 +53,14 @@ def calculate_elliptical_wing(
 
     # # Initialize wing aerodynamics
     wing_aero = WingAerodynamics([wing])
+    wing_aero.va = np.array([Umag, 0, 0])
 
     # plotting the geometry wing
     if plot_wing:
+        # define arbitrary angle of attack for plotting
+        aoa_rad = np.deg2rad(6)
+        Uinf = np.array([np.cos(aoa_rad), 0, np.sin(aoa_rad)]) * Umag
+        wing_aero.va = Uinf
         wing_aero.plot()
 
     # Initialize gamma distributions to speed up the solver

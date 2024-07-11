@@ -20,8 +20,6 @@ class WingAerodynamics:
         A class to represent a vortex system.
         """
         panels = []
-        n_panels_per_wing = np.empty(len(wings))
-        n_panels = 0
         for i, wing_instance in enumerate(wings):
             section_list = wing_instance.refine_aerodynamic_mesh()
             n_panels_per_wing = len(section_list) - 1
@@ -53,12 +51,10 @@ class WingAerodynamics:
                         z_airf_list[j],
                     )
                 )
-            # adding the number of panels of each wing
-            n_panels += wing_instance.n_panels
 
         self._wings = wings
         self._panels = panels
-        self._n_panels = n_panels
+        self._n_panels = len(panels)
         self._va = None
         self._gamma_distribution = None
         self._alpha_uncorrected = None
@@ -743,6 +739,12 @@ class WingAerodynamics:
                 logging.debug("Legend: %s", legend)
                 self.plot_line_segment(ax, [x1, x2], color, legend)
 
+        # Plot the va_vector using the plot_segment
+        max_chord = np.max([panel.chord for panel in self.panels])
+        va_vector_begin = -2 * max_chord * self.va / np.linalg.norm(self.va)
+        va_vector_end = va_vector_begin + 1.5 * self.va / np.linalg.norm(self.va)
+        self.plot_line_segment(ax, [va_vector_begin, va_vector_end], "lightblue", "va")
+
         # Add legends for the first occurrence of each label
         handles, labels = ax.get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
@@ -752,7 +754,7 @@ class WingAerodynamics:
         self.set_axes_equal(ax)
 
         # Flip the z-axis (to stick to body reference frame)
-        ax.invert_zaxis()
+        # ax.invert_zaxis()
 
         # Display the plot
         plt.show()

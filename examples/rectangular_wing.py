@@ -9,18 +9,10 @@ from copy import deepcopy
 logging.basicConfig(level=logging.INFO)
 
 
-# Use example
-################# CAREFULL WITH REFERENCE FRAMES, CHANGING FROM ORIGINAL CODE #################
-# Aircraft Body reference frame
-# x: forward
-# y: right
-# z: down
-
-# TODO: Check if this works
 # Body EastNorthUp Reference Frame (aligned with Earth direction)
 # x: along the chord
 # y: left
-# z: up
+# z: upwards
 
 ## Create a wing object
 # optional arguments are:
@@ -29,7 +21,7 @@ logging.basicConfig(level=logging.INFO)
 #   - "cosine"
 #   - "cosine_van_Garrel" (http://dx.doi.org/10.13140/RG.2.1.2773.8000)
 # spanwise_direction: np.array = np.array([0, 1, 0])
-wing = Wing(n_panels=20)
+wing = Wing(n_panels=40)
 
 ## Add sections to the wing
 # MUST be done in order from left-to-right
@@ -43,14 +35,13 @@ wing = Wing(n_panels=20)
 
 ## Rectangular wing
 span = 20
-wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
-wing.add_section([0, span / 2, 0], [-1, span / 2, 0], ["inviscid"])
+wing.add_section([0, -span / 2, 0], [1, -span / 2, 0], ["inviscid"])
+wing.add_section([0, span / 2, 0], [1, span / 2, 0], ["inviscid"])
 
 
 # Initialize wing aerodynamics
 # Default parameters are used (elliptic circulation distribution, 5 filaments per ring)
 wing_aero = WingAerodynamics([wing])
-
 
 # Initialize solver
 # Default parameters are used (VSM, no artificial damping)
@@ -58,9 +49,9 @@ LLT = Solver(aerodynamic_model_type="LLT", core_radius_fraction=1e-5)
 VSM = Solver(aerodynamic_model_type="VSM", core_radius_fraction=1e-5)
 
 Umag = 20
-aoa = 20
+aoa = 5
 aoa = np.deg2rad(aoa)
-Uinf = np.array([np.cos(aoa), 0, -np.sin(aoa)]) * -Umag
+Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
 
 # Define inflow conditions
 wing_aero.va = Uinf

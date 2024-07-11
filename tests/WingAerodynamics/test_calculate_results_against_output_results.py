@@ -126,7 +126,7 @@ def output_results(Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot, rho=1.
         SideF.append(dot_product(L_rel, [0, 1, 0]) + dot_product(D_rel, [0, 1, 0]))
 
         # logging intermediate results
-        logging.info("---output_results--- icp: %d", i)
+        # logging.info("---output_results--- icp: %d", i)
         # logging.info(f"dir_urel: {dir_urel}")
         # logging.info(f"dir_L: {dir_L}")
         # logging.info(f"dir_D: {dir_D}")
@@ -166,15 +166,14 @@ def output_results(Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot, rho=1.
 
 
 def test_calculate_results():
-
     # Setup
     density = 1.225  # kg/m^3
-    N = 4
+    N = 40
     max_chord = 1
-    span = 2.36
+    span = 20
     AR = span**2 / (np.pi * span * max_chord / 4)
     Umag = 20
-    aoa = 5.7106 * np.pi / 180
+    aoa = np.deg2rad(5)
     Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
 
     ### Elliptical Wing
@@ -253,13 +252,13 @@ def test_calculate_results():
     )
 
     # printing the inputs
-    logging.debug(f"Fmag: {Fmag}")
-    logging.debug(f"aero_coeffs: {aero_coeffs}")
-    logging.debug(f"ringvec: {ringvec}")
-    logging.debug(f"Uinf: {Uinf}")
-    logging.debug(f"controlpoints: {controlpoints}")
-    logging.debug(f"Atot: {Atot}")
-    logging.debug(f"density: {density}")
+    # logging.debug(f"Fmag: {Fmag}")
+    # logging.debug(f"aero_coeffs: {aero_coeffs}")
+    # logging.debug(f"ringvec: {ringvec}")
+    # logging.debug(f"Uinf: {Uinf}")
+    # logging.debug(f"controlpoints: {controlpoints}")
+    # logging.debug(f"Atot: {Atot}")
+    # logging.debug(f"density: {density}")
 
     # Calculate results using the reference function
     F_rel_ref, F_gl_ref, Ltot_ref, Dtot_ref, CL_ref, CD_ref, CS_ref = output_results(
