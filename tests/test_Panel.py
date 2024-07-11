@@ -11,20 +11,53 @@ class MockSection:
         self.aero_input = aero_input
 
 
+def create_panel(section1, section2):
+    section = {
+        "p1": section1.LE_point,
+        "p2": section2.LE_point,
+        "p3": section2.TE_point,
+        "p4": section1.TE_point,
+    }
+    bound_1 = section["p1"] * 3 / 4 + section["p4"] * 1 / 4
+    bound_2 = section["p2"] * 3 / 4 + section["p3"] * 1 / 4
+
+    mid_LE_point = section2.LE_point + 0.5 * (section1.LE_point - section2.LE_point)
+    mid_TE_point = section2.TE_point + 0.5 * (section1.TE_point - section2.TE_point)
+    mid_LE_vector = mid_TE_point - mid_LE_point
+    aerodynamic_center = bound_1 + 0.5 * (bound_2 - bound_1)
+    control_point = aerodynamic_center + 0.5 * mid_LE_vector
+
+    LLpoint = aerodynamic_center
+    VSMpoint = control_point
+    x_airf = np.cross(VSMpoint - LLpoint, section["p2"] - section["p1"])
+    x_airf = x_airf / np.linalg.norm(x_airf)
+
+    # TANGENTIAL y_airf defined parallel to the chord-line, from LE-to-TE
+    y_airf = VSMpoint - LLpoint
+    y_airf = y_airf / np.linalg.norm(y_airf)
+
+    # SPAN z_airf along the LE, in plane (towards left tip, along span) from the airfoil perspective
+    z_airf = bound_2 - bound_1
+    z_airf = z_airf / np.linalg.norm(z_airf)
+
+    return Panel(
+        section1,
+        section2,
+        aerodynamic_center,
+        control_point,
+        bound_1,
+        bound_2,
+        x_airf,
+        y_airf,
+        z_airf,
+    )
+
+
 @pytest.fixture
 def sample_panel():
     section1 = MockSection([0, 0, 0], [-1, 0, 0], ["inviscid"])
     section2 = MockSection([0, 10, 0], [-1, 10, 0], ["inviscid"])
-    index = 0
-    n_panels = 2
-    return Panel(
-        section1,
-        section2,
-        index,
-        n_panels,
-        aerodynamic_center_location=0.25,
-        control_point_location=0.75,
-    )
+    return create_panel(section1, section2)
 
 
 def test_panel_initialization(sample_panel):
@@ -83,13 +116,9 @@ def test_polar_data_input():
     section2 = MockSection([0, 10, 0], [-1, 10, 0], polar_data_test2)
 
     # Create panel
-    panel = Panel(
+    panel = create_panel(
         section1,
         section2,
-        index=0,
-        n_panels=2,
-        aerodynamic_center_location=0.25,
-        control_point_location=0.75,
     )
 
     assert hasattr(panel, "_panel_polar_data")
@@ -207,14 +236,7 @@ def test_lei_airfoil_breukels_input():
     section2 = MockSection([0, 10, 0], [-1, 10, 0], ["lei_airfoil_breukels", [t2, k2]])
 
     # Create panel
-    panel = Panel(
-        section1,
-        section2,
-        index=0,
-        n_panels=2,
-        aerodynamic_center_location=0.25,
-        control_point_location=0.75,
-    )
+    panel = create_panel(section1, section2)
 
     # Check if LEI airfoil coefficients are correctly calculated
     assert hasattr(panel, "_cl_coefficients")
@@ -312,12 +334,10 @@ def test_panel_reference_frame(sample_panel):
 def test_panel_custom_initialization():
     section1 = MockSection([1, 1, 1], [2, 1, 1], ["inviscid"])
     section2 = MockSection([1, 2, 1], [2, 2, 1], ["inviscid"])
-    custom_panel = Panel(
-        section1, section2, aerodynamic_center_location=0.3, control_point_location=0.7
-    )
+    custom_panel = create_panel(section1, section2)
 
-    assert np.allclose(custom_panel.aerodynamic_center, [1.3, 1.5, 1])
-    assert np.allclose(custom_panel.control_point, [1.7, 1.5, 1])
+    assert np.allclose(custom_panel.aerodynamic_center, [1.25, 1.5, 1])
+    assert np.allclose(custom_panel.control_point, [1.75, 1.5, 1])
 
 
 def test_va_setter(sample_panel):
@@ -380,29 +400,10 @@ def test_calculate_cl_and_cd_cm(sample_panel):
     )
 
     # Create panels
-    inviscid_panel_instance = Panel(
-        inviscid_section1,
-        inviscid_section2,
-        index=0,
-        n_panels=2,
-        aerodynamic_center_location=0.25,
-        control_point_location=0.75,
-    )
-    polar_data_panel_instance = Panel(
-        polar_data_section1,
-        polar_data_section2,
-        index=0,
-        n_panels=2,
-        aerodynamic_center_location=0.25,
-        control_point_location=0.75,
-    )
-    lei_airfoil_panel_instance = Panel(
-        lei_airfoil_section1,
-        lei_airfoil_section2,
-        index=0,
-        n_panels=2,
-        aerodynamic_center_location=0.25,
-        control_point_location=0.75,
+    inviscid_panel_instance = create_panel(inviscid_section1, inviscid_section2)
+    polar_data_panel_instance = create_panel(polar_data_section1, polar_data_section2)
+    lei_airfoil_panel_instance = create_panel(
+        lei_airfoil_section1, lei_airfoil_section2
     )
     # calculating average t and k
     t_avg = (0.12 + 0.15) / 2
