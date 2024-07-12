@@ -668,23 +668,31 @@ class WingAerodynamics:
             # The correction is done by calculating the alpha at the aerodynamic center,
             # where as before the control_point was used in the VSM method
             n_panels = self._n_panels
-            MatrixU = np.empty((n_panels, n_panels))
-            MatrixV = np.empty((n_panels, n_panels))
-            MatrixW = np.empty((n_panels, n_panels))
+            AIC_x = np.empty((n_panels, n_panels))
+            AIC_y = np.empty((n_panels, n_panels))
+            AIC_z = np.empty((n_panels, n_panels))
 
             evaluation_point = "aerodynamic_center"
+
+            va_norm = np.linalg.norm(self.va)
+            va_unit = self.va / np.linalg.norm(self.va)
+
             for icp, panel_icp in enumerate(self.panels):
 
                 for jring, panel_jring in enumerate(self.panels):
-                    velocity_induced = panel_jring.calculate_velocity_induced_horseshoe(
-                        getattr(panel_icp, evaluation_point),
-                        gamma=1,
-                        core_radius_fraction=core_radius_fraction,
+                    velocity_induced = (
+                        panel_jring.velocity_induced_single_ring_semiinfinite_NEW(
+                            getattr(panel_icp, evaluation_point),
+                            aerodynamic_model_type,
+                            va_norm,
+                            va_unit,
+                            gamma=1,
+                        )
                     )
                     # AIC Matrix,WITHOUT U2D CORRECTION
-                    MatrixU[icp, jring] = velocity_induced[0]
-                    MatrixV[icp, jring] = velocity_induced[1]
-                    MatrixW[icp, jring] = velocity_induced[2]
+                    AIC_x[icp, jring] = velocity_induced[0]
+                    AIC_y[icp, jring] = velocity_induced[1]
+                    AIC_z[icp, jring] = velocity_induced[2]
 
             gamma = self._gamma_distribution
             alpha_corrected_to_aerodynamic_center = np.zeros(len(self.panels))
@@ -695,11 +703,11 @@ class WingAerodynamics:
                 w = 0
                 # Compute induced velocities with previous gamma distribution
                 for jring, gamma_jring in enumerate(gamma):
-                    u = u + MatrixU[icp][jring] * gamma_jring
+                    u = u + AIC_x[icp][jring] * gamma_jring
                     # x-component of velocity
-                    v = v + MatrixV[icp][jring] * gamma_jring
+                    v = v + AIC_y[icp][jring] * gamma_jring
                     # y-component of velocity
-                    w = w + MatrixW[icp][jring] * gamma_jring
+                    w = w + AIC_z[icp][jring] * gamma_jring
                     # z-component of velocity
 
                 induced_velocity = np.array([u, v, w])
