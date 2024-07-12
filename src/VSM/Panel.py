@@ -373,55 +373,124 @@ class Panel:
             control_point, gamma, core_radius_fraction
         )
 
-    def calculate_velocity_induced_horseshoe(
-        self, control_point, gamma, core_radius_fraction, model="VSM"
-    ):
-        """ "
-        This function calculates the induced velocity at the control point due to the bound vortex filaments
-        """
-        if gamma is None:
-            gamma = self._gamma
+    def velocity_induced_bound_2D(self):
+        """Calculates velocity induced by bound vortex filaments at the control point
+            Only needed for VSM, as LLT bound and filament align, thus no induced velocity
 
-        ind_vel = np.zeros(3)
+        Args:
+            self: Panel object
+
+        Returns:
+            np.array: Induced velocity at the control point
+        """
+        r0 = self.bound_point_2 - self.bound_point_1
+        r3 = self.control_point - r0 / 2
+        cross = np.cross(r0, r3)
+        return (
+            cross
+            / (cross[0] ** 2 + cross[1] ** 2 + cross[2] ** 2)
+            / 2
+            / np.pi
+            * np.linalg.norm(r0)
+        )
+
+    def velocity_induced_single_ring_semiinfinite_NEW(
+        self, evaluation_point, model, va_norm, va_unit, gamma
+    ):
+        """
+        Calculates the velocity induced by a ring at a certain controlpoint
+
+        Parameters
+        ----------
+        ring : List of dictionaries defining the filaments of a vortex ring
+        controlpoint : Dictionary defining a controlpoint
+        model : VSM: Vortex Step method/ LLT: Lifting Line Theory
+        Uinf : Wind speed vector
+
+        Returns
+        -------
+        velind : Induced velocity
+
+        """
+        velind = [0, 0, 0]
         for i, filament in enumerate(self.filaments):
             # bound
             if i == 0:
-                # ONLY if control_point is 3/4c (when VSM) its not on bound and it won't be zero
                 if model == "VSM":
-                    ind_vel += filament.calculate_induced_velocity(
-                        control_point, gamma, core_radius_fraction
-                    )
-                # If LLT, the control_point is on bound and the induced velocity is thus zero
+                    tempvel = filament.velocity_3D_bound_vortex(evaluation_point, gamma)
                 else:
-                    ind_vel += np.array([0, 0, 0])
-            # trailing1
-            elif i == 1:
-                ind_vel += filament.calculate_induced_velocity(
-                    control_point, gamma, core_radius_fraction
+                    tempvel = [0, 0, 0]
+            # trailing1 or trailing2
+            elif i == 1 or i == 2:
+                tempvel = filament.velocity_3D_trailing_vortex(
+                    evaluation_point, gamma, va_norm
                 )
-            # trailing2
-            elif i == 2:
-                ind_vel += filament.calculate_induced_velocity(
-                    control_point, gamma, core_radius_fraction
-                )
-            # trailing_inf_1
+            # trailing_inf1
             elif i == 3:
-                ind_vel += filament.calculate_induced_velocity(
-                    control_point, gamma, core_radius_fraction
+                tempvel = filament.velocity_3D_trailing_vortex_semiinfinite(
+                    va_unit, evaluation_point, gamma, va_norm
                 )
-            # trailing_inf_2
+            # trailing_inf2
             elif i == 4:
-                ind_vel += filament.calculate_induced_velocity(
-                    control_point, gamma, core_radius_fraction
-                )
-            else:
-                raise (
-                    ValueError(
-                        f"Filament Length should be 5, is: {len(self.filaments)}"
-                    )
+                tempvel = filament.velocity_3D_trailing_vortex_semiinfinite(
+                    va_unit, evaluation_point, -gamma, va_norm
                 )
 
-        return ind_vel
+            velind[0] += tempvel[0]
+            velind[1] += tempvel[1]
+            velind[2] += tempvel[2]
+
+        return velind
+
+    # def calculate_velocity_induced_horseshoe(
+    #     self, control_point, gamma, core_radius_fraction, model="VSM"
+    # ):
+    #     """ "
+    #     This function calculates the induced velocity at the control point due to the bound vortex filaments
+    #     """
+    #     if gamma is None:
+    #         gamma = self._gamma
+
+    #     ind_vel = np.zeros(3)
+    #     for i, filament in enumerate(self.filaments):
+    #         # bound
+    #         if i == 0:
+    #             # ONLY if control_point is 3/4c (when VSM) its not on bound and it won't be zero
+    #             if model == "VSM":
+    #                 ind_vel += filament.calculate_induced_velocity(
+    #                     control_point, gamma, core_radius_fraction
+    #                 )
+    #             # If LLT, the control_point is on bound and the induced velocity is thus zero
+    #             else:
+    #                 ind_vel += np.array([0, 0, 0])
+    #         # trailing1
+    #         elif i == 1:
+    #             ind_vel += filament.calculate_induced_velocity(
+    #                 control_point, gamma, core_radius_fraction
+    #             )
+    #         # trailing2
+    #         elif i == 2:
+    #             ind_vel += filament.calculate_induced_velocity(
+    #                 control_point, gamma, core_radius_fraction
+    #             )
+    #         # trailing_inf_1
+    #         elif i == 3:
+    #             ind_vel += filament.calculate_induced_velocity(
+    #                 control_point, gamma, core_radius_fraction
+    #             )
+    #         # trailing_inf_2
+    #         elif i == 4:
+    #             ind_vel += filament.calculate_induced_velocity(
+    #                 control_point, gamma, core_radius_fraction
+    #             )
+    #         else:
+    #             raise (
+    #                 ValueError(
+    #                     f"Filament Length should be 5, is: {len(self.filaments)}"
+    #                 )
+    #             )
+
+    #     return ind_vel
 
     def calculate_filaments_for_plotting(self):
         filaments = []

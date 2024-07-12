@@ -36,6 +36,9 @@ from tests.thesis_functions_oriol_cayon import (
     velocity_induced_single_ring_semiinfinite_nocore,
     create_geometry_general,
     update_Gamma_single_ring,
+    velocity_3D_trailing_vortex_semiinfinite,
+    velocity_3D_bound_vortex,
+    velocity_3D_trailing_vortex,
 )
 
 
@@ -92,6 +95,7 @@ def thesis_induction_matrix_creation(
     MatrixV = np.empty((N, N))
     MatrixW = np.empty((N, N))
     U_2D = np.zeros((N, 3))
+    logging.info(f"shape(U_2D): {np.shape(U_2D)}")
 
     # Number of iterations and convergence criteria
     Niterations = conv_crit["Niterations"]
@@ -108,6 +112,7 @@ def thesis_induction_matrix_creation(
 
         if model == "VSM":
             # Velocity induced by a infinte bound vortex with Gamma = 1
+            logging.info(f"ringvec[icp]: {ringvec[icp]}")
             U_2D[icp] = velocity_induced_bound_2D(ringvec[icp])
 
         for jring in range(N):
@@ -128,12 +133,21 @@ def thesis_induction_matrix_creation(
             MatrixV[icp, jring] = velocity_induced[1]
             MatrixW[icp, jring] = velocity_induced[2]
 
+            # THIS is DIFFERENT from the old thesis code
+            # as this was considered wrong in that code
+            if icp == jring:
+                if model == "VSM":
+                    logging.info(f"U_2D[icp]: {U_2D[icp]}")
+                    MatrixU[icp, jring] -= U_2D[icp, 0]
+                    MatrixV[icp, jring] -= U_2D[icp, 1]
+                    MatrixW[icp, jring] -= U_2D[icp, 2]
+
     return MatrixU, MatrixV, MatrixW
 
 
 def test_induction_matrix_creation():
 
-    n_panels = 2
+    n_panels = 4
     # N = number of SECTIONS
     N = n_panels + 1
     max_chord = 1
@@ -155,7 +169,6 @@ def test_induction_matrix_creation():
     Gamma0 = np.zeros(N - 1)
 
     ring_geo = "5fil"
-    model = "LLT"
 
     alpha_airf = np.arange(-10, 30)
     data_airf = np.zeros((len(alpha_airf), 4))
@@ -164,10 +177,13 @@ def test_induction_matrix_creation():
     data_airf[:, 2] = alpha_airf * 0
     data_airf[:, 3] = alpha_airf * 0
 
-    #########################
-    ### GEOMETRY CREATION ###
-    #########################
+    ##################################################################
+    ###########
+    ### LTT ###
+    ###########
+    model = "LLT"
 
+    ### Geometry ###
     ### THESIS ###
     # Define system of vorticity
     controlpoints, rings, bladepanels, ringvec, coord_L = create_geometry_general(
@@ -219,8 +235,6 @@ def test_induction_matrix_creation():
     #############################
 
     ### THESIS ###
-    asserting_all_elements_in_list_list_dict(rings, new_rings)
-
     MatrixU, MatrixV, MatrixW = thesis_induction_matrix_creation(
         deepcopy(ringvec),
         deepcopy(controlpoints),
@@ -231,81 +245,87 @@ def test_induction_matrix_creation():
         deepcopy(conv_crit),
         deepcopy(model),
     )
-    asserting_all_elements_in_list_list_dict(rings, new_rings)
 
     ### NEW ###
-    # TODO: this method should be properly tested against the old code and analytics
-    def calculate_AIC_matrices(self, model, core_radius_fraction):
-        """Calculates the AIC matrices for the given aerodynamic model
-
-        Args:
-            model (str): The aerodynamic model to be used, either VSM or LLT
-
-        Returns:
-            MatrixU (np.array): The x-component of the AIC matrix
-            MatrixV (np.array): The y-component of the AIC matrix
-            MatrixW (np.array): The z-component of the AIC matrix
-            U_2D (np.array): The 2D velocity induced by a bound vortex
-        """
-
-        n_panels = self.n_panels
-        AIC_x = np.empty((n_panels, n_panels))
-        AIC_y = np.empty((n_panels, n_panels))
-        AIC_z = np.empty((n_panels, n_panels))
-
-        if model == "VSM":
-            evaluation_point = "control_point"
-        elif model == "LLT":
-            evaluation_point = "aerodynamic_center"
-        else:
-            raise ValueError("Invalid aerodynamic model type, should be VSM or LLT")
-
-        rings = create_ring_from_wing_object(self, 1)
-
-        for icp, panel_icp in enumerate(self.panels):
-
-            for jring, panel_jring in enumerate(self.panels):
-                # TODO: get this to work
-                ### OLD
-                velocity_induced = panel_jring.calculate_velocity_induced_horseshoe(
-                    getattr(panel_icp, evaluation_point),
-                    gamma=1,
-                    core_radius_fraction=core_radius_fraction,
-                    model=model,
-                )
-                velocity_induced = velocity_induced_single_ring_semiinfinite(
-                    rings[jring],
-                    getattr(panel_icp, evaluation_point),
-                    model,
-                    np.linalg.norm(self.va),
-                )
-                ##################
-
-                # AIC Matrix
-                AIC_x[icp, jring] = velocity_induced[0]
-                AIC_y[icp, jring] = velocity_induced[1]
-                AIC_z[icp, jring] = velocity_induced[2]
-
-                # Only apply correction term when dealing with same horshoe vortex (see p.27 Uri Thesis)
-                if icp == jring:
-                    if evaluation_point != "aerodynamic_center":  # if VSM and not LLT
-                        # CORRECTION TERM (S.T.Piszkin and E.S.Levinsky,1976)
-                        # Not present in classic LLT, added to allow for "arbitrary" (3/4c) control point location [37].
-                        U_2D = panel_jring.calculate_velocity_induced_bound_2D(
-                            getattr(panel_icp, evaluation_point),
-                            gamma=1,
-                            core_radius_fraction=core_radius_fraction,
-                        )
-                        AIC_x[icp, jring] -= U_2D[0]
-                        AIC_y[icp, jring] -= U_2D[1]
-                        AIC_z[icp, jring] -= U_2D[2]
-
-        return AIC_x, AIC_y, AIC_z
-
-    AIC_x, AIC_y, AIC_z = calculate_AIC_matrices(wing_aero, model, core_radius_fraction)
+    AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(model, core_radius_fraction)
 
     # Check if the matrices are the same
     assert np.allclose(MatrixU, AIC_x, atol=1e-8)
     assert np.allclose(MatrixV, AIC_y, atol=1e-8)
     assert np.allclose(MatrixW, AIC_z, atol=1e-8)
-    # assert np.allclose(MatrixV, AIC_x, atol=1e-8)
+
+    ##################################################################
+    ###########
+    ### VSM ###
+    ###########
+    model = "VSM"
+
+    ### Geometry ###
+    ### THESIS ###
+    # Define system of vorticity
+    controlpoints, rings, bladepanels, ringvec, coord_L = create_geometry_general(
+        coord, Uinf, N, ring_geo, model
+    )
+
+    ### NEW ###
+    ## Elliptical Wing
+    core_radius_fraction = 1e-20  # only value I could find
+    wing = Wing(n_panels, "unchanged")
+    for idx in range(int(len(coord) / 2)):
+        wing.add_section(coord[2 * idx], coord[2 * idx + 1], ["inviscid"])
+    wing_aero = WingAerodynamics([wing])
+
+    wing_aero.va = Uinf
+    # Generate geometry from wing object
+    new_controlpoints, new_rings, new_wingpanels, new_ringvec, new_coord_L = (
+        create_geometry_from_wing_object(wing_aero, model)
+    )
+
+    #### Check if geometry input is the same
+    # Check lengths
+    assert np.allclose(len(controlpoints), n_panels)
+    assert np.allclose(len(rings), n_panels)
+    assert np.allclose(len(wing_aero.panels), n_panels)
+    assert np.allclose(len(ringvec), n_panels)
+    assert np.allclose(len(coord_L), n_panels)
+    assert np.allclose(len(new_controlpoints), n_panels)
+    assert np.allclose(len(new_rings), n_panels)
+    assert np.allclose(len(new_wingpanels), n_panels)
+    assert np.allclose(len(new_ringvec), n_panels)
+    assert np.allclose(len(new_coord_L), n_panels)
+
+    # check items in the dictionaries
+    asserting_all_elements_in_list_dict(controlpoints, new_controlpoints)
+    asserting_all_elements_in_list_list_dict(rings, new_rings)
+    asserting_all_elements_in_list_dict(bladepanels, new_wingpanels)
+    asserting_all_elements_in_list_dict(ringvec, new_ringvec)
+    assert np.allclose(coord_L, new_coord_L, atol=1e-5)
+
+    asserting_all_elements_in_list_dict(new_controlpoints, controlpoints)
+    asserting_all_elements_in_list_list_dict(new_rings, rings)
+    asserting_all_elements_in_list_dict(new_wingpanels, bladepanels)
+    asserting_all_elements_in_list_dict(new_ringvec, ringvec)
+    assert np.allclose(new_coord_L, coord_L, atol=1e-5)
+
+    #############################
+    ### CREATING AIC MATRICES ###
+    #############################
+
+    ### THESIS ###
+    MatrixU, MatrixV, MatrixW = thesis_induction_matrix_creation(
+        deepcopy(ringvec),
+        deepcopy(controlpoints),
+        deepcopy(rings),
+        deepcopy(Uinf),
+        deepcopy(Gamma0),
+        deepcopy(data_airf),
+        deepcopy(conv_crit),
+        deepcopy(model),
+    )
+    ### NEW ###
+    AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(model, core_radius_fraction)
+
+    # Check if the matrices are the same
+    assert np.allclose(MatrixU, AIC_x, atol=1e-8)
+    assert np.allclose(MatrixV, AIC_y, atol=1e-8)
+    assert np.allclose(MatrixW, AIC_z, atol=1e-8)
