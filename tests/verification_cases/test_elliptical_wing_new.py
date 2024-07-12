@@ -67,6 +67,7 @@ def calculating_cl_cd_for_alpha_range(aoas):
     CL_VSM_new = np.zeros(len(aoas))
     CD_VSM_new = np.zeros(len(aoas))
     gamma_VSM_new = np.zeros((len(aoas), N - 1))
+    controlpoints_list = []
 
     core_radius_fraction = 1e-20
 
@@ -145,7 +146,9 @@ def calculating_cl_cd_for_alpha_range(aoas):
         gamma_VSM_new[i] = results_VSM["gamma_distribution"]
 
         Gamma0 = Gamma
+        controlpoints_list.append(controlpoints)
         print(str((i + 1) / len(aoas) * 100) + " %")
+
     end_time = time.time()
     print(end_time - start_time)
 
@@ -163,10 +166,34 @@ def calculating_cl_cd_for_alpha_range(aoas):
         CD_VSM_new,
         gamma_VSM_new,
         AR,
+        controlpoints_list,
     )
 
 
+def plot_4_parameters(
+    x_axis,
+    y_axis_list,
+    legend,
+    alpha_list,
+    x_label=r"$\alpha$ ($^\circ$)",
+    y_label="$C_L$ ()",
+    title="",
+    plt_path="./plots/",
+):
+    colors = sns.color_palette()
+    plt.figure(figsize=(6, 4))
+    for i, y_axis in enumerate(y_axis_list):
+        plt.plot(x_axis, y_axis, marker=".", alpha=alpha_list[i], color=colors[i])
+    plt.legend(legend)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.title(title)
+    plt.grid()
+    plt.savefig(plt_path + title, bbox_inches="tight")
+
+
 def plotting(
+    aoas,
     CL_LLT,
     CD_LLT,
     gamma_LLT,
@@ -180,13 +207,13 @@ def plotting(
     CD_VSM_new,
     gamma_VSM_new,
     AR,
+    controlpoints_list,
 ):
-    colors = sns.color_palette()
+
     CL_th = 2 * np.pi * aoas / (1 + 2 / AR)
     CDi_th = CL_th**2 / np.pi / AR
 
     legend = ["Analytic LLT", "LLT", "VSM", "LLT_new", "VSM_new"]
-    plt_path = "./plots/"
     plt.rcParams.update(
         {
             "text.usetex": True,
@@ -196,105 +223,79 @@ def plotting(
     )
     plt.rcParams.update({"font.size": 10})
 
-    plt.figure(figsize=(6, 4))
-    plt.plot(aoas * 180 / np.pi, CL_th, marker="x", color=colors[0])
-    # plt.plot(aoas * 180 / np.pi, CL_LLT, marker=".", alpha=0.8, color=colors[1])
-    # plt.plot(aoas * 180 / np.pi, CL_VSM, marker=".", alpha=0.8, color=colors[2])
-    # plt.plot(aoas * 180 / np.pi, CL_LLT_new, marker=".", alpha=0.8, color=colors[3])
-    plt.plot(aoas * 180 / np.pi, CL_VSM_new, marker=".", alpha=0.8, color=colors[4])
-    plt.legend(legend)
-    plt.xlabel(r"$\alpha$ ($^\circ$)")
-    plt.ylabel("$C_L$ ()")
-    # plt.title('Elliptic wing AR =' + str(round(AR,1)))
-    plt.grid()
-    plt.savefig(
-        plt_path + str(round(AR, 1)) + "_AR_Ell_CL_alpha.pdf", bbox_inches="tight"
+    CL_list = [CL_th, CL_LLT, CL_VSM, CL_LLT_new, CL_VSM_new]
+    CD_list = [CDi_th, CD_LLT, CD_VSM, CD_LLT_new, CD_VSM_new]
+    gamma_list = [gamma_LLT, gamma_VSM, gamma_LLT_new, gamma_VSM_new]
+    aoa_list = aoas * 180 / np.pi
+    alpha_list = [1, 0.8, 0.8, 0.8, 0.8]
+    # Cl -alpha
+    plot_4_parameters(
+        aoa_list,
+        CL_list,
+        legend,
+        alpha_list,
+        x_label=r"$\alpha$ ($^\circ$)",
+        y_label="$C_L$ ()",
+        title=str(round(AR, 1)) + "_AR_Ell_CL_alpha.pdf",
     )
-
-    plt.figure(figsize=(6, 4))
-    plt.plot(CDi_th, CL_th, marker="x", color=colors[0])
-    # plt.plot(CD_LLT, CL_LLT, marker=".", alpha=0.8, color=colors[1])
-    # plt.plot(CD_VSM, CL_VSM, marker=".", alpha=0.8, color=colors[2])
-    # plt.plot(CD_LLT_new, CL_LLT_new, marker=".", alpha=0.8, color=colors[3])
-    plt.plot(CD_VSM_new, CL_VSM_new, marker=".", alpha=0.8, color=colors[4])
-    plt.legend(legend)
-    plt.xlabel("$C_D$")
-    plt.ylabel("$C_L$")
-    # plt.title('Elliptic wing AR =' + str(round(AR,1)))
-    plt.grid()
-    plt.savefig(
-        plt_path + str(round(AR, 1)) + "_AR_Rect_CL_CD.pdf", bbox_inches="tight"
-    )
-
-    plt.figure(figsize=(6, 4))
-    plt.plot(aoas * 180 / np.pi, CL_th / CDi_th, marker=".", color=colors[0])
-    # plt.plot(
-    #     aoas * 180 / np.pi, CL_LLT / CD_LLT, marker=".", alpha=0.8, color=colors[1]
+    # # Cl - Cd
+    # plot_4_parameters(
+    #     CD_list,
+    #     CL_list,
+    #     legend,
+    #     alpha_list,
+    #     x_label="$C_D$",
+    #     y_label="$C_L$ ()",
+    #     title=str(round(AR, 1)) + "_AR_Rect_CL_CD.pdf",
     # )
-    # plt.plot(
-    #     aoas * 180 / np.pi, CL_VSM / CD_VSM, marker=".", alpha=0.8, color=colors[2]
-    # )
-    # plt.plot(
-    #     aoas * 180 / np.pi,
-    #     CL_LLT_new / CD_LLT_new,
-    #     marker=".",
-    #     alpha=0.8,
-    #     color=colors[3],
-    # )
-    plt.plot(
-        aoas * 180 / np.pi,
-        CL_VSM_new / CD_VSM_new,
-        marker=".",
-        alpha=0.8,
-        color=colors[4],
+    # Cl/Cd - alpha
+    plot_4_parameters(
+        aoa_list,
+        [CL_list[i] / CD_list[i] for i in range(len(CL_list))],
+        legend,
+        alpha_list,
+        x_label=r"$\alpha$ ($^\circ$)",
+        y_label="$C_L/C_D$",
+        title=str(round(AR, 1)) + "_AR_Rect_CLCD_alpha.pdf",
     )
-    plt.legend(legend)
-    plt.xlabel(r"$\alpha$ ($^\circ$)")
-    plt.ylabel("$C_L/C_D$")
-    # plt.title('Elliptic wing AR =' + str(round(AR,1)))
-    plt.grid()
-    plt.savefig(
-        plt_path + str(round(AR, 1)) + "_AR_Rect_CLCD_alpha.pdf", bbox_inches="tight"
+    # Cd - alpha
+    plot_4_parameters(
+        aoa_list,
+        CD_list,
+        legend,
+        alpha_list,
+        x_label=r"$\alpha$ ($^\circ$)",
+        y_label="$C_D$",
+        title=str(round(AR, 1)) + "_AR_Ell_CD_alpha.pdf",
     )
+    cp_y_aoa_list = []
+    for cp in controlpoints_list:
+        cp_y_list = []
+        for cp_i in cp:
+            cp_y_list.append(cp_i["coordinates"][1])
+        cp_y_aoa_list.append(cp_y_list)
 
-    plt.figure(figsize=(6, 4))
-    plt.plot(aoas * 180 / np.pi, CDi_th, marker="x", alpha=0.3, color=colors[0])
-    # plt.plot(aoas * 180 / np.pi, CD_LLT, marker=".", alpha=0.3, color=colors[1])
-    # plt.plot(aoas * 180 / np.pi, CD_VSM, marker=".", alpha=0.8, color=colors[2])
-    # plt.plot(aoas * 180 / np.pi, CD_LLT_new, marker=".", alpha=0.8, color=colors[3])
-    plt.plot(aoas * 180 / np.pi, CD_VSM_new, marker=".", alpha=0.8, color=colors[4])
-    plt.legend(legend)
-    plt.xlabel(r"$\alpha$ ($^\circ$)")
-    plt.ylabel("$C_D$")
-    # plt.title('Elliptic wing AR =' + str(round(AR,1)))
-    plt.grid()
-    plt.savefig(
-        plt_path + str(round(AR, 1)) + "_AR_Ell_CD_alpha.pdf", bbox_inches="tight"
-    )
-
+    # plotting gammas
     for i, aoa in enumerate(aoas):
-        plt.figure(figsize=(6, 4))
-        plt.plot(gamma_LLT[i], marker=".", alpha=0.3, color=colors[1])
-        plt.plot(gamma_VSM[i], marker=".", alpha=0.3, color=colors[2])
-        plt.plot(gamma_LLT_new[i], marker=".", alpha=0.8, color=colors[3])
-        plt.plot(gamma_VSM_new[i], marker=".", alpha=0.8, color=colors[4])
-        plt.legend(legend[1:])
-        plt.xlabel("Section")
-        plt.ylabel("$\Gamma$")
-        plt.grid()
-        plt.savefig(
-            plt_path
-            + str(round(AR, 1))
+        plot_4_parameters(
+            cp_y_aoa_list[i],
+            [gamma_LLT[i], gamma_VSM[i], gamma_LLT_new[i], gamma_VSM_new[i]],
+            legend[1:],
+            alpha_list,
+            x_label="Section",
+            y_label="$\Gamma$",
+            title=str(round(AR, 1))
             + "_AR_Ell_Gamma_aoa_"
             + str(round(np.rad2deg(aoa), 1))
             + ".pdf",
-            bbox_inches="tight",
         )
 
 
 if __name__ == "__main__":
     aoas = np.arange(0, 20, 1) / 180 * np.pi
-    aoas = np.arange(2, 16, 6) / 180 * np.pi
+    aoas = np.arange(3, 16, 10) / 180 * np.pi
+    CL_th = 2 * np.pi * aoas / (1 + 2 / AR)
+    CDi_th = CL_th**2 / np.pi / AR
     (
         CL_LLT,
         CD_LLT,
@@ -309,8 +310,10 @@ if __name__ == "__main__":
         CD_VSM_new,
         gamma_VSM_new,
         AR,
+        controlpoints_list,
     ) = calculating_cl_cd_for_alpha_range(aoas)
     plotting(
+        aoas,
         CL_LLT,
         CD_LLT,
         gamma_LLT,
@@ -324,7 +327,10 @@ if __name__ == "__main__":
         CD_VSM_new,
         gamma_VSM_new,
         AR,
+        controlpoints_list,
     )
-    logging.info(f"CL_VSM = {CL_VSM}, CL_VSM_new = {CL_VSM_new}")
+
+    logging.info(f"CL_ana= {CL}, CL_VSM = {CL_VSM}, CL_VSM_new = {CL_VSM_new}")
     logging.info(f"CD_VSM = {CD_VSM}, CD_VSM_new = {CD_VSM_new}")
+
     plt.show()
