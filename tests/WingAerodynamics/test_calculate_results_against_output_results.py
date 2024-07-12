@@ -17,46 +17,11 @@ from tests.utils import (
     generate_coordinates_rect_wing,
     generate_coordinates_curved_wing,
 )
-
-
-def vec_norm(v):
-    """
-    Norm of a vector
-
-    """
-    return np.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
-
-
-def dot_product(r1, r2):
-    """
-    Dot product between r1 and r2
-
-    """
-    return r1[0] * r2[0] + r1[1] * r2[1] + r1[2] * r2[2]
-
-
-def vector_projection(v, u):
-    """
-    Find the projection of a vector into a direction
-
-    Parameters
-    ----------
-    v : vector to be projected
-    u : direction
-
-    Returns
-    -------
-    proj : projection of the vector v onto u
-
-    """
-    # Inputs:
-    #     u = direction vector
-    #     v = vector to be projected
-
-    unit_u = u / np.linalg.norm(u)
-    proj = np.dot(v, unit_u) * unit_u
-
-    return proj
+from tests.thesis_functions_oriol_cayon import (
+    vec_norm,
+    dot_product,
+    vector_projection,
+)
 
 
 def output_results(Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot, rho=1.225):

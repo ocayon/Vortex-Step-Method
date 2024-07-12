@@ -374,7 +374,7 @@ class Panel:
         )
 
     def calculate_velocity_induced_horseshoe(
-        self, control_point, gamma, core_radius_fraction
+        self, control_point, gamma, core_radius_fraction, model="VSM"
     ):
         """ "
         This function calculates the induced velocity at the control point due to the bound vortex filaments
@@ -383,10 +383,43 @@ class Panel:
             gamma = self._gamma
 
         ind_vel = np.zeros(3)
-        for filament in self.filaments:
-            ind_vel += filament.calculate_induced_velocity(
-                control_point, gamma, core_radius_fraction
-            )
+        for i, filament in enumerate(self.filaments):
+            # bound
+            if i == 0:
+                # ONLY if control_point is 3/4c (when VSM) its not on bound and it won't be zero
+                if model == "VSM":
+                    ind_vel += filament.calculate_induced_velocity(
+                        control_point, gamma, core_radius_fraction
+                    )
+                # If LLT, the control_point is on bound and the induced velocity is thus zero
+                else:
+                    ind_vel += np.array([0, 0, 0])
+            # trailing1
+            elif i == 1:
+                ind_vel += filament.calculate_induced_velocity(
+                    control_point, gamma, core_radius_fraction
+                )
+            # trailing2
+            elif i == 2:
+                ind_vel += filament.calculate_induced_velocity(
+                    control_point, gamma, core_radius_fraction
+                )
+            # trailing_inf_1
+            elif i == 3:
+                ind_vel += filament.calculate_induced_velocity(
+                    control_point, gamma, core_radius_fraction
+                )
+            # trailing_inf_2
+            elif i == 4:
+                ind_vel += filament.calculate_induced_velocity(
+                    control_point, gamma, core_radius_fraction
+                )
+            else:
+                raise (
+                    ValueError(
+                        f"Filament Length should be 5, is: {len(self.filaments)}"
+                    )
+                )
 
         return ind_vel
 

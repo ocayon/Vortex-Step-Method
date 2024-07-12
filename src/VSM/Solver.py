@@ -58,11 +58,17 @@ class Solver:
         AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
             self.aerodynamic_model_type, self.core_radius_fraction
         )
+
+        logging.debug(f"AIC_x: {AIC_x}")
+        logging.debug(f"AIC_y: {AIC_y}")
+        logging.debug(f"AIC_z: {AIC_z}")
+
         # initialize gamma distribution
         gamma_new = wing_aero.calculate_gamma_distribution(
             gamma_distribution,
             type_initial_gamma_distribution=self.type_initial_gamma_distribution,
         )
+        gamma_new = np.zeros(len(gamma_new))
         # logging.info("Initial gamma_new: %s", gamma_new)
 
         # TODO: CPU optimization: instantiate non-changing (geometric dependent) attributes here

@@ -17,6 +17,12 @@ class Wing:
         self.sections.append(Section(LE_point, TE_point, aero_input))
 
     def refine_aerodynamic_mesh(self):
+
+        # Ensure we get 1 section more than the desired number of panels
+        n_sections = self.n_panels + 1
+        logging.info(f"n_panels: {self.n_panels}")
+        logging.info(f"n_sections: {n_sections}")
+
         # Extract LE, TE, and aero_input from the sections
         LE, TE, aero_input = (
             np.zeros((len(self.sections), 3)),
@@ -31,7 +37,7 @@ class Wing:
         # Edge cases
         if len(LE) != len(TE) or len(LE) != len(aero_input):
             raise ValueError("LE, TE, and aero_input must have the same length")
-        if self.n_panels == 1:
+        if n_sections == 2:
             new_sections = [
                 Section(LE[0], TE[0], aero_input[0]),
                 Section(LE[-1], TE[-1], aero_input[-1]),
@@ -53,21 +59,21 @@ class Wing:
 
         # 2. Define target lengths based on desired spacing
         if self.spanwise_panel_distribution == "linear":
-            target_lengths = np.linspace(0, qc_total_length, self.n_panels + 1)
+            target_lengths = np.linspace(0, qc_total_length, n_sections)
         elif self.spanwise_panel_distribution == "cosine" or "cosine_van_Garrel":
-            theta = np.linspace(0, np.pi, self.n_panels + 1)
+            theta = np.linspace(0, np.pi, n_sections)
             target_lengths = qc_total_length * (1 - np.cos(theta)) / 2
         else:
             raise ValueError("Unsupported spanwise panel distribution")
 
-        new_quarter_chord = np.zeros((self.n_panels + 1, 3))
-        new_LE = np.zeros((self.n_panels + 1, 3))
-        new_TE = np.zeros((self.n_panels + 1, 3))
-        new_aero_input = np.empty((self.n_panels + 1,), dtype=object)
+        new_quarter_chord = np.zeros((n_sections, 3))
+        new_LE = np.zeros((n_sections, 3))
+        new_TE = np.zeros((n_sections, 3))
+        new_aero_input = np.empty((n_sections,), dtype=object)
         new_sections = []
 
         # 3. Calculate new quarter chord points and interpolate aero inputs
-        for i in range(self.n_panels + 1):
+        for i in range(n_sections):
             target_length = target_lengths[i]
 
             # Find which segment the target length falls into

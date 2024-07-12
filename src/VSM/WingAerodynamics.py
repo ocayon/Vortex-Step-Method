@@ -23,6 +23,8 @@ class WingAerodynamics:
         for i, wing_instance in enumerate(wings):
             section_list = wing_instance.refine_aerodynamic_mesh()
             n_panels_per_wing = len(section_list) - 1
+            logging.info(f"Number of panels: {n_panels_per_wing}")
+            logging.info(f"Number of sections: {len(section_list)}")
             (
                 aerodynamic_center_list,
                 control_point_list,
@@ -283,18 +285,47 @@ class WingAerodynamics:
         for icp, panel_icp in enumerate(self.panels):
 
             for jring, panel_jring in enumerate(self.panels):
-                velocity_induced = panel_jring.calculate_velocity_induced_horseshoe(
-                    getattr(panel_icp, evaluation_point),
-                    gamma=1,
-                    core_radius_fraction=core_radius_fraction,
+                # velocity_induced = panel_jring.calculate_velocity_induced_horseshoe(
+                #     getattr(panel_icp, evaluation_point),
+                #     gamma=1,
+                #     core_radius_fraction=core_radius_fraction,
+                #     model=model,
+                # )
+
+                ####################
+                import os
+                import sys
+
+                root_path = os.path.abspath(
+                    os.path.join(os.path.dirname(__file__), "..", "..")
                 )
+                sys.path.insert(0, root_path)
+                from tests.WingAerodynamics.test_wing_aero_object_against_create_geometry_general import (
+                    create_ring_from_wing_object,
+                )
+                from tests.WingAerodynamics.thesis_functions import (
+                    velocity_induced_single_ring_semiinfinite,
+                )
+
+                rings = create_ring_from_wing_object(self, gamma_data=1)
+                evaluation_point_list = [
+                    getattr(panel_index, evaluation_point)
+                    for panel_index in self.panels
+                ]
+                va_norm = np.linalg.norm(self.va)
+                velocity_induced = velocity_induced_single_ring_semiinfinite(
+                    rings[jring], evaluation_point_list[jring], model, va_norm
+                )
+                ##################
+
                 # AIC Matrix
                 MatrixU[icp, jring] = velocity_induced[0]
                 MatrixV[icp, jring] = velocity_induced[1]
                 MatrixW[icp, jring] = velocity_induced[2]
 
                 # Only apply correction term when dealing with same horshoe vortex (see p.27 Uri Thesis)
-                if icp == jring:
+                a = False
+                if icp == jring and a:
                     if evaluation_point != "aerodynamic_center":  # if VSM and not LLT
                         # CORRECTION TERM (S.T.Piszkin and E.S.Levinsky,1976)
                         # Not present in classic LLT, added to allow for "arbitrary" (3/4c) control point location [37].

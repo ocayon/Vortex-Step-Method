@@ -141,3 +141,158 @@ def asserting_all_elements_in_list_list_dict(variable1, variable_expected):
                     assert dict1[key1] == dict_expected[key1]
                 else:
                     assert np.allclose(dict1[key1], dict_expected[key1], atol=1e-5)
+
+
+def create_controlpoints_from_wing_object(wing, model):
+    result = []
+
+    for panel in wing.panels:
+        if model == "VSM":
+            cp = {
+                "coordinates": panel.control_point,
+                "chord": panel.chord,
+                "normal": panel.x_airf,
+                "tangential": panel.y_airf,
+                "airf_coord": np.column_stack(
+                    [panel.x_airf, panel.y_airf, panel.z_airf]
+                ),
+                "coordinates_aoa": panel.aerodynamic_center,
+            }
+        elif model == "LLT":
+            cp = {
+                "coordinates": panel.aerodynamic_center,
+                "chord": panel.chord,
+                "normal": panel.x_airf,
+                "tangential": panel.y_airf,
+                "airf_coord": np.column_stack(
+                    [panel.x_airf, panel.y_airf, panel.z_airf]
+                ),
+            }
+        else:
+            raise ValueError(f"Model {model} not recognized")
+
+        result.append(cp)
+    return result
+
+
+def create_ring_from_wing_object(wing, gamma_data=None):
+    result = []
+    va_norm = wing.va / np.linalg.norm(wing.va)
+    filaments_list = [panel.filaments for panel in wing.panels]
+    if gamma_data is None:
+        gamma_data = [0 for _ in filaments_list]
+    else:
+        gamma_data = [gamma_data for _ in filaments_list]
+    for filaments, gamma in zip(filaments_list, gamma_data):
+        ring_filaments = []
+
+        # bound starts
+        filament_bound = filaments[0]
+        filament_trailing_1 = filaments[1]
+        filament_trailing_2 = filaments[2]
+        filament_semi_1 = filaments[3]
+        filament_semi_2 = filaments[4]
+
+        # appending them in the correct order
+        ring_filaments.append(
+            {
+                "id": "bound",
+                "x1": filament_bound.x1,
+                "x2": filament_bound.x2,
+                "Gamma": gamma,
+            }
+        )
+        ring_filaments.append(
+            {
+                "x1": filament_trailing_1.x1,
+                "x2": filament_trailing_1.x2,
+                "Gamma": gamma,
+                "id": "trailing1",
+            }
+        )
+        ring_filaments.append(
+            {
+                "dir": va_norm,
+                "id": "trailing_inf1",
+                "x1": filament_semi_1.x1,
+                "Gamma": gamma,
+            }
+        )
+        # be wary of incorrect naming convention here.
+        ring_filaments.append(
+            {
+                "x2": filament_trailing_2.x2,
+                "x1": filament_trailing_2.x1,
+                "Gamma": gamma,
+                "id": "trailing1",
+            }
+        )
+        ring_filaments.append(
+            {
+                "x1": filament_semi_2.x1,
+                "dir": va_norm,
+                "id": "trailing_inf2",
+                "Gamma": gamma,
+            }
+        )
+
+        result.append(ring_filaments)
+
+    return result
+
+
+def create_wingpanels_from_wing_object(wing):
+    wingpanels = []
+
+    coordinates = np.zeros((2 * (len(wing.panels) + 1), 3))
+    n_panels = len(wing.panels)
+    for i in range(n_panels):
+        coordinates[2 * i] = wing.panels[i].LE_point_1
+        coordinates[2 * i + 1] = wing.panels[i].TE_point_1
+        coordinates[2 * i + 2] = wing.panels[i].LE_point_2
+        coordinates[2 * i + 3] = wing.panels[i].TE_point_2
+
+    # Go through all wing panels
+    for i, panel in enumerate(wing.panels):
+
+        # Identify points defining the panel
+        section = {
+            "p1": coordinates[2 * i, :],
+            "p2": coordinates[2 * i + 2, :],
+            "p3": coordinates[2 * i + 3, :],
+            "p4": coordinates[2 * i + 1, :],
+        }
+        wingpanels.append(section)
+    return wingpanels
+
+
+def create_ring_vec_from_wing_object(wing, model):
+    result = []
+
+    for panel in wing.panels:
+        bound_1 = panel.bound_point_1
+        bound_2 = panel.bound_point_2
+        if model == "VSM":
+            evaluation_point = panel.control_point
+        elif model == "LLT":
+            evaluation_point = panel.aerodynamic_center
+
+        # Calculate the required vectors
+        logging.debug(f"bound_1 {bound_1}")
+        logging.debug(f"bound_2 {bound_2}")
+        r0 = bound_2 - bound_1
+        r1 = evaluation_point - bound_1
+        r2 = evaluation_point - bound_2
+        r3 = evaluation_point - (bound_2 + bound_1) / 2
+
+        # Add the calculated vectors to the result
+        result.append({"r0": r0, "r1": r1, "r2": r2, "r3": r3})
+
+    return result
+
+
+def create_coord_L_from_wing_object(wing):
+    coord_L = []
+    for panel in wing.panels:
+        coord_L.append(panel.aerodynamic_center)
+    return coord_L
