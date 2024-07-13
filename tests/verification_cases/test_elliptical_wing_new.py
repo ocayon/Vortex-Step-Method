@@ -4,8 +4,6 @@ Created on Mon Jan 10 18:09:16 2022
 
 @author: oriol2
 """
-
-
 import numpy as np
 import matplotlib.pyplot as plt
 import time
@@ -24,14 +22,15 @@ from VSM.WingAerodynamics import WingAerodynamics
 from VSM.Solver import Solver
 
 
-def calculating_cl_cd_for_alpha_range(aoas):
+def calculating_cl_cd_for_alpha_range(aoas, span, AR, max_chord, n_sections):
     ## INPUT DATA
-    N = 40
-    max_chord = 1
-    span = 2.36
-    AR = span**2 / (np.pi * span * max_chord / 4)
+    N = n_sections
     dist = "cos"
     coord = thesis_functions.generate_coordinates_el_wing(max_chord, span, N, dist)
+    coord_left_to_right = np.flip(coord, axis=0)
+    logging.debug(f"coord = {coord}")
+    logging.debug(f"coord_left_to_right = {coord_left_to_right}")
+
     Atot = max_chord / 2 * span / 2 * np.pi
 
     Umag = 20
@@ -97,10 +96,16 @@ def calculating_cl_cd_for_alpha_range(aoas):
 
         ### new object-oriented
         wing_LLT = Wing(N, "unchanged")
-        for idx in range(int(len(coord) / 2)):
-            wing_LLT.add_section(coord[2 * idx], coord[2 * idx + 1], ["inviscid"])
+        for idx in range(int(len(coord_left_to_right) / 2)):
+            logging.info(f"coord_left_to_right[idx] = {coord_left_to_right[idx]}")
+            wing_LLT.add_section(
+                coord_left_to_right[2 * idx],
+                coord_left_to_right[2 * idx + 1],
+                ["inviscid"],
+            )
         wing_aero_LTT = WingAerodynamics([wing_LLT])
         wing_aero_LTT.va = Uinf
+        wing_aero_LTT.plot()
         LLT = Solver(
             aerodynamic_model_type=model, core_radius_fraction=core_radius_fraction
         )
@@ -109,6 +114,10 @@ def calculating_cl_cd_for_alpha_range(aoas):
         CD_LLT_new[i] = results_LLT["cd"]
         gamma_LLT_new[i] = results_LLT["gamma_distribution"]
 
+        logging.info(f"aoa_i = {np.rad2deg(aoa_i)}")
+        logging.info(f"CL_LLT_new = {CL_LLT_new}")
+        logging.info(f"CD_LLT_new = {CD_LLT_new}")
+        breakpoint()
         #############
         #### VSM ####
         #############
@@ -132,21 +141,23 @@ def calculating_cl_cd_for_alpha_range(aoas):
         gamma_VSM[i] = Gamma
 
         ### new object-oriented
-        wing_VSM = Wing(N, "unchanged")
-        for idx in range(int(len(coord) / 2)):
-            wing_VSM.add_section(coord[2 * idx], coord[2 * idx + 1], ["inviscid"])
-        wing_aero_VSM = WingAerodynamics([wing_VSM])
-        wing_aero_VSM.va = Uinf
+        # wing_VSM = Wing(N, "unchanged")
+        # for idx in range(int(len(coord) / 2)):
+        #     wing_VSM.add_section(coord[2 * idx], coord[2 * idx + 1], ["inviscid"])
+        # wing_aero_VSM = WingAerodynamics([wing_VSM])
+        # wing_aero_VSM.va = Uinf
         VSM = Solver(
             aerodynamic_model_type=model, core_radius_fraction=core_radius_fraction
         )
-        results_VSM, wing_aero_VSM = VSM.solve(wing_aero_VSM)
+        results_VSM, wing_aero_VSM = VSM.solve(wing_aero_LLT)
         CL_VSM_new[i] = results_VSM["cl"]
         CD_VSM_new[i] = results_VSM["cd"]
         gamma_VSM_new[i] = results_VSM["gamma_distribution"]
 
         Gamma0 = Gamma
-        controlpoints_list.append(controlpoints)
+        controlpoints_list.append(
+            [panel.aerodynamic_center for panel in wing_aero_LLT.panels]
+        )
         print(str((i + 1) / len(aoas) * 100) + " %")
 
     end_time = time.time()
@@ -165,7 +176,6 @@ def calculating_cl_cd_for_alpha_range(aoas):
         CL_VSM_new,
         CD_VSM_new,
         gamma_VSM_new,
-        AR,
         controlpoints_list,
     )
 
@@ -189,7 +199,7 @@ def plot_4_parameters(
     plt.ylabel(y_label)
     plt.title(title)
     plt.grid()
-    plt.savefig(plt_path + title, bbox_inches="tight")
+    plt.savefig(plt_path + title + ".png", bbox_inches="tight")
 
 
 def plotting(
@@ -236,7 +246,7 @@ def plotting(
         alpha_list,
         x_label=r"$\alpha$ ($^\circ$)",
         y_label="$C_L$ ()",
-        title=str(round(AR, 1)) + "_AR_Ell_CL_alpha.pdf",
+        title=str(round(AR, 1)) + "_AR_Ell_CL_alpha",
     )
     # # Cl - Cd
     # plot_4_parameters(
@@ -246,7 +256,7 @@ def plotting(
     #     alpha_list,
     #     x_label="$C_D$",
     #     y_label="$C_L$ ()",
-    #     title=str(round(AR, 1)) + "_AR_Rect_CL_CD.pdf",
+    #     title=str(round(AR, 1)) + "_AR_Rect_CL_CD",
     # )
     # Cl/Cd - alpha
     plot_4_parameters(
@@ -256,7 +266,7 @@ def plotting(
         alpha_list,
         x_label=r"$\alpha$ ($^\circ$)",
         y_label="$C_L/C_D$",
-        title=str(round(AR, 1)) + "_AR_Rect_CLCD_alpha.pdf",
+        title=str(round(AR, 1)) + "_AR_Rect_CLCD_alpha",
     )
     # Cd - alpha
     plot_4_parameters(
@@ -266,7 +276,7 @@ def plotting(
         alpha_list,
         x_label=r"$\alpha$ ($^\circ$)",
         y_label="$C_D$",
-        title=str(round(AR, 1)) + "_AR_Ell_CD_alpha.pdf",
+        title=str(round(AR, 1)) + "_AR_Ell_CD_alpha",
     )
     cp_y_aoa_list = []
     for cp in controlpoints_list:
@@ -280,22 +290,32 @@ def plotting(
         plot_4_parameters(
             cp_y_aoa_list[i],
             [gamma_LLT[i], gamma_VSM[i], gamma_LLT_new[i], gamma_VSM_new[i]],
-            legend[1:],
+            ["LLT", "VSM", "LLT_new", "VSM_new"],
             alpha_list,
             x_label="Section",
             y_label="$\Gamma$",
             title=str(round(AR, 1))
             + "_AR_Ell_Gamma_aoa_"
-            + str(round(np.rad2deg(aoa), 1))
-            + ".pdf",
+            + str(round(np.rad2deg(aoa), 1)),
         )
 
 
 if __name__ == "__main__":
+    # elliptical geometry
+    max_chord = 1
+    span = 2.36
+    n_sections = 3
+    AR = span**2 / (np.pi * span * max_chord / 4)
+
+    # range of aoas
     aoas = np.arange(0, 20, 1) / 180 * np.pi
     aoas = np.arange(3, 16, 10) / 180 * np.pi
+
+    # analytical solution
     CL_th = 2 * np.pi * aoas / (1 + 2 / AR)
     CDi_th = CL_th**2 / np.pi / AR
+
+    # numerical solution
     (
         CL_LLT,
         CD_LLT,
@@ -309,9 +329,10 @@ if __name__ == "__main__":
         CL_VSM_new,
         CD_VSM_new,
         gamma_VSM_new,
-        AR,
         controlpoints_list,
-    ) = calculating_cl_cd_for_alpha_range(aoas)
+    ) = calculating_cl_cd_for_alpha_range(aoas, span, AR, max_chord, n_sections)
+
+    # plotting
     plotting(
         aoas,
         CL_LLT,
@@ -330,7 +351,15 @@ if __name__ == "__main__":
         controlpoints_list,
     )
 
-    logging.info(f"CL_ana= {CL}, CL_VSM = {CL_VSM}, CL_VSM_new = {CL_VSM_new}")
-    logging.info(f"CD_VSM = {CD_VSM}, CD_VSM_new = {CD_VSM_new}")
-
-    plt.show()
+    logging.info(f"CL")
+    logging.info(f"CL_th= {CL_th}")
+    logging.info(f"CL_LLT = {CL_LLT}")
+    logging.info(f"CL_LLT_new = {CL_LLT_new}")
+    logging.info(f"CL_VSM = {CL_VSM}")
+    logging.info(f"CL_VSM_new = {CL_VSM_new}")
+    logging.info(f"CD")
+    logging.info(f"CD_th= {CDi_th}")
+    logging.info(f"CD_LLT = {CD_LLT}")
+    logging.info(f"CD_LLT_new = {CD_LLT_new}")
+    logging.info(f"CD_VSM = {CD_VSM}")
+    logging.info(f"CD_VSM_new = {CD_VSM_new}")
