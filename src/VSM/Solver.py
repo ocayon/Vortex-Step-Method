@@ -173,7 +173,7 @@ class Solver:
             print("------------------------------------")
             print(f"{self.aerodynamic_model_type} Converged after {i} iterations")
             print("------------------------------------")
-        if not converged:
+        elif not converged:
             print("------------------------------------")
             print(
                 f"{self.aerodynamic_model_type} Not converged after {str(self.max_iterations)} iterations"

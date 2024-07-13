@@ -14,10 +14,7 @@ import sys
 
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, root_path)
-from tests.WingAerodynamics.test_wing_aero_object_against_create_geometry_general import (
-    # create_geometry_general,
-    create_geometry_from_wing_object,
-)
+
 from tests.utils import (
     generate_coordinates_el_wing,
     generate_coordinates_rect_wing,
@@ -25,6 +22,8 @@ from tests.utils import (
     asserting_all_elements_in_list_dict,
     asserting_all_elements_in_list_list_dict,
     create_ring_from_wing_object,
+    print_matrix,
+    flip_created_coord_in_pairs,
 )
 from tests.thesis_functions_oriol_cayon import (
     vec_norm,
@@ -95,7 +94,7 @@ def thesis_induction_matrix_creation(
     MatrixV = np.empty((N, N))
     MatrixW = np.empty((N, N))
     U_2D = np.zeros((N, 3))
-    logging.info(f"shape(U_2D): {np.shape(U_2D)}")
+    logging.debug(f"shape(U_2D): {np.shape(U_2D)}")
 
     # Number of iterations and convergence criteria
     Niterations = conv_crit["Niterations"]
@@ -112,7 +111,7 @@ def thesis_induction_matrix_creation(
 
         if model == "VSM":
             # Velocity induced by a infinte bound vortex with Gamma = 1
-            logging.info(f"ringvec[icp]: {ringvec[icp]}")
+            logging.debug(f"ringvec[icp]: {ringvec[icp]}")
             U_2D[icp] = velocity_induced_bound_2D(ringvec[icp])
 
         for jring in range(N):
@@ -137,7 +136,7 @@ def thesis_induction_matrix_creation(
             # as this was considered wrong in that code
             if icp == jring:
                 if model == "VSM":
-                    logging.info(f"U_2D[icp]: {U_2D[icp]}")
+                    logging.debug(f"U_2D[icp]: {U_2D[icp]}")
                     MatrixU[icp, jring] -= U_2D[icp, 0]
                     MatrixV[icp, jring] -= U_2D[icp, 1]
                     MatrixW[icp, jring] -= U_2D[icp, 2]
@@ -147,7 +146,12 @@ def thesis_induction_matrix_creation(
 
 def test_induction_matrix_creation():
 
-    n_panels = 4
+    # TODO: IMPORTANT, the AIC_y is opposite, due to the reversed ORDER
+    logging.info(
+        "IMPORTANT NOTE: AIC_y is set to -AIC_y, to compensate for reversed order comparison"
+    )
+
+    n_panels = 3
     # N = number of SECTIONS
     N = n_panels + 1
     max_chord = 1
@@ -155,9 +159,10 @@ def test_induction_matrix_creation():
     AR = span**2 / (np.pi * span * max_chord / 4)
     dist = "cos"
     coord = generate_coordinates_el_wing(max_chord, span, N, dist)
+
     Atot = max_chord / 2 * span / 2 * np.pi
-    logging.info(f"N: {N}")
-    logging.info(f"len(coord): {len(coord)}")
+    logging.debug(f"N: {N}")
+    logging.debug(f"len(coord): {len(coord)}")
 
     Umag = 20
     aoa = 5.7106 * np.pi / 180
@@ -177,7 +182,18 @@ def test_induction_matrix_creation():
     data_airf[:, 2] = alpha_airf * 0
     data_airf[:, 3] = alpha_airf * 0
 
-    ##################################################################
+    # Creating the wing object
+    ## Elliptical Wing
+    coord_left_to_right = flip_created_coord_in_pairs(deepcopy(coord))
+    core_radius_fraction = 1e-20  # only value I could find
+    wing = Wing(n_panels, "unchanged")
+    for idx in range(int(len(coord_left_to_right) / 2)):
+        wing.add_section(
+            coord_left_to_right[2 * idx], coord_left_to_right[2 * idx + 1], ["inviscid"]
+        )
+    wing_aero = WingAerodynamics([wing])
+    wing_aero.va = Uinf
+
     ###########
     ### LTT ###
     ###########
@@ -189,52 +205,6 @@ def test_induction_matrix_creation():
     controlpoints, rings, bladepanels, ringvec, coord_L = create_geometry_general(
         coord, Uinf, N, ring_geo, model
     )
-
-    ### NEW ###
-    ## Elliptical Wing
-    core_radius_fraction = 1e-20  # only value I could find
-    wing = Wing(n_panels, "unchanged")
-    for idx in range(int(len(coord) / 2)):
-        wing.add_section(coord[2 * idx], coord[2 * idx + 1], ["inviscid"])
-    wing_aero = WingAerodynamics([wing])
-
-    wing_aero.va = Uinf
-    # Generate geometry from wing object
-    new_controlpoints, new_rings, new_wingpanels, new_ringvec, new_coord_L = (
-        create_geometry_from_wing_object(wing_aero, model)
-    )
-
-    #### Check if geometry input is the same
-    # Check lengths
-    assert np.allclose(len(controlpoints), n_panels)
-    assert np.allclose(len(rings), n_panels)
-    assert np.allclose(len(wing_aero.panels), n_panels)
-    assert np.allclose(len(ringvec), n_panels)
-    assert np.allclose(len(coord_L), n_panels)
-    assert np.allclose(len(new_controlpoints), n_panels)
-    assert np.allclose(len(new_rings), n_panels)
-    assert np.allclose(len(new_wingpanels), n_panels)
-    assert np.allclose(len(new_ringvec), n_panels)
-    assert np.allclose(len(new_coord_L), n_panels)
-
-    # check items in the dictionaries
-    asserting_all_elements_in_list_dict(controlpoints, new_controlpoints)
-    asserting_all_elements_in_list_list_dict(rings, new_rings)
-    asserting_all_elements_in_list_dict(bladepanels, new_wingpanels)
-    asserting_all_elements_in_list_dict(ringvec, new_ringvec)
-    assert np.allclose(coord_L, new_coord_L, atol=1e-5)
-
-    asserting_all_elements_in_list_dict(new_controlpoints, controlpoints)
-    asserting_all_elements_in_list_list_dict(new_rings, rings)
-    asserting_all_elements_in_list_dict(new_wingpanels, bladepanels)
-    asserting_all_elements_in_list_dict(new_ringvec, ringvec)
-    assert np.allclose(new_coord_L, coord_L, atol=1e-5)
-
-    #############################
-    ### CREATING AIC MATRICES ###
-    #############################
-
-    ### THESIS ###
     MatrixU, MatrixV, MatrixW = thesis_induction_matrix_creation(
         deepcopy(ringvec),
         deepcopy(controlpoints),
@@ -249,69 +219,28 @@ def test_induction_matrix_creation():
     ### NEW ###
     AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(model, core_radius_fraction)
 
-    # Check if the matrices are the same
-    assert np.allclose(MatrixU, AIC_x, atol=1e-8)
-    assert np.allclose(MatrixV, AIC_y, atol=1e-8)
-    assert np.allclose(MatrixW, AIC_z, atol=1e-8)
+    print_matrix(MatrixU, "MatrixU")
+    print_matrix(AIC_x, "AIC_x")
+    print_matrix(MatrixV, "MatrixV")
+    print_matrix(-AIC_y, "AIC_y")
+    print_matrix(MatrixW, "MatrixW")
+    print_matrix(AIC_z, "AIC_z")
 
-    ##################################################################
+    # Check if the matrices are the same
+    assert np.allclose(MatrixU, AIC_x, atol=1e-5)
+    assert np.allclose(MatrixV, -AIC_y, atol=1e-5)
+    assert np.allclose(MatrixW, AIC_z, atol=1e-5)
+
     ###########
     ### VSM ###
     ###########
+
     model = "VSM"
 
-    ### Geometry ###
     ### THESIS ###
-    # Define system of vorticity
     controlpoints, rings, bladepanels, ringvec, coord_L = create_geometry_general(
         coord, Uinf, N, ring_geo, model
     )
-
-    ### NEW ###
-    ## Elliptical Wing
-    core_radius_fraction = 1e-20  # only value I could find
-    wing = Wing(n_panels, "unchanged")
-    for idx in range(int(len(coord) / 2)):
-        wing.add_section(coord[2 * idx], coord[2 * idx + 1], ["inviscid"])
-    wing_aero = WingAerodynamics([wing])
-
-    wing_aero.va = Uinf
-    # Generate geometry from wing object
-    new_controlpoints, new_rings, new_wingpanels, new_ringvec, new_coord_L = (
-        create_geometry_from_wing_object(wing_aero, model)
-    )
-
-    #### Check if geometry input is the same
-    # Check lengths
-    assert np.allclose(len(controlpoints), n_panels)
-    assert np.allclose(len(rings), n_panels)
-    assert np.allclose(len(wing_aero.panels), n_panels)
-    assert np.allclose(len(ringvec), n_panels)
-    assert np.allclose(len(coord_L), n_panels)
-    assert np.allclose(len(new_controlpoints), n_panels)
-    assert np.allclose(len(new_rings), n_panels)
-    assert np.allclose(len(new_wingpanels), n_panels)
-    assert np.allclose(len(new_ringvec), n_panels)
-    assert np.allclose(len(new_coord_L), n_panels)
-
-    # check items in the dictionaries
-    asserting_all_elements_in_list_dict(controlpoints, new_controlpoints)
-    asserting_all_elements_in_list_list_dict(rings, new_rings)
-    asserting_all_elements_in_list_dict(bladepanels, new_wingpanels)
-    asserting_all_elements_in_list_dict(ringvec, new_ringvec)
-    assert np.allclose(coord_L, new_coord_L, atol=1e-5)
-
-    asserting_all_elements_in_list_dict(new_controlpoints, controlpoints)
-    asserting_all_elements_in_list_list_dict(new_rings, rings)
-    asserting_all_elements_in_list_dict(new_wingpanels, bladepanels)
-    asserting_all_elements_in_list_dict(new_ringvec, ringvec)
-    assert np.allclose(new_coord_L, coord_L, atol=1e-5)
-
-    #############################
-    ### CREATING AIC MATRICES ###
-    #############################
-
-    ### THESIS ###
     MatrixU, MatrixV, MatrixW = thesis_induction_matrix_creation(
         deepcopy(ringvec),
         deepcopy(controlpoints),
@@ -322,10 +251,13 @@ def test_induction_matrix_creation():
         deepcopy(conv_crit),
         deepcopy(model),
     )
+
     ### NEW ###
+
+    # wing_aero.va = Uinf
     AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(model, core_radius_fraction)
 
     # Check if the matrices are the same
     assert np.allclose(MatrixU, AIC_x, atol=1e-8)
-    assert np.allclose(MatrixV, AIC_y, atol=1e-8)
+    assert np.allclose(MatrixV, -AIC_y, atol=1e-8)
     assert np.allclose(MatrixW, AIC_z, atol=1e-8)

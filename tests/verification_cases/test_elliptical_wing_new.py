@@ -11,6 +11,7 @@ import seaborn as sns
 import logging
 import sys
 import os
+from copy import deepcopy
 
 # Go back to root folder
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -23,15 +24,13 @@ from VSM.WingAerodynamics import WingAerodynamics
 from VSM.Solver import Solver
 
 
-def calculating_cl_cd_for_alpha_range(aoas, span, AR, max_chord, n_sections):
+def calculating_cl_cd_for_alpha_range(
+    aoas, span, AR, max_chord, n_sections, is_plotting=False
+):
     ## INPUT DATA
     N = n_sections
     dist = "cos"
     coord = thesis_functions.generate_coordinates_el_wing(max_chord, span, N, dist)
-    coord_left_to_right = flip_created_coord_in_pairs(coord)
-    logging.debug(f"coord = {coord}")
-    logging.debug(f"coord_left_to_right = {coord_left_to_right}")
-
     Atot = max_chord / 2 * span / 2 * np.pi
 
     Umag = 20
@@ -39,7 +38,7 @@ def calculating_cl_cd_for_alpha_range(aoas, span, AR, max_chord, n_sections):
     Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
     # Uinf = np.array([np.sqrt(0.99),0,0.1])
 
-    conv_crit = {"Niterations": 1500, "error": 1e-5, "Relax_factor": 0.05}
+    conv_crit = {"Niterations": 1500, "error": 1e-5, "Relax_factor": 0.01}
 
     Gamma0 = np.zeros(N - 1)
 
@@ -70,12 +69,29 @@ def calculating_cl_cd_for_alpha_range(aoas, span, AR, max_chord, n_sections):
     controlpoints_list = []
 
     core_radius_fraction = 1e-20
+    # geometry new object-oriented
+    coord_left_to_right = flip_created_coord_in_pairs(deepcopy(coord))
+    wing = Wing(N, "unchanged")
+    for idx in range(int(len(coord_left_to_right) / 2)):
+        logging.debug(f"coord_left_to_right[idx] = {coord_left_to_right[idx]}")
+        wing.add_section(
+            coord_left_to_right[2 * idx],
+            coord_left_to_right[2 * idx + 1],
+            ["inviscid"],
+        )
+    wing_aero = WingAerodynamics([wing])
 
     for i, aoa_i in enumerate(aoas):
+        Gamma = Gamma0
+        logging.info(f"aoa_i = {np.rad2deg(aoa_i)}")
 
         Uinf = np.array([np.cos(aoa_i), 0, np.sin(aoa_i)]) * Umag
-        model = "LLT"
+        wing_aero.va = Uinf
+        if is_plotting:
+            wing_aero.plot()
 
+        ############# LLT #############
+        model = "LLT"
         ### thesis
         # Define system of vorticity
         controlpoints, rings, bladepanels, ringvec, coord_L = (
@@ -96,32 +112,19 @@ def calculating_cl_cd_for_alpha_range(aoas, span, AR, max_chord, n_sections):
         gamma_LLT[i] = Gamma
 
         ### new object-oriented
-        wing_LLT = Wing(N, "unchanged")
-        for idx in range(int(len(coord_left_to_right) / 2)):
-            logging.info(f"coord_left_to_right[idx] = {coord_left_to_right[idx]}")
-            wing_LLT.add_section(
-                coord_left_to_right[2 * idx],
-                coord_left_to_right[2 * idx + 1],
-                ["inviscid"],
-            )
-        wing_aero_LTT = WingAerodynamics([wing_LLT])
-        wing_aero_LTT.va = Uinf
-        wing_aero_LTT.plot()
         LLT = Solver(
             aerodynamic_model_type=model, core_radius_fraction=core_radius_fraction
         )
-        results_LLT, wing_aero_LLT = LLT.solve(wing_aero_LTT)
+        results_LLT, wing_aero_LLT = LLT.solve(wing_aero)
         CL_LLT_new[i] = results_LLT["cl"]
         CD_LLT_new[i] = results_LLT["cd"]
         gamma_LLT_new[i] = results_LLT["gamma_distribution"]
 
-        logging.info(f"aoa_i = {np.rad2deg(aoa_i)}")
-        logging.info(f"CL_LLT_new = {CL_LLT_new}")
-        logging.info(f"CD_LLT_new = {CD_LLT_new}")
+        logging.debug(f"aoa_i = {np.rad2deg(aoa_i)}")
+        logging.debug(f"CL_LLT_new = {CL_LLT_new}")
+        logging.debug(f"CD_LLT_new = {CD_LLT_new}")
 
-        #############
-        #### VSM ####
-        #############
+        ############# VSM #############
         model = "VSM"
         # Define system of vorticity
         controlpoints, rings, bladepanels, ringvec, coord_L = (
@@ -142,27 +145,21 @@ def calculating_cl_cd_for_alpha_range(aoas, span, AR, max_chord, n_sections):
         gamma_VSM[i] = Gamma
 
         ### new object-oriented
-        # wing_VSM = Wing(N, "unchanged")
-        # for idx in range(int(len(coord) / 2)):
-        #     wing_VSM.add_section(coord[2 * idx], coord[2 * idx + 1], ["inviscid"])
-        # wing_aero_VSM = WingAerodynamics([wing_VSM])
-        # wing_aero_VSM.va = Uinf
         VSM = Solver(
             aerodynamic_model_type=model, core_radius_fraction=core_radius_fraction
         )
-        results_VSM, wing_aero_VSM = VSM.solve(wing_aero_LLT)
+        results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
         CL_VSM_new[i] = results_VSM["cl"]
         CD_VSM_new[i] = results_VSM["cd"]
         gamma_VSM_new[i] = results_VSM["gamma_distribution"]
 
-        Gamma0 = Gamma
         controlpoints_list.append(
             [panel.aerodynamic_center for panel in wing_aero_LLT.panels]
         )
-        print(str((i + 1) / len(aoas) * 100) + " %")
+        # print(str((i + 1) / len(aoas) * 100) + " %")
 
     end_time = time.time()
-    print(end_time - start_time)
+    # print(end_time - start_time)
 
     return (
         CL_LLT,
@@ -279,14 +276,17 @@ def plotting(
         y_label="$C_D$",
         title=str(round(AR, 1)) + "_AR_Ell_CD_alpha",
     )
+    # extracting the y coordinates of the control points
     cp_y_aoa_list = []
     for cp in controlpoints_list:
+        print("cp = ", cp)
         cp_y_list = []
         for cp_i in cp:
-            cp_y_list.append(cp_i["coordinates"][1])
+            cp_y_list.append(cp_i[1])
         cp_y_aoa_list.append(cp_y_list)
 
     # plotting gammas
+    aoas = aoas[len(aoas) // 2 :]
     for i, aoa in enumerate(aoas):
         plot_4_parameters(
             cp_y_aoa_list[i],
@@ -301,15 +301,63 @@ def plotting(
         )
 
 
-if __name__ == "__main__":
+def test_elliptical_wing():
     # elliptical geometry
     max_chord = 1
+    # span = 15.709
     span = 2.36
-    n_sections = 5
+    n_sections = 4
     AR = span**2 / (np.pi * span * max_chord / 4)
 
     # range of aoas
     aoas = np.arange(0, 20, 1) / 180 * np.pi
+    aoas = np.arange(3, 16, 10) / 180 * np.pi
+
+    # analytical solution
+    CL_th = 2 * np.pi * aoas / (1 + 2 / AR)
+    CDi_th = CL_th**2 / np.pi / AR
+
+    # Solution
+    (
+        CL_LLT,
+        CD_LLT,
+        gamma_LLT,
+        CL_VSM,
+        CD_VSM,
+        gamma_VSM,
+        CL_LLT_new,
+        CD_LLT_new,
+        gamma_LLT_new,
+        CL_VSM_new,
+        CD_VSM_new,
+        gamma_VSM_new,
+        controlpoints_list,
+    ) = calculating_cl_cd_for_alpha_range(aoas, span, AR, max_chord, n_sections)
+
+    ### asserting
+    # LLT
+    np.testing.assert_almost_equal(CL_LLT, CL_th, decimal=3)
+    np.testing.assert_almost_equal(CD_LLT, CDi_th, decimal=3)
+    np.testing.assert_almost_equal(CL_LLT_new, CL_th, decimal=3)
+    np.testing.assert_almost_equal(CD_LLT_new, CDi_th, decimal=3)
+
+    # VSM
+    np.testing.assert_almost_equal(CL_VSM, CL_th, decimal=2)
+    np.testing.assert_almost_equal(CD_VSM, CDi_th, decimal=2)
+    np.testing.assert_almost_equal(CL_VSM_new, CL_th, decimal=2)
+    np.testing.assert_almost_equal(CD_VSM_new, CDi_th, decimal=2)
+
+
+if __name__ == "__main__":
+    # elliptical geometry
+    max_chord = 1
+    span = 15.709  # AR = 20
+    # span = 2.36  # AR = 3
+    n_sections = 5
+    AR = span**2 / (np.pi * span * max_chord / 4)
+
+    # range of aoas
+    # aoas = np.arange(0, 20, 1) / 180 * np.pi
     aoas = np.arange(3, 16, 10) / 180 * np.pi
 
     # analytical solution

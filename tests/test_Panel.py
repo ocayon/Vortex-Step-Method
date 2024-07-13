@@ -455,7 +455,7 @@ def test_calculate_cl_and_cd_cm(sample_panel):
 def test_calculate_velocity_induced_bound_2D(sample_panel):
     control_point = np.array([0.5, 5, 0])
     gamma = 1.0
-    induced_velocity = sample_panel.calculate_velocity_induced_bound_2D()
+    induced_velocity = sample_panel.calculate_velocity_induced_bound_2D(control_point)
 
     assert isinstance(induced_velocity, np.ndarray)
     assert induced_velocity.shape == (3,)  # 2D velocity

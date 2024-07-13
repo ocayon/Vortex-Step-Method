@@ -317,3 +317,9 @@ def flip_created_coord_in_pairs(coord):
 
     # Flatten back to the original shape
     return flipped.reshape(-1, 3)
+
+
+def print_matrix(matrix, name="Matrix"):
+    # Use np.array2string to convert the matrix to a nicely formatted string
+    matrix_str = np.array2string(matrix, formatter={"float_kind": lambda x: "%.3f" % x})
+    print(f"{name}:\n{matrix_str}")
