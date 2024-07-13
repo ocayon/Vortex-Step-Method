@@ -24,7 +24,7 @@ class Solver:
         relaxation_factor: float = 0.03,
         artificial_damping: dict = {"k2": 0.0, "k4": 0.0},
         type_initial_gamma_distribution: str = "elliptic",
-        core_radius_fraction: float = 1e-6,
+        core_radius_fraction: float = 1e-20,
         ## TODO: would be nice to having these defined here instead of inside the panel class?
         # aerodynamic_center_location: float = 0.25,
         # control_point_location: float = 0.75,
@@ -184,6 +184,7 @@ class Solver:
             gamma_distribution=gamma,
             type_initial_gamma_distribution=self.type_initial_gamma_distribution,
         )
+
         wing_aero.update_effective_angle_of_attack(
             alpha, self.aerodynamic_model_type, self.core_radius_fraction
         )

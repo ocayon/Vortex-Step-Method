@@ -144,7 +144,7 @@ class BoundFilament(Filament):
     #             * np.dot(self._r0, r1 / np.linalg.norm(r1) - r2 / np.linalg.norm(r2))
     #         )
 
-    def velocity_3D_bound_vortex(self, XVP, gamma):
+    def velocity_3D_bound_vortex(self, XVP, gamma, core_radius_fraction):
         """
             Calculate the velocity induced by a bound vortex filament in a point in space ()
 
@@ -174,20 +174,28 @@ class BoundFilament(Filament):
         r1Xr0 = cross_product(r1, r0)
         r2Xr0 = cross_product(r2, r0)
 
-        epsilon = 0.05 * vec_norm(r0)  # Cut-off radius
-
-        if (
-            vec_norm(r1Xr0) / vec_norm(r0) > epsilon
-        ):  # Perpendicular distance from XVP to vortex filament (r0)
+        epsilon = core_radius_fraction * vec_norm(r0)  # Cut-off radius
+        # If point is outside the core radius of filament
+        if vec_norm(r1Xr0) / vec_norm(r0) > epsilon:
+            # Perpendicular distance from XVP to vortex filament (r0)
             r1Xr2 = cross_product(r1, r2)
-            vel_ind = (
+            return (
                 gamma
                 / (4 * np.pi)
                 * r1Xr2
                 / (vec_norm(r1Xr2) ** 2)
                 * dot_product(r0, r1 / vec_norm(r1) - r2 / vec_norm(r2))
             )
+        # If point is on the filament
+        elif vec_norm(r1Xr0) / vec_norm(r0) == 0:
+            return np.zeros(3)
+        # If point is inside the core radius of filament
         else:
+            logging.info(f"inside core radius")
+            # logging.info(f"epsilon: {epsilon}")
+            logging.info(
+                f"distance from control point to filament: {vec_norm(r1Xr0) / vec_norm(r0)}"
+            )
             # The control point is placed on the edge of the radius core
             # proj stands for the vectors respect to the new controlpoint
             r1_proj = dot_product(r1, r0) * r0 / (
@@ -206,8 +214,7 @@ class BoundFilament(Filament):
                     r0, r1_proj / vec_norm(r1_proj) - r2_proj / vec_norm(r2_proj)
                 )
             )
-            vel_ind = vec_norm(r1Xr0) / (vec_norm(r0) * epsilon) * vel_ind_proj
-        return vel_ind
+            return vec_norm(r1Xr0) / (vec_norm(r0) * epsilon) * vel_ind_proj
 
     def velocity_3D_trailing_vortex(self, XVP, gamma, Uinf):
         """
@@ -246,17 +253,22 @@ class BoundFilament(Filament):
         r1Xr0 = cross_product(r1, r0)
         r2Xr0 = cross_product(r2, r0)
 
+        # if point is outside the core radius of filament
         if (
             vec_norm(r1Xr0) / vec_norm(r0) > epsilon
         ):  # Perpendicular distance from XVP to vortex filament (r0)
             r1Xr2 = cross_product(r1, r2)
-            vel_ind = (
+            return (
                 gamma
                 / (4 * np.pi)
                 * r1Xr2
                 / (vec_norm(r1Xr2) ** 2)
                 * dot_product(r0, r1 / vec_norm(r1) - r2 / vec_norm(r2))
             )
+        # if point is on the filament
+        elif vec_norm(r1Xr0) / vec_norm(r0) == 0:
+            return np.zeros(3)
+        # if point is inside the core radius of filament
         else:
             # The control point is placed on the edge of the radius core
             # proj stands for the vectors respect to the new controlpoint
@@ -276,8 +288,7 @@ class BoundFilament(Filament):
                     r0, r1_proj / vec_norm(r1_proj) - r2_proj / vec_norm(r2_proj)
                 )
             )
-            vel_ind = vec_norm(r1Xr0) / (vec_norm(r0) * epsilon) * vel_ind_proj
-        return vel_ind
+            return vec_norm(r1Xr0) / (vec_norm(r0) * epsilon) * vel_ind_proj
 
 
 class SemiInfiniteFilament(Filament):
@@ -390,6 +401,7 @@ class SemiInfiniteFilament(Filament):
 
         """
         XV1 = self.x1
+        GAMMA = -GAMMA * self.filament_direction
 
         r1 = XVP - XV1  # Vector from XV1 to XVP
         r1XVf = cross_product(r1, Vf)
@@ -401,6 +413,7 @@ class SemiInfiniteFilament(Filament):
         )  # Vector from XV1 to XVP perpendicular to the core radius
         epsilon = np.sqrt(4 * alpha0 * nu * vec_norm(r_perp) / Uinf)  # Cut-off radius
 
+        # if point is outside the core radius of filament
         if vec_norm(r1XVf) / vec_norm(Vf) > epsilon:
             # determine scalar
             K = (
@@ -411,7 +424,11 @@ class SemiInfiniteFilament(Filament):
                 * (1 + dot_product(r1, Vf) / vec_norm(r1))
             )
             # determine the three velocity components
-            vel_ind = K * r1XVf
+            return K * r1XVf
+        # if point is on the filament
+        elif vec_norm(r1XVf) / vec_norm(Vf) == 0:
+            return np.zeros(3)
+        # else, if point within core
         else:
             r1_proj = dot_product(r1, Vf) * Vf + epsilon * (
                 r1 / vec_norm(r1) - Vf
@@ -425,9 +442,7 @@ class SemiInfiniteFilament(Filament):
                 * (1 + dot_product(r1_proj, Vf) / vec_norm(r1_proj))
             )
             # determine the three velocity components
-            vel_ind = K * r1XVf_proj
-        # output results, vector with the three velocity components
-        return vel_ind
+            return K * r1XVf_proj
 
 
 class Infinite2DFilament(Filament):
@@ -456,43 +471,43 @@ class Infinite2DFilament(Filament):
     def x2(self):
         return self._x2
 
-    def calculate_induced_velocity(self, point, gamma, core_radius_fraction):
+    # def calculate_induced_velocity(self, point, gamma, core_radius_fraction):
 
-        MP = np.array(point) - self._midpoint
+    #     MP = np.array(point) - self._midpoint
 
-        # calc. perpendicular distance
-        P_to_AB = np.linalg.norm(
-            np.cross(self._x2 - self._x1, point - self._x1)
-        ) / np.linalg.norm(self._x2 - self._x1)
+    #     # calc. perpendicular distance
+    #     P_to_AB = np.linalg.norm(
+    #         np.cross(self._x2 - self._x1, point - self._x1)
+    #     ) / np.linalg.norm(self._x2 - self._x1)
 
-        # define the core radius
-        epsilon_infinite = core_radius_fraction * self._length
+    #     # define the core radius
+    #     epsilon_infinite = core_radius_fraction * self._length
 
-        # outside of core radius
-        if P_to_AB > epsilon_infinite:
-            AB_cross_MP = np.cross(self._AB, MP)
-            AB_cross_MP_dot_AB_cross_MP = np.dot(AB_cross_MP, AB_cross_MP)
-            return (
-                (gamma / (2 * np.pi))
-                * (AB_cross_MP / AB_cross_MP_dot_AB_cross_MP)
-                * np.linalg.norm(self._AB)
-            )
+    #     # outside of core radius
+    #     if P_to_AB > epsilon_infinite:
+    #         AB_cross_MP = np.cross(self._AB, MP)
+    #         AB_cross_MP_dot_AB_cross_MP = np.dot(AB_cross_MP, AB_cross_MP)
+    #         return (
+    #             (gamma / (2 * np.pi))
+    #             * (AB_cross_MP / AB_cross_MP_dot_AB_cross_MP)
+    #             * np.linalg.norm(self._AB)
+    #         )
 
-        # if point on the filament
-        elif P_to_AB == 0:
-            logging.warning(
-                "Control point is on the filament. Returning zero induced velocity to avoid singularity."
-            )
-            return np.zeros(3)
+    #     # if point on the filament
+    #     elif P_to_AB == 0:
+    #         logging.warning(
+    #             "Control point is on the filament. Returning zero induced velocity to avoid singularity."
+    #         )
+    #         return np.zeros(3)
 
-        # inside the core radius
-        else:
-            AB_cross_MP = np.cross(self._AB, MP)
-            AB_cross_MP_dot_AB_cross_MP = np.dot(AB_cross_MP, AB_cross_MP)
-            smoothing_factor = (P_to_AB / epsilon_infinite) ** 2
-            return (
-                smoothing_factor
-                * (gamma / (2 * np.pi))
-                * (AB_cross_MP / AB_cross_MP_dot_AB_cross_MP)
-                * np.linalg.norm(self._AB)
-            )
+    #     # inside the core radius
+    #     else:
+    #         AB_cross_MP = np.cross(self._AB, MP)
+    #         AB_cross_MP_dot_AB_cross_MP = np.dot(AB_cross_MP, AB_cross_MP)
+    #         smoothing_factor = (P_to_AB / epsilon_infinite) ** 2
+    #         return (
+    #             smoothing_factor
+    #             * (gamma / (2 * np.pi))
+    #             * (AB_cross_MP / AB_cross_MP_dot_AB_cross_MP)
+    #             * np.linalg.norm(self._AB)
+    #         )

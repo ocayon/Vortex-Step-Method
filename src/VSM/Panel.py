@@ -84,10 +84,14 @@ class Panel:
 
         ### Setting up the filaments
         self.filaments = []
-        self.filaments.append(BoundFilament(x1=bound_point_1, x2=bound_point_2))
-        self.filaments.append(BoundFilament(x1=TE_point_1, x2=bound_point_1))
-        self.filaments.append(BoundFilament(x1=bound_point_2, x2=TE_point_2))
-        self._filament_2d = Infinite2DFilament(bound_point_1, bound_point_2)
+        # self.filaments.append(BoundFilament(x1=bound_point_1, x2=bound_point_2))
+        # self.filaments.append(BoundFilament(x1=TE_point_1, x2=bound_point_1))
+        # self.filaments.append(BoundFilament(x1=bound_point_2, x2=TE_point_2))
+        # self._filament_2d = Infinite2DFilament(bound_point_1, bound_point_2)
+        self.filaments.append(BoundFilament(x1=bound_point_2, x2=bound_point_1))
+        self.filaments.append(BoundFilament(x1=bound_point_1, x2=TE_point_1))
+        self.filaments.append(BoundFilament(x1=TE_point_2, x2=bound_point_2))
+        self._filament_2d = Infinite2DFilament(bound_point_2, bound_point_1)
         self._gamma = None  # Initialize the gamma attribute
 
     ###########################
@@ -360,20 +364,7 @@ class Panel:
         else:
             raise NotImplementedError
 
-    def calculate_velocity_induced_bound_2D(
-        self, control_point, gamma, core_radius_fraction
-    ):
-        """ "
-        This function calculates the 2D induced velocity at the control point due to the bound vortex filaments
-        """
-        if gamma is None:
-            gamma = self._gamma
-
-        return self._filament_2d.calculate_induced_velocity(
-            control_point, gamma, core_radius_fraction
-        )
-
-    def velocity_induced_bound_2D(self):
+    def calculate_velocity_induced_bound_2D(self, evaluation_point):
         """Calculates velocity induced by bound vortex filaments at the control point
             Only needed for VSM, as LLT bound and filament align, thus no induced velocity
 
@@ -383,8 +374,14 @@ class Panel:
         Returns:
             np.array: Induced velocity at the control point
         """
-        r0 = self.bound_point_2 - self.bound_point_1
-        r3 = self.control_point - r0 / 2
+        # # OLD
+        # # r0 is vector from left to right bound (from 1 to 2)
+        # r0 = self.bound_point_2 - self.bound_point_1
+        # # r3 is vector from left bound to control point
+        # r3 = self.control_point - r0 / 2
+        # NEW to comply with OLD method in reversed order
+        r3 = evaluation_point - (self.bound_point_1 + self.bound_point_2) / 2
+        r0 = self.bound_point_1 - self.bound_point_2
         cross = np.cross(r0, r3)
         return (
             cross
@@ -394,8 +391,14 @@ class Panel:
             * np.linalg.norm(r0)
         )
 
-    def velocity_induced_single_ring_semiinfinite_NEW(
-        self, evaluation_point, model, va_norm, va_unit, gamma
+    def calculate_velocity_induced_single_ring_semiinfinite(
+        self,
+        evaluation_point,
+        evaluation_point_on_bound,
+        va_norm,
+        va_unit,
+        gamma,
+        core_radius_fraction,
     ):
         """
         Calculates the velocity induced by a ring at a certain controlpoint
@@ -416,10 +419,12 @@ class Panel:
         for i, filament in enumerate(self.filaments):
             # bound
             if i == 0:
-                if model == "VSM":
-                    tempvel = filament.velocity_3D_bound_vortex(evaluation_point, gamma)
-                else:
+                if evaluation_point_on_bound:
                     tempvel = [0, 0, 0]
+                else:
+                    tempvel = filament.velocity_3D_bound_vortex(
+                        evaluation_point, gamma, core_radius_fraction
+                    )
             # trailing1 or trailing2
             elif i == 1 or i == 2:
                 tempvel = filament.velocity_3D_trailing_vortex(
@@ -433,14 +438,14 @@ class Panel:
             # trailing_inf2
             elif i == 4:
                 tempvel = filament.velocity_3D_trailing_vortex_semiinfinite(
-                    va_unit, evaluation_point, -gamma, va_norm
+                    va_unit, evaluation_point, gamma, va_norm
                 )
 
             velind[0] += tempvel[0]
             velind[1] += tempvel[1]
             velind[2] += tempvel[2]
 
-        return velind
+        return np.array(velind)
 
     # def calculate_velocity_induced_horseshoe(
     #     self, control_point, gamma, core_radius_fraction, model="VSM"
@@ -494,11 +499,14 @@ class Panel:
 
     def calculate_filaments_for_plotting(self):
         filaments = []
-        for filament in self.filaments:
+        for i, filament in enumerate(self.filaments):
             x1 = filament.x1
             if hasattr(filament, "x2") and filament.x2 is not None:
                 x2 = filament.x2
-                color = "magenta"
+                if i == 0:  # bound
+                    color = "magenta"
+                else:  # trailing
+                    color = "green"
             else:
                 # For semi-infinite filaments
                 x2 = x1 + 2 * self.chord * (self.va / np.linalg.norm(self.va))

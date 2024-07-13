@@ -125,16 +125,16 @@ def asserting_all_elements_in_list_dict(variable1, variable_expected):
 # Check if the results are the same in list of list of dictionaries
 def asserting_all_elements_in_list_list_dict(variable1, variable_expected):
     for i, (list1, list_expected) in enumerate(zip(variable1, variable_expected)):
-        logging.debug(f"list1 {list1}")
-        logging.debug(f"list_expected {list_expected}")
+        logging.info(f"list1 {list1}")
+        logging.info(f"list_expected {list_expected}")
         for j, (dict1, dict_expected) in enumerate(zip(list1, list_expected)):
-            logging.debug(f"dict1 {dict1}")
-            logging.debug(f"dict_expected {dict_expected}")
+            logging.info(f"dict1 {dict1}")
+            logging.info(f"dict_expected {dict_expected}")
             assert dict1.keys() == dict_expected.keys()
             for key1, key2 in zip(dict1.keys(), dict_expected.keys()):
-                logging.debug(f"key1 {key1}, key2 {key2}")
-                logging.debug(f"dict1[key1] {dict1[key1]}")
-                logging.debug(f"dict_expected[key1] {dict_expected[key1]}")
+                logging.info(f"key1 {key1}, key2 {key2}")
+                logging.info(f"dict1[key1] {dict1[key1]}")
+                logging.info(f"dict_expected[key1] {dict_expected[key1]}")
                 assert key1 == key2
                 # check breaks when entry is a string
                 if isinstance(dict1[key1], str):
@@ -153,7 +153,7 @@ def create_controlpoints_from_wing_object(wing, model):
                 "chord": panel.chord,
                 "normal": panel.x_airf,
                 "tangential": panel.y_airf,
-                "airf_coord": np.column_stack(
+                "arf_coord": np.column_stack(
                     [panel.x_airf, panel.y_airf, panel.z_airf]
                 ),
                 "coordinates_aoa": panel.aerodynamic_center,
@@ -296,3 +296,24 @@ def create_coord_L_from_wing_object(wing):
     for panel in wing.panels:
         coord_L.append(panel.aerodynamic_center)
     return coord_L
+
+
+def create_geometry_from_wing_object(wing, model):
+    controlpoints = create_controlpoints_from_wing_object(wing, model)
+    rings = create_ring_from_wing_object(wing)
+    wingpanels = create_wingpanels_from_wing_object(wing)
+    ringvec = create_ring_vec_from_wing_object(wing, model)
+    coord_L = create_coord_L_from_wing_object(wing)
+
+    return controlpoints, rings, wingpanels, ringvec, coord_L
+
+
+def flip_created_coord_in_pairs(coord):
+    # Reshape the array into pairs
+    reshaped = coord.reshape(-1, 2, 3)
+
+    # Reverse the order of the pairs
+    flipped = np.flip(reshaped, axis=0)
+
+    # Flatten back to the original shape
+    return flipped.reshape(-1, 3)

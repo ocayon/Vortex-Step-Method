@@ -26,12 +26,15 @@ def test_calculate_induced_velocity_semi_infinite(core_radius_fraction):
 
     control_point = np.array([0.5, 0.5, 2])
     gamma = 5
-    induced_velocity_calc = semi_infinite_filament.calculate_induced_velocity(
-        control_point, gamma, core_radius_fraction
+    induced_velocity_calc = (
+        semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+            direction, control_point, gamma, Uinf
+        )
     )
     print(f"induced_velocity_calc: {induced_velocity_calc}")
 
     # Analytical solution using Biot-Savart law
+    gamma = -gamma
     r1 = control_point - x1
     r1_cross_direction = np.cross(r1, direction)
     r_perp = np.dot(r1, direction) * direction
@@ -76,8 +79,8 @@ def test_a_very_close_point(gamma, core_radius_fraction):
         x1, direction, Uinf, filament_direction
     )
     point = [0.5, 1e-10, 0]
-    induced_velocity = semi_infinite_filament.calculate_induced_velocity(
-        point, gamma, core_radius_fraction
+    induced_velocity = semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+        direction, point, gamma, Uinf
     )
     assert not np.isnan(induced_velocity).any()
     assert not np.isinf(induced_velocity).any()
@@ -102,10 +105,10 @@ def test_point_exactly_on_filament(point, gamma, core_radius_fraction):
 
     point = np.array([0.5, 0, 0])  # Point on the filament
 
-    velocity = semi_infinite_filament.calculate_induced_velocity(
-        point, gamma, core_radius_fraction
+    velocity = semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+        direction, point, gamma, Uinf
     )
-    assert np.allclose(velocity, np.zeros(3), atol=1e-6)
+    assert np.allclose(np.array(velocity), np.zeros(3), atol=1e-6)
 
 
 def test_point_far_from_filament(gamma, core_radius_fraction):
@@ -119,8 +122,8 @@ def test_point_far_from_filament(gamma, core_radius_fraction):
 
     far_point = np.array([0, 1e6, 0])
 
-    induced_velocity = semi_infinite_filament.calculate_induced_velocity(
-        far_point, gamma, core_radius_fraction
+    induced_velocity = semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+        direction, far_point, gamma, Uinf
     )
 
     # Velocity should decrease with distance^2, due to Biot-Savart law
@@ -137,14 +140,14 @@ def test_different_gamma_values(core_radius_fraction):
         x1, direction, Uinf, filament_direction
     )
     control_point = [0.5, 1, 0]
-    v1 = semi_infinite_filament.calculate_induced_velocity(
-        control_point, gamma=1.0, core_radius_fraction=core_radius_fraction
+    v1 = semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+        direction, control_point, 1.0, Uinf
     )
-    v2 = semi_infinite_filament.calculate_induced_velocity(
-        control_point, gamma=2.0, core_radius_fraction=core_radius_fraction
+    v2 = semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+        direction, control_point, 2.0, Uinf
     )
-    v4 = semi_infinite_filament.calculate_induced_velocity(
-        control_point, gamma=4.0, core_radius_fraction=core_radius_fraction
+    v4 = semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+        direction, control_point, 4.0, Uinf
     )
     assert np.allclose(v4, 2 * v2, 4 * v1)
 
@@ -158,18 +161,20 @@ def test_symmetry(gamma, core_radius_fraction):
     semi_infinite_filament = SemiInfiniteFilament(
         x1, direction, Uinf, filament_direction
     )
-    vel_point_pos_y = semi_infinite_filament.calculate_induced_velocity(
-        [0, 1, 0], gamma, core_radius_fraction
+    vel_point_pos_y = semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+        direction, [0, 1, 0], gamma, Uinf
     )
-    vel_point_neg_y = semi_infinite_filament.calculate_induced_velocity(
-        [0, -1, 0], gamma, core_radius_fraction
+    vel_point_neg_y = semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+        direction, [0, -1, 0], gamma, Uinf
     )
 
     semi_infinite_filament = SemiInfiniteFilament(
         x1, direction, Uinf, -filament_direction
     )
-    vel_point_pos_y_neg_dir = semi_infinite_filament.calculate_induced_velocity(
-        [0, 1, 0], gamma, core_radius_fraction
+    vel_point_pos_y_neg_dir = (
+        semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+            direction, [0, 1, 0], gamma, Uinf
+        )
     )
     assert np.allclose(vel_point_pos_y, -vel_point_neg_y)
     assert np.allclose(vel_point_pos_y, -vel_point_pos_y_neg_dir)
@@ -191,11 +196,11 @@ def test_uinf_effect(gamma, core_radius_fraction):
         x1, direction, Uinf2, filament_direction
     )
 
-    velocity1 = semi_infinite_filament1.calculate_induced_velocity(
-        control_point, gamma, core_radius_fraction
+    velocity1 = semi_infinite_filament1.velocity_3D_trailing_vortex_semiinfinite(
+        direction, control_point, gamma, Uinf1
     )
-    velocity2 = semi_infinite_filament2.calculate_induced_velocity(
-        control_point, gamma, core_radius_fraction
+    velocity2 = semi_infinite_filament2.velocity_3D_trailing_vortex_semiinfinite(
+        direction, control_point, gamma, Uinf2
     )
 
     # Velocity should be equal for the same gamma
@@ -216,12 +221,12 @@ def test_around_core_radius(gamma, core_radius_fraction):
     control_point1 = [0.5, core_radius_fraction - delta, 0]
     control_point2 = [0.5, core_radius_fraction, 0]
     control_point3 = [0.5, core_radius_fraction + delta, 0]
-    induced_velocity1 = semi_infinite_filament.calculate_induced_velocity(
-        control_point1, gamma, core_radius_fraction
+    induced_velocity1 = semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+        direction, control_point1, gamma, Uinf
     )
-    induced_velocity2 = semi_infinite_filament.calculate_induced_velocity(
-        control_point2, gamma, core_radius_fraction
+    induced_velocity2 = semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+        direction, control_point2, gamma, Uinf
     )
-    induced_velocity3 = semi_infinite_filament.calculate_induced_velocity(
-        control_point3, gamma, core_radius_fraction
+    induced_velocity3 = semi_infinite_filament.velocity_3D_trailing_vortex_semiinfinite(
+        direction, control_point3, gamma, Uinf
     )

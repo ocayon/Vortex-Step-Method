@@ -16,6 +16,7 @@ import os
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, root_path)
 import tests.thesis_functions_oriol_cayon as thesis_functions
+from tests.utils import flip_created_coord_in_pairs
 
 from VSM.WingGeometry import Wing
 from VSM.WingAerodynamics import WingAerodynamics
@@ -27,7 +28,7 @@ def calculating_cl_cd_for_alpha_range(aoas, span, AR, max_chord, n_sections):
     N = n_sections
     dist = "cos"
     coord = thesis_functions.generate_coordinates_el_wing(max_chord, span, N, dist)
-    coord_left_to_right = np.flip(coord, axis=0)
+    coord_left_to_right = flip_created_coord_in_pairs(coord)
     logging.debug(f"coord = {coord}")
     logging.debug(f"coord_left_to_right = {coord_left_to_right}")
 
@@ -117,7 +118,7 @@ def calculating_cl_cd_for_alpha_range(aoas, span, AR, max_chord, n_sections):
         logging.info(f"aoa_i = {np.rad2deg(aoa_i)}")
         logging.info(f"CL_LLT_new = {CL_LLT_new}")
         logging.info(f"CD_LLT_new = {CD_LLT_new}")
-        breakpoint()
+
         #############
         #### VSM ####
         #############
@@ -304,7 +305,7 @@ if __name__ == "__main__":
     # elliptical geometry
     max_chord = 1
     span = 2.36
-    n_sections = 3
+    n_sections = 5
     AR = span**2 / (np.pi * span * max_chord / 4)
 
     # range of aoas

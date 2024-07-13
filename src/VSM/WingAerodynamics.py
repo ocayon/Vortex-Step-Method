@@ -23,8 +23,6 @@ class WingAerodynamics:
         for i, wing_instance in enumerate(wings):
             section_list = wing_instance.refine_aerodynamic_mesh()
             n_panels_per_wing = len(section_list) - 1
-            logging.info(f"Number of panels: {n_panels_per_wing}")
-            logging.info(f"Number of sections: {len(section_list)}")
             (
                 aerodynamic_center_list,
                 control_point_list,
@@ -148,7 +146,6 @@ class WingAerodynamics:
         coordinates = np.zeros((2 * (n_panels + 1), 3))
         logging.debug(f"shape of coordinates: {coordinates.shape}")
         for i in range(n_panels):
-            logging.debug(f"i: {i}")
             coordinates[2 * i] = section_list[i].LE_point
             coordinates[2 * i + 1] = section_list[i].TE_point
             coordinates[2 * i + 2] = section_list[i + 1].LE_point
@@ -159,10 +156,10 @@ class WingAerodynamics:
         for i in range(n_panels):
             # Identify points defining the panel
             section = {
-                "p1": coordinates[2 * i, :],
-                "p2": coordinates[2 * i + 2, :],
-                "p3": coordinates[2 * i + 3, :],
-                "p4": coordinates[2 * i + 1, :],
+                "p1": coordinates[2 * i, :],  # p1 = LE_1
+                "p2": coordinates[2 * i + 2, :],  # p2 = LE_2
+                "p3": coordinates[2 * i + 3, :],  # p3 = TE_2
+                "p4": coordinates[2 * i + 1, :],  # p4 = TE_1
             }
 
             di = np.linalg.norm(
@@ -226,7 +223,8 @@ class WingAerodynamics:
 
             ### Calculate the local reference frame, below are all unit_vectors
             # NORMAL x_airf defined upwards from the chord-line, perpendicular to the panel
-            x_airf = np.cross(VSMpoint - LLpoint, section["p2"] - section["p1"])
+            # used to be: p2 - p1
+            x_airf = np.cross(VSMpoint - LLpoint, section["p1"] - section["p2"])
             x_airf = x_airf / np.linalg.norm(x_airf)
 
             # TANGENTIAL y_airf defined parallel to the chord-line, from LE-to-TE
@@ -234,7 +232,8 @@ class WingAerodynamics:
             y_airf = y_airf / np.linalg.norm(y_airf)
 
             # SPAN z_airf along the LE, in plane (towards left tip, along span) from the airfoil perspective
-            z_airf = bound_2 - bound_1
+            # used to be bound_2 - bound_1
+            z_airf = bound_1 - bound_2
             z_airf = z_airf / np.linalg.norm(z_airf)
 
             # Appending
@@ -360,8 +359,10 @@ class WingAerodynamics:
 
         if model == "VSM":
             evaluation_point = "control_point"
+            evaluation_point_on_bound = False
         elif model == "LLT":
             evaluation_point = "aerodynamic_center"
+            evaluation_point_on_bound = True
         else:
             raise ValueError("Invalid aerodynamic model type, should be VSM or LLT")
 
@@ -372,12 +373,13 @@ class WingAerodynamics:
 
             for jring, panel_jring in enumerate(self.panels):
                 velocity_induced = (
-                    panel_jring.velocity_induced_single_ring_semiinfinite_NEW(
+                    panel_jring.calculate_velocity_induced_single_ring_semiinfinite(
                         getattr(panel_icp, evaluation_point),
-                        model,
+                        evaluation_point_on_bound,
                         va_norm,
                         va_unit,
                         gamma=1,
+                        core_radius_fraction=core_radius_fraction,
                     )
                 )
                 # AIC Matrix
@@ -392,12 +394,13 @@ class WingAerodynamics:
                     ):  # implying evaluation_point != "aerodynamic_center":
                         # CORRECTION TERM (S.T.Piszkin and E.S.Levinsky,1976)
                         # Not present in classic LLT, added to allow for "arbitrary" (3/4c) control point location [37].
-                        U_2D = panel_jring.velocity_induced_bound_2D()
+                        U_2D = panel_jring.calculate_velocity_induced_bound_2D(
+                            getattr(panel_icp, evaluation_point)
+                        )
 
                         AIC_x[icp, jring] -= U_2D[0]
                         AIC_y[icp, jring] -= U_2D[1]
                         AIC_z[icp, jring] -= U_2D[2]
-
         return AIC_x, AIC_y, AIC_z
 
     # TODO: be aware that gamma_0 is NEGATIVE, to accompany the weird reference frame
@@ -648,9 +651,7 @@ class WingAerodynamics:
     ## UPDATE FUNCTIONS
     ###########################
 
-    def update_effective_angle_of_attack(
-        self, alpha, aerodynamic_model_type, core_radius_fraction
-    ):
+    def update_effective_angle_of_attack(self, alpha, model, core_radius_fraction):
         """Updates the angle of attack at the aerodynamic center of each panel,
             Calculated at the AERODYNAMIC CENTER, which needs an update for VSM
             And can just use the old value for the LLT
@@ -663,32 +664,38 @@ class WingAerodynamics:
         """
         self._alpha_uncorrected = alpha
         # If VSM
-        if aerodynamic_model_type == "VSM":
-            # Initialize the matrices, WITHOUT U2D CORRECTION
+        if model == "VSM":
             # The correction is done by calculating the alpha at the aerodynamic center,
             # where as before the control_point was used in the VSM method
+            evaluation_point = "aerodynamic_center"
+
+            # Initialize the matrices, WITHOUT U2D CORRECTION
             n_panels = self._n_panels
             AIC_x = np.empty((n_panels, n_panels))
             AIC_y = np.empty((n_panels, n_panels))
             AIC_z = np.empty((n_panels, n_panels))
-
-            evaluation_point = "aerodynamic_center"
-
             va_norm = np.linalg.norm(self.va)
             va_unit = self.va / np.linalg.norm(self.va)
 
             for icp, panel_icp in enumerate(self.panels):
 
                 for jring, panel_jring in enumerate(self.panels):
+                    # When checking influence of its own bound on aerodynamic center
+                    if icp == jring:
+                        evaluation_point_on_bound = True
+                    else:
+                        evaluation_point_on_bound = False
                     velocity_induced = (
-                        panel_jring.velocity_induced_single_ring_semiinfinite_NEW(
+                        panel_jring.calculate_velocity_induced_single_ring_semiinfinite(
                             getattr(panel_icp, evaluation_point),
-                            aerodynamic_model_type,
+                            evaluation_point_on_bound,
                             va_norm,
                             va_unit,
                             gamma=1,
+                            core_radius_fraction=core_radius_fraction,
                         )
                     )
+
                     # AIC Matrix,WITHOUT U2D CORRECTION
                     AIC_x[icp, jring] = velocity_induced[0]
                     AIC_y[icp, jring] = velocity_induced[1]
@@ -720,7 +727,7 @@ class WingAerodynamics:
             self._alpha_corrected = alpha_corrected_to_aerodynamic_center
 
         # if LTT: no updating is required
-        elif aerodynamic_model_type == "LLT":
+        elif model == "LLT":
             self._alpha_corrected = alpha
         else:
             raise ValueError("Invalid aerodynamic model type, should be VSM or LLT")

@@ -29,20 +29,20 @@ def frozen_wake(
         if len(panel.filaments) == 3:
             panel.filaments.append(
                 SemiInfiniteFilament(
-                    panel.TE_point_1, direction, vel_mag, filament_direction=-1
+                    panel.TE_point_1, direction, vel_mag, filament_direction=1
                 )
             )
             panel.filaments.append(
                 SemiInfiniteFilament(
-                    panel.TE_point_2, direction, vel_mag, filament_direction=1
+                    panel.TE_point_2, direction, vel_mag, filament_direction=-1
                 )
             )
         elif len(panel.filaments) == 5:
             panel.filaments[3] = SemiInfiniteFilament(
-                panel.TE_point_1, direction, vel_mag, filament_direction=-1
+                panel.TE_point_1, direction, vel_mag, filament_direction=1
             )
             panel.filaments[4] = SemiInfiniteFilament(
-                panel.TE_point_2, direction, vel_mag, filament_direction=1
+                panel.TE_point_2, direction, vel_mag, filament_direction=-1
             )
         else:
             raise ValueError("The panel has an unexpected number of filaments")

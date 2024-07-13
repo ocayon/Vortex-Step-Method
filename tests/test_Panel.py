@@ -455,19 +455,19 @@ def test_calculate_cl_and_cd_cm(sample_panel):
 def test_calculate_velocity_induced_bound_2D(sample_panel):
     control_point = np.array([0.5, 5, 0])
     gamma = 1.0
-    induced_velocity = sample_panel.calculate_velocity_induced_bound_2D(
-        control_point, gamma, core_radius_fraction=0.01
-    )
+    induced_velocity = sample_panel.calculate_velocity_induced_bound_2D()
 
     assert isinstance(induced_velocity, np.ndarray)
     assert induced_velocity.shape == (3,)  # 2D velocity
 
 
-def test_calculate_velocity_induced_horseshoe(sample_panel):
+def test_velocity_induced_single_ring_semiinfinite(sample_panel):
     control_point = np.array([0.5, 5, 0])
     gamma = 1.0
-    induced_velocity = sample_panel.calculate_velocity_induced_horseshoe(
-        control_point, gamma, core_radius_fraction=0.01
+    va_norm = 1
+    va_unit = np.array([1, 0, 0])
+    induced_velocity = sample_panel.calculate_velocity_induced_single_ring_semiinfinite(
+        control_point, False, va_norm, va_unit, gamma, core_radius_fraction=0.01
     )
 
     assert isinstance(induced_velocity, np.ndarray)

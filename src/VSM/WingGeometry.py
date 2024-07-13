@@ -20,8 +20,8 @@ class Wing:
 
         # Ensure we get 1 section more than the desired number of panels
         n_sections = self.n_panels + 1
-        logging.info(f"n_panels: {self.n_panels}")
-        logging.info(f"n_sections: {n_sections}")
+        logging.debug(f"n_panels: {self.n_panels}")
+        logging.debug(f"n_sections: {n_sections}")
 
         # Extract LE, TE, and aero_input from the sections
         LE, TE, aero_input = (

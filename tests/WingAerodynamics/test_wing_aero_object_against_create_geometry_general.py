@@ -1,5 +1,6 @@
 import numpy as np
 import logging
+from copy import deepcopy
 from VSM.Filament import BoundFilament, SemiInfiniteFilament
 from VSM.WingGeometry import Wing
 from VSM.WingAerodynamics import WingAerodynamics
@@ -20,6 +21,7 @@ from tests.utils import (
     create_wingpanels_from_wing_object,
     create_ring_vec_from_wing_object,
     create_coord_L_from_wing_object,
+    flip_created_coord_in_pairs,
 )
 from tests.thesis_functions_oriol_cayon import create_geometry_general
 
@@ -45,7 +47,7 @@ def create_geometry_from_wing_object(wing, model):
 
 def test_create_geometry_general():
 
-    N = 4
+    N = 3
     max_chord = 1
     span = 2.36
     AR = span**2 / (np.pi * span * max_chord / 4)
@@ -54,12 +56,27 @@ def test_create_geometry_general():
     Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
 
     ### Elliptical Wing
-    coord = generate_coordinates_el_wing(max_chord, span, N, "cos")
+    # coord = generate_coordinates_el_wing(max_chord, span, N, "cos")
+    coord = generate_coordinates_rect_wing(
+        max_chord * np.ones(N),
+        span,
+        twist=np.zeros(N),
+        beta=np.zeros(N),
+        N=N,
+        dist="lin",
+    )
+    logging.debug(f"coord {coord}")
+    coord_left_to_right = flip_created_coord_in_pairs(deepcopy(coord))
+    logging.debug(f"coord_left_to_right {coord_left_to_right}")
+
     wing = Wing(N, "unchanged")
-    for i in range(int(len(coord) / 2)):
-        wing.add_section(coord[2 * i], coord[2 * i + 1], ["inviscid"])
+    for i in range(int(len(coord_left_to_right) / 2)):
+        wing.add_section(
+            coord_left_to_right[2 * i], coord_left_to_right[2 * i + 1], ["inviscid"]
+        )
     wing_aero = WingAerodynamics([wing])
     wing_aero.va = Uinf
+    # wing_aero.plot()
 
     model = "VSM"
     # Generate geometry
@@ -71,7 +88,7 @@ def test_create_geometry_general():
         expected_coord_L,
     ) = create_geometry_general(coord, Uinf, int(len(coord) / 2), "5fil", model)
 
-    logging.debug(f"expected_controlpoints {expected_controlpoints}")
+    logging.info(f"expected_controlpoints {expected_controlpoints}")
     logging.debug(f"expected_rings {expected_rings}")
     logging.debug(f"expected_bladepanels {expected_bladepanels}")
     logging.debug(f"expected_ringvec {expected_ringvec}")
@@ -81,12 +98,11 @@ def test_create_geometry_general():
     controlpoints, rings, wingpanels, ringvec, coord_L = (
         create_geometry_from_wing_object(wing_aero, model)
     )
-    logging.debug(f"---controlpoints--- type: {type(controlpoints)}, {controlpoints}")
+    logging.info(f"---controlpoints--- type: {type(controlpoints)}, {controlpoints}")
     asserting_all_elements_in_list_dict(controlpoints, expected_controlpoints)
-    logging.debug(f"---rings--- type: {type(rings)}, {rings}")
-    logging.debug(
-        f"---expected_rings--- type: {type(expected_rings)}, {expected_rings}"
-    )
+
+    logging.info(f"---rings--- type: {type(rings)}, {rings}")
+    logging.info(f"---expected_rings--- type: {type(expected_rings)}, {expected_rings}")
     asserting_all_elements_in_list_list_dict(rings, expected_rings)
     asserting_all_elements_in_list_dict(wingpanels, expected_bladepanels)
     asserting_all_elements_in_list_dict(ringvec, expected_ringvec)
