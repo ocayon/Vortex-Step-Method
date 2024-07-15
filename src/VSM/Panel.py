@@ -56,10 +56,10 @@ class Panel:
         y_airf,
         z_airf,
     ):
-        TE_point_1 = section_1.TE_point
-        LE_point_1 = section_1.LE_point
-        TE_point_2 = section_2.TE_point
-        LE_point_2 = section_2.LE_point
+        TE_point_1 = np.array(section_1.TE_point)
+        LE_point_1 = np.array(section_1.LE_point)
+        TE_point_2 = np.array(section_2.TE_point)
+        LE_point_2 = np.array(section_2.LE_point)
 
         self._TE_point_1 = TE_point_1
         self._LE_point_1 = LE_point_1

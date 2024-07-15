@@ -238,5 +238,61 @@ def test_refine_aeordynamic_mesh_lei_airfoil_interpolation():
         assert np.isclose(chamber_height, expected_chamber_height[i])
 
 
+def test_refine_mesh_by_splitting_provided_sections():
+    # Create mock sections
+    section1 = Section(
+        LE_point=np.array([0, 0, 0]),
+        TE_point=np.array([1, 0, 0]),
+        aero_input=["inviscid"],
+    )
+    section2 = Section(
+        LE_point=np.array([0, 1, 0]),
+        TE_point=np.array([1, 1, 0]),
+        aero_input=["inviscid"],
+    )
+    section3 = Section(
+        LE_point=np.array([0, 2, 0]),
+        TE_point=np.array([1, 2, 0]),
+        aero_input=["inviscid"],
+    )
+
+    # Create mock Wing object
+    wing = Wing(
+        sections=[section1, section2, section3],
+        n_panels=6,
+        spanwise_panel_distribution="split_provided",
+    )
+
+    # Call the function
+    new_sections = wing.refine_mesh_by_splitting_provided_sections()
+
+    # Assert the correct number of sections
+    assert (
+        len(new_sections) - 1 == 6
+    ), f"Expected 6 sections, but got {len(new_sections)}"
+
+    # Check if the original sections are preserved
+    assert new_sections[0] == section1, "First section should be preserved"
+    assert new_sections[3] == section2, "Middle section should be preserved"
+    assert new_sections[-1] == section3, "Last section should be preserved"
+
+    # Check if new sections are created between original sections
+    assert (
+        new_sections[1].LE_point[1] > 0 and new_sections[1].LE_point[1] < 1
+    ), "New section 1 should be between section 1 and 2"
+    assert (
+        new_sections[2].LE_point[1] > 0 and new_sections[2].LE_point[1] < 1
+    ), "New section 2 should be between section 1 and 2"
+    assert (
+        new_sections[4].LE_point[1] > 1 and new_sections[4].LE_point[1] < 2
+    ), "New section 4 should be between section 2 and 3"
+
+    # Check if new sections have correct aero_input
+    for section in new_sections:
+        assert section.aero_input == [
+            "inviscid"
+        ], f"Expected aero_input ['inviscid'], but got {section.aero_input}"
+
+
 if __name__ == "__main__":
     pytest.main()
