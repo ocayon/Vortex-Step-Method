@@ -1,6 +1,6 @@
 import numpy as np
 import logging
-from VSM.Filament import BoundFilament, Infinite2DFilament
+from VSM.Filament import BoundFilament
 
 
 class Panel:
@@ -82,16 +82,11 @@ class Panel:
         #     ]
         # )
 
-        ### Setting up the filaments
+        ### Setting up the filaments (order used to reversed for right-to-left input)
         self.filaments = []
-        # self.filaments.append(BoundFilament(x1=bound_point_1, x2=bound_point_2))
-        # self.filaments.append(BoundFilament(x1=TE_point_1, x2=bound_point_1))
-        # self.filaments.append(BoundFilament(x1=bound_point_2, x2=TE_point_2))
-        # self._filament_2d = Infinite2DFilament(bound_point_1, bound_point_2)
         self.filaments.append(BoundFilament(x1=bound_point_2, x2=bound_point_1))
         self.filaments.append(BoundFilament(x1=bound_point_1, x2=TE_point_1))
         self.filaments.append(BoundFilament(x1=TE_point_2, x2=bound_point_2))
-        self._filament_2d = Infinite2DFilament(bound_point_2, bound_point_1)
         self._gamma = None  # Initialize the gamma attribute
 
     ###########################
