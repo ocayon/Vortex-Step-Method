@@ -4,6 +4,45 @@ from VSM.Filament import BoundFilament
 
 
 class Panel:
+    """Class for Panel object
+
+    Init input:
+        section_1 (Section Object): First section of the panel
+        section_2 (Section Object): Second section of the panel
+        aerodynamic_center (np.array): Aerodynamic center of the panel
+        control_point (np.array): Control point of the panel
+        bound_point_1 (np.array): Bound point 1 of the panel
+        bound_point_2 (np.array): Bound point 2 of the panel
+        x_airf (np.array): Unit vector pointing upwards from the chord-line, perpendicular to the panel
+        y_airf (np.array): Unit vector pointing parallel to the chord-line, from LE-to-TE
+        z_airf (np.array): Unit vector pointing in the airfoil plane, so that is towards left-tip in spanwise direction
+
+    Properties:
+        z_airf (np.array): Unit vector pointing in the airfoil plane, so that is towards left-tip in spanwise direction
+        x_airf (np.array): Unit vector pointing upwards from the chord-line, perpendicular to the panel
+        y_airf (np.array): Unit vector pointing parallel to the chord-line, from LE-to-TE
+        va (np.array): Velocity at the aerodynamic center of the panel
+        aerodynamic_center (np.array): The aerodynamic center of the panel, also LLTpoint, at 1/4c
+        control_point (np.array): The control point of the panel, also VSMpoint, at 3/4c
+        corner_points (np.array): Corner points of the panel
+        bound_point_1 (np.array): Bound point 1 of the panel
+        bound_point_2 (np.array): Bound point 2 of the panel
+        width (float): Width of the panel evualated at BOUND TODO: fix this
+        chord (float): Chord of the panel
+        TE_point_1 (np.array): Trailing edge point of the first section
+        TE_point_2 (np.array): Trailing edge point of the second section
+        LE_point_1 (np.array): Leading edge point of the first section
+        LE_point_2 (np.array): Leading edge point of the second section
+
+    Methods:
+        calculate_relative_alpha_and_relative_velocity(induced_velocity): Calculates the relative angle of attack and relative velocity of the panel
+        instantiate_lei_airfoil_breukels_cl_cd_cm_coefficients(section_1, section_2): Instantiates the Lei Airfoil Breukels Cl, Cd, Cm coefficients
+        calculate_cl(alpha): Get the lift coefficient (Cl) for a given angle of attack
+        calculate_cd_cm(alpha): Get the lift, drag, and moment coefficients (Cl, Cd, Cm) for a given angle of attack
+        calculate_velocity_induced_bound_2D(evaluation_point): Calculates velocity induced by bound vortex filaments at the control point
+        calculate_velocity_induced_single_ring_semiinfinite(evaluation_point, evaluation_point_on_bound, va_norm, va_unit, gamma, core_radius_fraction): Calculates the velocity induced by a ring at a certain controlpoint
+        calculate_filaments_for_plotting(): Calculates the filaments for plotting
+    """
 
     def __init__(
         self,
@@ -47,7 +86,10 @@ class Panel:
 
         # Initializing the panel aerodynamic data dependent on the aero_model
         if self._panel_aero_model == "lei_airfoil_breukels":
-            self.calculate_lei_airfoil_breukels_cl_cd_cm_coefficients(
+            self._cl_coefficients = None
+            self._cd_coefficients = None
+            self._cm_coefficients = None
+            self.instantiate_lei_airfoil_breukels_cl_cd_cm_coefficients(
                 section_1, section_2
             )
         elif self._panel_aero_model == "inviscid":
@@ -83,11 +125,10 @@ class Panel:
         # )
 
         ### Setting up the filaments (order used to reversed for right-to-left input)
-        self.filaments = []
-        self.filaments.append(BoundFilament(x1=bound_point_2, x2=bound_point_1))
-        self.filaments.append(BoundFilament(x1=bound_point_1, x2=TE_point_1))
-        self.filaments.append(BoundFilament(x1=TE_point_2, x2=bound_point_2))
-        self._gamma = None  # Initialize the gamma attribute
+        self._filaments = []
+        self._filaments.append(BoundFilament(x1=bound_point_2, x2=bound_point_1))
+        self._filaments.append(BoundFilament(x1=bound_point_1, x2=TE_point_1))
+        self._filaments.append(BoundFilament(x1=TE_point_2, x2=bound_point_2))
 
     ###########################
     ## GETTER FUNCTIONS
@@ -158,6 +199,10 @@ class Panel:
     def LE_point_2(self):
         return self._LE_point_2
 
+    @property
+    def filaments(self):
+        return self._filaments
+
     ###########################
     ## SETTER FUNCTIONS
     ###########################
@@ -188,7 +233,7 @@ class Panel:
         alpha = np.arctan(v_normal / v_tangential)
         return alpha, relative_velocity
 
-    def calculate_lei_airfoil_breukels_cl_cd_cm_coefficients(
+    def instantiate_lei_airfoil_breukels_cl_cd_cm_coefficients(
         self, section_1, section_2
     ):
         t1, k1 = section_1.aero_input[1]
@@ -296,8 +341,6 @@ class Panel:
         # cm_1_rad = cm_1_deg * (np.pi / 180)
         # cm_0_rad = cm_0_deg
 
-        # self._cm_coefficients = [cm_2_rad, cm_1_rad, cm_0_rad]
-
         self._cm_coefficients = [cm_2_deg, cm_1_deg, cm_0_deg]
 
     def calculate_cl(self, alpha):
@@ -369,12 +412,6 @@ class Panel:
         Returns:
             np.array: Induced velocity at the control point
         """
-        # # OLD
-        # # r0 is vector from left to right bound (from 1 to 2)
-        # r0 = self.bound_point_2 - self.bound_point_1
-        # # r3 is vector from left bound to control point
-        # r3 = self.control_point - r0 / 2
-        # NEW to comply with OLD method in reversed order
         r3 = evaluation_point - (self.bound_point_1 + self.bound_point_2) / 2
         r0 = self.bound_point_1 - self.bound_point_2
         cross = np.cross(r0, r3)
@@ -442,57 +479,16 @@ class Panel:
 
         return np.array(velind)
 
-    # def calculate_velocity_induced_horseshoe(
-    #     self, control_point, gamma, core_radius_fraction, model="VSM"
-    # ):
-    #     """ "
-    #     This function calculates the induced velocity at the control point due to the bound vortex filaments
-    #     """
-    #     if gamma is None:
-    #         gamma = self._gamma
-
-    #     ind_vel = np.zeros(3)
-    #     for i, filament in enumerate(self.filaments):
-    #         # bound
-    #         if i == 0:
-    #             # ONLY if control_point is 3/4c (when VSM) its not on bound and it won't be zero
-    #             if model == "VSM":
-    #                 ind_vel += filament.calculate_induced_velocity(
-    #                     control_point, gamma, core_radius_fraction
-    #                 )
-    #             # If LLT, the control_point is on bound and the induced velocity is thus zero
-    #             else:
-    #                 ind_vel += np.array([0, 0, 0])
-    #         # trailing1
-    #         elif i == 1:
-    #             ind_vel += filament.calculate_induced_velocity(
-    #                 control_point, gamma, core_radius_fraction
-    #             )
-    #         # trailing2
-    #         elif i == 2:
-    #             ind_vel += filament.calculate_induced_velocity(
-    #                 control_point, gamma, core_radius_fraction
-    #             )
-    #         # trailing_inf_1
-    #         elif i == 3:
-    #             ind_vel += filament.calculate_induced_velocity(
-    #                 control_point, gamma, core_radius_fraction
-    #             )
-    #         # trailing_inf_2
-    #         elif i == 4:
-    #             ind_vel += filament.calculate_induced_velocity(
-    #                 control_point, gamma, core_radius_fraction
-    #             )
-    #         else:
-    #             raise (
-    #                 ValueError(
-    #                     f"Filament Length should be 5, is: {len(self.filaments)}"
-    #                 )
-    #             )
-
-    #     return ind_vel
-
     def calculate_filaments_for_plotting(self):
+        """Calculates the filaments for plotting
+            It calculates right direction, filament length and appends a color
+
+        Args:
+            self: Panel object
+
+        Returns:
+            list: List of lists containing the filaments for plotting
+        """
         filaments = []
         for i, filament in enumerate(self.filaments):
             x1 = filament.x1
