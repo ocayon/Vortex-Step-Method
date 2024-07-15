@@ -12,10 +12,31 @@ import logging
 
 # make abstract class
 class Solver:
+    """Solver class is used to solve the aerodynamic model
+
+    It is used to solve the circulation distribution of the wing,
+    and calculate the aerodynamic forces
+
+    init input:
+        aerodynamic_model_type (str): Type of aerodynamic model, VSM or LLT
+        density (float): = 1.225 | Air density
+        max_iterations (int): = 1000 | Maximum number of iterations
+        allowed_error (float): = 1e-5 | Allowed error
+        tol_reference_error (float): = 0.001 | Reference error
+        relaxation_factor (float): = 0.03 | Relaxation factor
+        artificial_damping (dict): = {"k2": 0.0, "k4": 0.0} | Artificial damping
+        type_initial_gamma_distribution (str): = "elliptic" | Type of initial gamma distribution
+        core_radius_fraction (float): = 1e-20 | Core radius fraction
+
+    Methods:
+        solve: Solve the circulation distribution
+        solve_iterative_loop: Solve the circulation distribution using an iterative loop
+        calculate_artificial_damping: Calculate artificial damping
+    """
 
     def __init__(
         self,
-        # Below are all settings, with a default value, that can but don't have to be changed
+        ### Below are all settings, with a default value, that can but don't have to be changed
         aerodynamic_model_type: str = "VSM",
         density: float = 1.225,
         max_iterations: int = 1000,
