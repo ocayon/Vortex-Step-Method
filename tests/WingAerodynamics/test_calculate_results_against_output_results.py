@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 import logging
+from copy import deepcopy
 from VSM.Solver import Solver
 from VSM.Panel import Panel
 from VSM.WingAerodynamics import WingAerodynamics
@@ -16,171 +17,87 @@ from tests.utils import (
     generate_coordinates_el_wing,
     generate_coordinates_rect_wing,
     generate_coordinates_curved_wing,
+    flip_created_coord_in_pairs,
 )
-from tests.thesis_functions_oriol_cayon import (
-    vec_norm,
-    dot_product,
-    vector_projection,
-)
-
-
-def output_results(Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot, rho=1.225):
-    """
-    Post-process results to get global forces and aerodynamic coefficients
-
-    Parameters
-    ----------
-    Fmag : Lift, Drag and Moment magnitudes
-    aero_coeffs : alpha, cl, cd, cm
-    ringvec : List of dictionaries containing the vectors that define each ring
-    Uinf : Wind speed velocity vector
-    controlpoints : List of dictionaries with the variables needed to define each wing section
-    Atot : Planform area
-
-    Returns
-    -------
-    F_rel : Lift and drag forces relative to the local angle of attack
-    F_gl : Lift and drag forces relative to the wind direction
-    Ltot : Total lift
-    Dtot : Total drag
-    CL : Global CL
-    CD : Global CD
-
-    """
-    alpha = aero_coeffs[:, 0]
-    F_rel = []
-    F_gl = []
-    Fmag_gl = []
-    SideF = []
-    Ltot = 0
-    Dtot = 0
-    SFtot = 0
-    for i in range(len(alpha)):
-
-        r0 = ringvec[i]["r0"]
-        # Relative wind speed direction
-        dir_urel = (
-            np.cos(alpha[i]) * controlpoints[i]["tangential"]
-            + np.sin(alpha[i]) * controlpoints[i]["normal"]
-        )
-        dir_urel = dir_urel / np.linalg.norm(dir_urel)
-        # Lift direction relative to Urel
-        dir_L = np.cross(dir_urel, r0)
-        dir_L = dir_L / np.linalg.norm(dir_L)
-        # Drag direction relative to Urel
-        dir_D = np.cross([0, 1, 0], dir_L)
-        dir_D = dir_D / np.linalg.norm(dir_D)
-        # Lift and drag relative to Urel
-        L_rel = dir_L * Fmag[i, 0]
-        D_rel = dir_D * Fmag[i, 1]
-        F_rel.append([L_rel, D_rel])
-        # Lift direction relative to the wind speed
-        dir_L_gl = np.cross(Uinf, [0, 1, 0])
-        dir_L_gl = dir_L_gl / vec_norm(dir_L_gl)
-        # Lift and drag relative to the windspeed
-        L_gl = vector_projection(L_rel, dir_L_gl) + vector_projection(D_rel, dir_L_gl)
-        D_gl = vector_projection(L_rel, Uinf) + vector_projection(D_rel, Uinf)
-        F_gl.append([L_gl, D_gl])
-        Fmag_gl.append(
-            [
-                dot_product(L_rel, dir_L_gl) + dot_product(D_rel, dir_L_gl),
-                dot_product(L_rel, Uinf / vec_norm(Uinf))
-                + dot_product(D_rel, Uinf / vec_norm(Uinf)),
-            ]
-        )
-        SideF.append(dot_product(L_rel, [0, 1, 0]) + dot_product(D_rel, [0, 1, 0]))
-
-        # logging intermediate results
-        # logging.info("---output_results--- icp: %d", i)
-        # logging.info(f"dir_urel: {dir_urel}")
-        # logging.info(f"dir_L: {dir_L}")
-        # logging.info(f"dir_D: {dir_D}")
-        # logging.info("L_rel : %s", L_rel)
-        # logging.info("D_rel : %s", D_rel)
-        # spanwise_direction = np.array([0, 1, 0])
-        # Fmag_0 = np.dot(L_rel, dir_L_gl) + np.dot(D_rel, dir_L_gl)
-        # Fmag_1 = np.dot(L_rel, Uinf / np.linalg.norm(Uinf)) + np.dot(
-        #     D_rel, Uinf / np.linalg.norm(Uinf)
-        # )
-        # Fmag_2 = np.dot(L_rel, spanwise_direction) + np.dot(D_rel, spanwise_direction)
-        # logging.info(f"Fmag_0: {Fmag_0}")
-        # logging.info(f"Fmag_1: {Fmag_1}")
-        # logging.info(f"Fmag_2: {Fmag_2}")
-
-    # Calculate total aerodynamic forces
-    for i in range(len(Fmag_gl)):
-        Ltot += Fmag_gl[i][0] * np.linalg.norm(ringvec[i]["r0"])
-        Dtot += Fmag_gl[i][1] * np.linalg.norm(ringvec[i]["r0"])
-        SFtot += SideF[i] * np.linalg.norm(ringvec[i]["r0"])
-
-    Umag = np.linalg.norm(Uinf)
-    CL = Ltot / (0.5 * Umag**2 * Atot * rho)
-    CD = Dtot / (0.5 * Umag**2 * Atot * rho)
-    CS = SFtot / (0.5 * Umag**2 * Atot * rho)
-
-    ### Logging
-    logging.debug(f"cl:{CL}")
-    logging.debug(f"cd:{CD}")
-    logging.debug(f"cs:{CS}")
-    logging.debug(f"lift:{Ltot}")
-    logging.debug(f"drag:{Dtot}")
-    logging.debug(f"side:{SFtot}")
-    logging.debug(f"Area: {Atot}")
-
-    return F_rel, F_gl, Ltot, Dtot, CL, CD, CS
+import tests.thesis_functions_oriol_cayon as thesis_functions
 
 
 def test_calculate_results():
     # Setup
-    density = 1.225  # kg/m^3
+    density = 1.225
     N = 40
     max_chord = 1
-    span = 20
-    AR = span**2 / (np.pi * span * max_chord / 4)
+    span = 15.709  # AR = 20
+    # span = 2.36  # AR = 3
     Umag = 20
+    AR = span**2 / (np.pi * span * max_chord / 4)
     aoa = np.deg2rad(5)
     Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
+    model = "VSM"
 
-    ### Elliptical Wing
-    coord = generate_coordinates_el_wing(max_chord, span, N, "cos")
-    logging.debug(f"len(coord/2): {len(coord)/2}")
+    # ### OLD FROM GEOMETRIC INPUT ####
+    # dist = "cos"
+    # coord = thesis_functions.generate_coordinates_el_wing(max_chord, span, N, dist)
+    # Atot = max_chord / 2 * span / 2 * np.pi
+    # ring_geo = "5fil"
+    # alpha_airf = np.arange(-10, 30)
+    # data_airf = np.zeros((len(alpha_airf), 4))
+    # data_airf[:, 0] = alpha_airf
+    # data_airf[:, 1] = alpha_airf / 180 * np.pi * 2 * np.pi
+    # data_airf[:, 2] = alpha_airf * 0
+    # data_airf[:, 3] = alpha_airf * 0
+    # Gamma0 = np.zeros(N - 1)
+    # conv_crit = {"Niterations": 1500, "error": 1e-5, "Relax_factor": 0.05}
+    # # Define system of vorticity
+    # controlpoints, rings, bladepanels, ringvec, coord_L = (
+    #     thesis_functions.create_geometry_general(coord, Uinf, N, ring_geo, model)
+    # )
+    # # Solve for Gamma
+    # Fmag, Gamma, aero_coeffs = (
+    #     thesis_functions.solve_lifting_line_system_matrix_approach_semiinfinite(
+    #         ringvec, controlpoints, rings, Uinf, Gamma0, data_airf, conv_crit, model
+    #     )
+    # )
+    # # Calculate results using the reference function
+    # F_rel_ref, F_gl_ref, Ltot_ref, Dtot_ref, CL_ref, CD_ref, CS_ref = (
+    #     thesis_functions.output_results(
+    #         Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot
+    #     )
+    # )
+
+    ### NEW ####
+    dist = "cos"
+    core_radius_fraction = 1e-20
+    coord = thesis_functions.generate_coordinates_el_wing(max_chord, span, N, dist)
+    coord_left_to_right = flip_created_coord_in_pairs(deepcopy(coord))
     wing = Wing(N, "unchanged")
-    for i in range(int(len(coord) / 2)):
-        wing.add_section(coord[2 * i], coord[2 * i + 1], ["inviscid"])
+    for idx in range(int(len(coord_left_to_right) / 2)):
+        logging.debug(f"coord_left_to_right[idx] = {coord_left_to_right[idx]}")
+        wing.add_section(
+            coord_left_to_right[2 * idx],
+            coord_left_to_right[2 * idx + 1],
+            ["inviscid"],
+        )
     wing_aero = WingAerodynamics([wing])
     wing_aero.va = Uinf
 
-    # Initialize solver
-    VSM = Solver(aerodynamic_model_type="VSM")
-
+    ### Running the analysis
+    solver_object = Solver(
+        aerodynamic_model_type=model, core_radius_fraction=core_radius_fraction
+    )
     # Solve the aerodynamics
-    results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
-
-    # Now test the calculate_results method
-    calculate_results_output = wing_aero_VSM.calculate_results(density)
+    results_NEW, wing_aero = solver_object.solve(wing_aero)
 
     # Check the type and structure of the output
-    assert isinstance(
-        calculate_results_output, dict
-    ), "calculate_results should return a dictionary"
+    assert isinstance(results_NEW, dict), "calculate_results should return a dictionary"
 
-    # Extract the results from the dictionary
-    results_dict = calculate_results_output
-
-    # Debug: Print the compared results
-    cl_calculated = results_dict["cl"]
-    cd_calculated = results_dict["cd"]
-    cs_calculated = results_dict["cs"]
-
-    L_calculated = results_dict["lift"]
-    D_calculated = results_dict["drag"]
-
+    ### OLD FROM WING OUTPUT ###
     # Calculating Fmag, using UNCORRECTED alpha
-    alpha = results_VSM["alpha_uncorrected"]
+    alpha = results_NEW["alpha_uncorrected"]
     dyn_visc = 0.5 * density * np.linalg.norm(Uinf) ** 2
-    n_panels = len(wing_aero_VSM.panels)
+    n_panels = len(wing_aero.panels)
     lift, drag, moment = np.zeros(n_panels), np.zeros(n_panels), np.zeros(n_panels)
-    for i, panel in enumerate(wing_aero_VSM.panels):
+    for i, panel in enumerate(wing_aero.panels):
         lift[i] = dyn_visc * panel.calculate_cl(alpha[i]) * panel.chord
         drag[i] = dyn_visc * panel.calculate_cd_cm(alpha[i])[0] * panel.chord
         moment[i] = dyn_visc * panel.calculate_cd_cm(alpha[i])[1] * (panel.chord**2)
@@ -188,57 +105,54 @@ def test_calculate_results():
     Fmag = np.column_stack([lift, drag, moment])
 
     # Calculating aero_coeffs, using CORRECTED alpha
-    alpha = results_VSM["alpha_at_ac"]
+    alpha = results_NEW["alpha_at_ac"]
     aero_coeffs = np.column_stack(
         (
-            [alpha[i] for i, panel in enumerate(wing_aero_VSM.panels)],
-            [
-                panel.calculate_cl(alpha[i])
-                for i, panel in enumerate(wing_aero_VSM.panels)
-            ],
+            [alpha[i] for i, panel in enumerate(wing_aero.panels)],
+            [panel.calculate_cl(alpha[i]) for i, panel in enumerate(wing_aero.panels)],
             [
                 panel.calculate_cd_cm(alpha[i])[0]
-                for i, panel in enumerate(wing_aero_VSM.panels)
+                for i, panel in enumerate(wing_aero.panels)
             ],
             [
                 panel.calculate_cd_cm(alpha[i])[1]
-                for i, panel in enumerate(wing_aero_VSM.panels)
+                for i, panel in enumerate(wing_aero.panels)
             ],
         )
     )
-    ringvec = [{"r0": panel.width * panel.z_airf} for panel in wing_aero_VSM.panels]
+    ringvec = [{"r0": panel.width * panel.z_airf} for panel in wing_aero.panels]
     controlpoints = [
         {"tangential": panel.y_airf, "normal": panel.x_airf}
-        for panel in wing_aero_VSM.panels
+        for panel in wing_aero.panels
     ]
     Atot = sum(
         panel.chord * np.linalg.norm(panel.width * panel.z_airf)
-        for panel in wing_aero_VSM.panels
+        for panel in wing_aero.panels
     )
-
-    # printing the inputs
-    # logging.debug(f"Fmag: {Fmag}")
-    # logging.debug(f"aero_coeffs: {aero_coeffs}")
-    # logging.debug(f"ringvec: {ringvec}")
-    # logging.debug(f"Uinf: {Uinf}")
-    # logging.debug(f"controlpoints: {controlpoints}")
-    # logging.debug(f"Atot: {Atot}")
-    # logging.debug(f"density: {density}")
 
     # Calculate results using the reference function
-    F_rel_ref, F_gl_ref, Ltot_ref, Dtot_ref, CL_ref, CD_ref, CS_ref = output_results(
-        Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot, density
+    F_rel_ref, F_gl_ref, Ltot_ref, Dtot_ref, CL_ref, CD_ref, CS_ref = (
+        thesis_functions.output_results(
+            Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot
+        )
     )
+
+    # Debug: Print the compared results
+    cl_calculated = results_NEW["cl"]
+    cd_calculated = results_NEW["cd"]
+    cs_calculated = results_NEW["cs"]
+    L_calculated = results_NEW["lift"]
+    D_calculated = results_NEW["drag"]
+
+    logging.info(f"cl_calculated: {cl_calculated}, CL_ref: {CL_ref}")
+    logging.info(f"cd_calculated: {cd_calculated}, CD_ref: {CD_ref}")
+    logging.info(f"cs_calculated: {cs_calculated}, CS_ref: {CS_ref}")
+    logging.info(f"L_calculated: {L_calculated}, Ltot_ref: {Ltot_ref}")
+    logging.info(f"D_calculated: {D_calculated}, Dtot_ref: {Dtot_ref}")
 
     ##########################
     ### COMPARING
     ##########################
-
-    logging.debug(f"cl_calculated: {cl_calculated}, CL_ref: {CL_ref}")
-    logging.debug(f"cd_calculated: {cd_calculated}, CD_ref: {CD_ref}")
-    logging.debug(f"cs_calculated: {cs_calculated}, CS_ref: {CS_ref}")
-    logging.debug(f"L_calculated: {L_calculated}, Ltot_ref: {Ltot_ref}")
-    logging.debug(f"D_calculated: {D_calculated}, Dtot_ref: {Dtot_ref}")
 
     # Assert that the results are close
     np.testing.assert_allclose(cl_calculated, CL_ref, rtol=1e-5)
@@ -248,5 +162,5 @@ def test_calculate_results():
     np.testing.assert_allclose(D_calculated, Dtot_ref, rtol=1e-5)
 
     # Check the shape of array outputs
-    assert len(results_dict["cl_distribution"]) == len(wing_aero_VSM.panels)
-    assert len(results_dict["cd_distribution"]) == len(wing_aero_VSM.panels)
+    assert len(results_NEW["cl_distribution"]) == len(wing_aero.panels)
+    assert len(results_NEW["cd_distribution"]) == len(wing_aero.panels)

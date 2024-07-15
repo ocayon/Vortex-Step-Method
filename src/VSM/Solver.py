@@ -48,9 +48,13 @@ class Solver:
             raise ValueError("Inflow conditions are not set")
 
         # Solve the circulation distribution
-        wing_aero = self.solve_iterative_loop(wing_aero, gamma_distribution)
+        wing_aero, gamma_new, alpha_corrected, alpha_uncorrected = (
+            self.solve_iterative_loop(wing_aero, gamma_distribution)
+        )
 
-        results = wing_aero.calculate_results(self.density)
+        results = wing_aero.calculate_results(
+            gamma_new, alpha_corrected, alpha_uncorrected, self.density
+        )
 
         return results, wing_aero
 
@@ -63,11 +67,16 @@ class Solver:
         logging.debug(f"AIC_y: {AIC_y}")
         logging.debug(f"AIC_z: {AIC_z}")
 
-        # initialize gamma distribution
-        gamma_new = wing_aero.calculate_gamma_distribution(
-            gamma_distribution,
-            type_initial_gamma_distribution=self.type_initial_gamma_distribution,
-        )
+        # initialize gamma distribution inside
+        if (
+            gamma_distribution is None
+            and self.type_initial_gamma_distribution == "elliptic"
+        ):
+            gamma_new = wing_aero.calculate_circulation_distribution_elliptical_wing()
+        elif len(gamma_distribution) == len(wing_aero.panels):
+            gamma_new = gamma_distribution
+
+        # TODO: for now use ZERO, remove this to speed things up
         gamma_new = np.zeros(len(gamma_new))
         # logging.info("Initial gamma_new: %s", gamma_new)
 
@@ -169,27 +178,33 @@ class Solver:
                 converged = True
                 break
 
+        ### Update angle of attack
+        alpha_uncorrected = np.array(alpha)
+        if self.aerodynamic_model_type == "VSM":
+            alpha_corrected = wing_aero.update_effective_angle_of_attack_if_VSM(
+                gamma_new, self.core_radius_fraction
+            )
+        elif self.aerodynamic_model_type == "LLT":
+            alpha_corrected = alpha
+        else:
+            raise ValueError("Unknown aerodynamic model type, should be LLT or VSM")
+
         if converged:
-            print("------------------------------------")
-            print(f"{self.aerodynamic_model_type} Converged after {i} iterations")
-            print("------------------------------------")
+            logging.info("------------------------------------")
+            logging.info(
+                f"{self.aerodynamic_model_type} Converged after {i} iterations"
+            )
+            logging.info("------------------------------------")
         elif not converged:
-            print("------------------------------------")
-            print(
+            logging.info("------------------------------------")
+            logging.info(
                 f"{self.aerodynamic_model_type} Not converged after {str(self.max_iterations)} iterations"
             )
-            print("------------------------------------")
+            logging.info("------------------------------------")
 
-        wing_aero.calculate_gamma_distribution(
-            gamma_distribution=gamma,
-            type_initial_gamma_distribution=self.type_initial_gamma_distribution,
-        )
-
-        wing_aero.update_effective_angle_of_attack(
-            alpha, self.aerodynamic_model_type, self.core_radius_fraction
-        )
-
-        return wing_aero
+        # alpha_corrected,_uncorrected and gamma are ONLY used in Wing_Aero to calculate results
+        # therefore they are not defined as attributes, bit merely passed on
+        return wing_aero, gamma_new, alpha_corrected, alpha_uncorrected
 
     def calculate_artificial_damping(self, gamma):
         n_gamma = len(gamma)
