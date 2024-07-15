@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO)
 #   - "cosine"
 #   - "cosine_van_Garrel" (http://dx.doi.org/10.13140/RG.2.1.2773.8000)
 # spanwise_direction: np.array = np.array([0, 1, 0])
-wing = Wing(n_panels=40)
+wing = Wing(n_panels=6, spanwise_panel_distribution="split_provided")
 
 ## Add sections to the wing
 # MUST be done in order from left-to-right
@@ -36,6 +36,9 @@ wing = Wing(n_panels=40)
 span = 20
 # wing.add_section([0, -span / 2, 0], [1, -span / 2, 0], ["inviscid"])
 wing.add_section([0, span / 2, 0], [1, span / 2, 0], ["inviscid"])
+# wing.add_section([0, span / 4, 0], [1, span / 4, 0], ["inviscid"])
+wing.add_section([0, 0, 0], [1, 0, 0], ["inviscid"])
+# wing.add_section([0, -span / 4, 0], [1, -span / 4, 0], ["inviscid"])
 wing.add_section([0, -span / 2, 0], [1, -span / 2, 0], ["inviscid"])
 
 # Initialize wing aerodynamics
