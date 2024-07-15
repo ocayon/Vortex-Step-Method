@@ -17,6 +17,18 @@ class Wing:
         self.sections.append(Section(LE_point, TE_point, aero_input))
 
     def refine_aerodynamic_mesh(self):
+        """Refine the aerodynamic mesh of the wing
+
+            Based on user input sections and desired spanwise panel distribution
+            refines the aerodynamic mesh of the wing, giving out new_sections
+            that can be used to make panels out of.
+
+        Args:
+            None
+
+        Returns:
+            new_sections (list): List of Section objects with refined aerodynamic mesh
+        """
 
         # Ensure we get 1 section more than the desired number of panels
         n_sections = self.n_panels + 1
