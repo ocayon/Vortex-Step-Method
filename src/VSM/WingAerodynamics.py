@@ -11,14 +11,34 @@ import VSM.Wake as Wake
 
 # TODO: should change name to deal with multiple wings
 class WingAerodynamics:
+    """WingAerodynamics class
+
+    This class is used to calculate the aerodynamic properties of a wing.
+
+    init inputs:
+        wings (list): List of Wing object instances
+
+    Properties:
+        panels (list): List of Panel object instances
+        n_panels (int): Number of Panel object instances
+        va (np.array): The velocity vector of the air
+        gamma_distribution (np.array): The circulation distribution
+        wings (list): List of Wing object instances
+
+    Methods:
+        calculate_panel_properties: Calculate the properties of the panels
+        calculate_AIC_matrices: Calculate the AIC matrices
+        calculate_circulation_distribution_elliptical_wing: Calculate the circulation distribution for an elliptical wing
+        calculate_results: Calculate the results
+        update_effective_angle_of_attack_if_VSM: Update the effective angle of attack if VSM
+        plot_line_segment: Plot a line segment
+    """
 
     def __init__(
         self,
         wings: list,  # List of Wing object instances
     ):
-        """
-        A class to represent a vortex system.
-        """
+
         panels = []
         for i, wing_instance in enumerate(wings):
             section_list = wing_instance.refine_aerodynamic_mesh()
@@ -259,90 +279,6 @@ class WingAerodynamics:
             z_airf_list,
         )
 
-    # # TODO: this method should be properly tested against the old code and analytics
-    # def calculate_AIC_matrices(self, model, core_radius_fraction):
-    #     """Calculates the AIC matrices for the given aerodynamic model
-
-    #     Args:
-    #         model (str): The aerodynamic model to be used, either VSM or LLT
-
-    #     Returns:
-    #         MatrixU (np.array): The x-component of the AIC matrix
-    #         MatrixV (np.array): The y-component of the AIC matrix
-    #         MatrixW (np.array): The z-component of the AIC matrix
-    #         U_2D (np.array): The 2D velocity induced by a bound vortex
-    #     """
-
-    #     n_panels = self._n_panels
-    #     MatrixU = np.empty((n_panels, n_panels))
-    #     MatrixV = np.empty((n_panels, n_panels))
-    #     MatrixW = np.empty((n_panels, n_panels))
-
-    #     if model == "VSM":
-    #         evaluation_point = "control_point"
-    #     elif model == "LLT":
-    #         evaluation_point = "aerodynamic_center"
-    #     else:
-    #         raise ValueError("Invalid aerodynamic model type, should be VSM or LLT")
-
-    #     for icp, panel_icp in enumerate(self.panels):
-
-    #         for jring, panel_jring in enumerate(self.panels):
-    #             # velocity_induced = panel_jring.calculate_velocity_induced_horseshoe(
-    #             #     getattr(panel_icp, evaluation_point),
-    #             #     gamma=1,
-    #             #     core_radius_fraction=core_radius_fraction,
-    #             #     model=model,
-    #             # )
-
-    #             ####################
-    #             import os
-    #             import sys
-
-    #             root_path = os.path.abspath(
-    #                 os.path.join(os.path.dirname(__file__), "..", "..")
-    #             )
-    #             sys.path.insert(0, root_path)
-    #             from tests.WingAerodynamics.test_wing_aero_object_against_create_geometry_general import (
-    #                 create_ring_from_wing_object,
-    #             )
-    #             from tests.WingAerodynamics.thesis_functions import (
-    #                 velocity_induced_single_ring_semiinfinite,
-    #             )
-
-    #             rings = create_ring_from_wing_object(self, gamma_data=1)
-    #             evaluation_point_list = [
-    #                 getattr(panel_index, evaluation_point)
-    #                 for panel_index in self.panels
-    #             ]
-    #             va_norm = np.linalg.norm(self.va)
-    #             velocity_induced = velocity_induced_single_ring_semiinfinite(
-    #                 rings[jring], evaluation_point_list[jring], model, va_norm
-    #             )
-    #             ##################
-
-    #             # AIC Matrix
-    #             MatrixU[icp, jring] = velocity_induced[0]
-    #             MatrixV[icp, jring] = velocity_induced[1]
-    #             MatrixW[icp, jring] = velocity_induced[2]
-
-    #             # Only apply correction term when dealing with same horshoe vortex (see p.27 Uri Thesis)
-    #             a = False
-    #             if icp == jring and a:
-    #                 if evaluation_point != "aerodynamic_center":  # if VSM and not LLT
-    #                     # CORRECTION TERM (S.T.Piszkin and E.S.Levinsky,1976)
-    #                     # Not present in classic LLT, added to allow for "arbitrary" (3/4c) control point location [37].
-    #                     U_2D = panel_jring.calculate_velocity_induced_bound_2D(
-    #                         getattr(panel_icp, evaluation_point),
-    #                         gamma=1,
-    #                         core_radius_fraction=core_radius_fraction,
-    #                     )
-    #                     MatrixU[icp, jring] -= U_2D[0]
-    #                     MatrixV[icp, jring] -= U_2D[1]
-    #                     MatrixW[icp, jring] -= U_2D[2]
-
-    #     return MatrixU, MatrixV, MatrixW
-
     def calculate_AIC_matrices(self, model, core_radius_fraction):
         """Calculates the AIC matrices for the given aerodynamic model
 
@@ -432,29 +368,6 @@ class WingAerodynamics:
         gamma_i = np.append(gamma_i, gamma_i_wing)
 
         return gamma_i
-
-    # def update_gamma_distribution(
-    #     self, gamma_distribution, type_initial_gamma_distribution
-    # ):
-    #     """Calculates the circulation distribution for the wing
-
-    #     Args:
-    #         gamma_distribution (np.array): The circulation distribution to be used
-
-    #     Returns:
-    #         np.array: The circulation distribution
-    #     """
-
-    #     if gamma_distribution is None and type_initial_gamma_distribution == "elliptic":
-    #         self._gamma_distribution = (
-    #             self.calculate_circulation_distribution_elliptical_wing()
-    #         )
-    #         return self._gamma_distribution
-    #     elif (
-    #         gamma_distribution is not None and len(gamma_distribution) == self._n_panels
-    #     ):
-    #         self._gamma_distribution = gamma_distribution
-    #         return self._gamma_distribution
 
     def calculate_results(self, gamma_new, alpha_corrected, alpha_uncorrected, density):
 
