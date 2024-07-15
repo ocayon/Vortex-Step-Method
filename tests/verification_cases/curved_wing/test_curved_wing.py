@@ -1,124 +1,200 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Jan 10 18:09:16 2022
-
-@author: oriol2
-"""
-
 import numpy as np
-import matplotlib.pyplot as plt
-import time
-import seaborn as sns
 import logging
 import sys
 import os
-from copy import deepcopy
 
 # Go back to root folder
-root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 sys.path.insert(0, root_path)
-import tests.thesis_functions_oriol_cayon as thesis_functions
-from tests.utils import flip_created_coord_in_pairs
+import tests.utils as test_utils
 
-from VSM.WingGeometry import Wing
-from VSM.WingAerodynamics import WingAerodynamics
-from VSM.Solver import Solver
 
-def calculate_OLD_for_alpha_range(N, max_chord, span, AR, Umag, aoas):
-    ##INPUT DATA
-    dist = "cos"
-    coord = thesis_functions.generate_coordinates_el_wing(max_chord, span, N, dist)
-    Atot = max_chord / 2 * span / 2 * np.pi
+def test_curved():
+    (
+        max_chord,
+        span,
+        dist,
+        N,
+        aoas,
+        wing_type,
+        data_airf,
+        Umag,
+        AR,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
+        data_airf,
+    ) = get_elliptical_case_params()
 
-    conv_crit = {"Niterations": 1500, "error": 1e-5, "Relax_factor": 0.05}
-
-    Gamma0 = np.zeros(N - 1)
-    ring_geo = "5fil"
-    model = "VSM"
-
-    alpha_airf = np.arange(-10, 30)
-    data_airf = np.zeros((len(alpha_airf), 4))
-    data_airf[:, 0] = alpha_airf
-    data_airf[:, 1] = alpha_airf / 180 * np.pi * 2 * np.pi
-    data_airf[:, 2] = alpha_airf * 0
-    data_airf[:, 3] = alpha_airf * 0
-
-    ## SOLVER + OUTPUT F
-    start_time = time.time()
-    CL1 = np.zeros(len(aoas))
-    CL2 = np.zeros(len(aoas))
-    CD1 = np.zeros(len(aoas))
-    CD2 = np.zeros(len(aoas))
-    Gamma_LLT = []
-    Gamma_VSM = []
-
-    for i in range(len(aoas)):
-        Uinf = np.array([np.cos(aoas[i]), 0, np.sin(aoas[i])]) * Umag
-        model = "LLT"
-        controlpoints, rings, bladepanels, ringvec, coord_L = (
-            thesis_functions.create_geometry_general(coord, Uinf, N, ring_geo, model)
+    # OLD numerical
+    CL_LLT, CD_LLT, CL_VSM, CD_VSM, gamma_LLT, gamma_VSM = (
+        test_utils.calculate_old_for_alpha_range(
+            [max_chord, span, N, dist],
+            Umag,
+            aoas,
+            wing_type,
+            data_airf,
+            max_iterations,
+            allowed_error,
+            relaxation_factor,
+            core_radius_fraction,
         )
-        Fmag, Gamma, aero_coeffs = (
-            thesis_functions.solve_lifting_line_system_matrix_approach_semiinfinite(
-                ringvec, controlpoints, rings, Uinf, Gamma0, data_airf, conv_crit, model
-            )
-        )
-        F_rel, F_gl, Ltot, Dtot, CL1[i], CD1[i], CS = thesis_functions.output_results(
-            Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot
-        )
-        Gamma_LLT.append(Gamma)
-        
-        model = "VSM"
-        controlpoints, rings, bladepanels, ringvec, coord_L = (
-            thesis_functions.create_geometry_general(coord, Uinf, N, ring_geo, model)
-        )
-        Fmag, Gamma, aero_coeffs = (
-            thesis_functions.solve_lifting_line_system_matrix_approach_semiinfinite(
-                ringvec, controlpoints, rings, Uinf, Gamma0, data_airf, conv_crit, model
-            )
-        )
-        Gamma_VSM.append(Gamma)
-        F_rel, F_gl, Ltot, Dtot, CL2[i], CD2[i], CS = thesis_functions.output_results(
-            Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot
-        )
+    )
+    # NEW numerical
+    (
+        CL_LLT_new,
+        CD_LLT_new,
+        CL_VSM_new,
+        CD_VSM_new,
+        gamma_LLT_new,
+        gamma_VSM_new,
+        panel_y,
+    ) = test_utils.calculate_new_for_alpha_range(
+        [max_chord, span, N, dist],
+        Umag,
+        aoas,
+        wing_type,
+        data_airf,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
+        is_plotting=False,
+    )
+    for aoa in aoas:
+        aoa_deg = np.rad2deg(aoa)
+        # checking all LLTs to be close
+        assert np.allclose(CL_LLT, CL_LLT_new, atol=1e-2)
+        assert np.allclose(CD_LLT, CD_LLT_new, atol=1e-4)
+        assert np.allclose(gamma_LLT, gamma_LLT_new, atol=1e-2)
 
-        Gamma0 = Gamma
-        print(str((i + 1) / len(aoas) * 100) + " %")
-    
-    end_time = time.time()
-    print('Time employed: ' + str(end_time - start_time) + ' seconds')
+        # checking VSMs to be close to one another
+        assert np.allclose(CL_VSM, CL_VSM_new, atol=1e-2)
+        assert np.allclose(CD_VSM, CD_VSM_new, atol=1e-4)
 
-    return CL1, CD1, CL2, CD2, Gamma_LLT, Gamma_VSM
+        # checking the LLT to be close to the VSM, with HIGHER tolerance
+        tol_llt_to_vsm_CL = 1e-1
+        tol_llt_to_vsm_CD = 1e-3
+        assert np.allclose(CL_LLT, CL_VSM, atol=tol_llt_to_vsm_CL)
+        assert np.allclose(CD_LLT, CD_VSM, atol=tol_llt_to_vsm_CD)
+        assert np.allclose(CL_LLT_new, CL_VSM_new, atol=tol_llt_to_vsm_CL)
+        assert np.allclose(CD_LLT_new, CD_VSM_new, atol=tol_llt_to_vsm_CD)
 
 
-def calculate_NEW_for_alpha_range(N, max_chord, span, AR, Umag, aoas, is_plotting=False):
-    dist = "cos"
+def get_curved_case_params():
+
+    max_chord = 2.18
+    span = 6.969
+    dist = "lin"
+    N = 60
+    aoas = np.arange(-4, 24, 1) / 180 * np.pi
+    aoas = np.deg2rad([5, 10])
+    wing_type = "curved"
+    Umag = 20
+    AR = span / max_chord
+    Atot = 16
+    R = 4.673
+    theta = 45 * np.pi / 180
+
+    coord_input_params = [max_chord, span, theta, R, N, dist]
+    # convergence criteria
+    max_iterations = 1500
+    allowed_error = 1e-5
+    relaxation_factor = 0.03
     core_radius_fraction = 1e-20
-    coord = thesis_functions.generate_coordinates_el_wing(max_chord, span, N, dist)
-    coord_left_to_right = flip_created_coord_in_pairs(deepcopy(coord))
-    wing = Wing(N, "unchanged")
-    for idx in range(int(len(coord_left_to_right) / 2)):
-        logging.debug(f"coord_left_to_right[idx] = {coord_left_to_right[idx]}")
-        wing.add_section(
-            coord_left_to_right[2 * idx],
-            coord_left_to_right[2 * idx + 1],
-            ["inviscid"],
+
+    data_airf = np.loadtxt(r"./polars/clarky_maneia.csv", delimiter=",")
+
+    return (
+        coord_input_params,
+        aoas,
+        wing_type,
+        data_airf,
+        Umag,
+        AR,
+        Atot,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
+        data_airf,
+    )
+
+
+if __name__ == "__main__":
+
+    ## params
+    (
+        coord_input_params,
+        aoas,
+        wing_type,
+        data_airf,
+        Umag,
+        AR,
+        Atot,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
+        data_airf,
+    ) = get_curved_case_params()
+
+    # comparing solution
+    polars_Maneia = np.loadtxt("./polars/curved_wing_polars_maneia.csv", delimiter=",")
+
+    # OLD numerical
+    CL_LLT, CD_LLT, CL_VSM, CD_VSM, gamma_LLT, gamma_VSM = (
+        test_utils.calculate_old_for_alpha_range(
+            coord_input_params,
+            Umag,
+            Atot,
+            aoas,
+            wing_type,
+            data_airf,
+            max_iterations,
+            allowed_error,
+            relaxation_factor,
+            core_radius_fraction,
         )
-    wing_aero = WingAerodynamics([wing])
-
-    CL_LLT_new = np.zeros(len(aoas))
-    CD_LLT_new = np.zeros(len(aoas))
-    gamma_LLT_new = np.zeros((len(aoas), N - 1))
-    CL_VSM_new = np.zeros(len(aoas))
-    CD_VSM_new = np.zeros(len(aoas))
-    gamma_VSM_new = np.zeros((len(aoas), N - 1))
-    controlpoints_list = []
-
-    for i, aoa_i in enumerate(aoas):
-        logging.debug(f"aoa_i = {np.rad2deg(aoa_i)}")
-        Uinf = np.array([np.cos(aoa_i), 0, np.sin(aoa_i)]) * Umag
-        wing_aero.va = Uinf
-        if i == 0 and is_plotting:
-            wing_aero.plot()
-        # LLT
-        LLT = Solver(aerodynamic_model_type="LLT", core_radius_fraction=
+    )
+    # NEW numerical
+    (
+        CL_LLT_new,
+        CD_LLT_new,
+        CL_VSM_new,
+        CD_VSM_new,
+        gamma_LLT_new,
+        gamma_VSM_new,
+        panel_y,
+    ) = test_utils.calculate_new_for_alpha_range(
+        coord_input_params,
+        Umag,
+        Atot,
+        aoas,
+        wing_type,
+        data_airf,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
+        is_plotting=False,
+    )
+    test_utils.plotting_CL_CD_gamma_LLT_VSM_old_new_comparison(
+        panel_y=panel_y,
+        AR=AR,
+        wing_type="curved",
+        aoas=[polars_Maneia[:, 0], aoas],
+        CL_list=[polars_Maneia[:, 1], CL_LLT, CL_LLT_new, CL_VSM, CL_VSM_new],
+        CD_list=[polars_Maneia[:, 2], CD_LLT, CD_LLT_new, CD_VSM, CD_VSM_new],
+        gamma_list=[gamma_LLT, gamma_LLT_new, gamma_VSM, gamma_VSM_new],
+        labels=["Analytic LLT", "LLT", "LLT_new", "VSM", "VSM_new"],
+    )
+    # labels = ["Polars Maneia", "LLT", "LLT_new", "VSM", "VSM_new"]
+    # CL_list = [polars_Maneia[:, 1], CL_LLT, CL_LLT_new, CL_VSM, CL_VSM_new]
+    # CD_list = [polars_Maneia[:, 2], CD_LLT, CD_LLT_new, CD_VSM, CD_VSM_new]
+    # for i, aoa in enumerate(aoas):
+    #     print(f"aoa = {np.rad2deg(aoa)}")
+    #     for label, CD, CL in zip(labels, CD_list, CL_list):
+    #         print(f"{label}: CL = {CL[i]}, CD = {CD[i]}")

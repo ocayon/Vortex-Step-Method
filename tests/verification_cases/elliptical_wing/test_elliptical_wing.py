@@ -10,21 +10,66 @@ sys.path.insert(0, root_path)
 import tests.utils as test_utils
 
 
-def test_elliptical():
-    wing_type = "elliptical"
-    aoas = np.deg2rad([5, 10])
-    N = 40
+def get_elliptical_case_params():
+    # general geometry
     max_chord = 1
     span = 15.709  # AR = 20
     # span = 2.36  # AR = 3
+    dist = "cos"
+    N = 40
+    aoas = np.arange(0, 20, 1) / 180 * np.pi
+    aoas = np.deg2rad([5, 10])
+    wing_type = "elliptical"
+
+    coord_input_params = [max_chord, span, N, dist]
+    # wind
     Umag = 20
     AR = span**2 / (np.pi * span * max_chord / 4)
-    dist = "cos"
+    Atot = max_chord / 2 * span / 2 * np.pi
     # convergence criteria
     max_iterations = 1500
     allowed_error = 1e-5
-    relaxation_factor = 0.03
+    relaxation_factor = 0.05
     core_radius_fraction = 1e-20
+
+    # data_airf
+    alpha_airf = np.arange(-10, 30)
+    data_airf = np.zeros((len(alpha_airf), 4))
+    data_airf[:, 0] = alpha_airf
+    data_airf[:, 1] = alpha_airf / 180 * np.pi * 2 * np.pi
+    data_airf[:, 2] = alpha_airf * 0
+    data_airf[:, 3] = alpha_airf * 0
+
+    return (
+        coord_input_params,
+        aoas,
+        wing_type,
+        Umag,
+        AR,
+        Atot,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
+        data_airf,
+    )
+
+
+def test_elliptical():
+    (
+        coord_input_params,
+        aoas,
+        wing_type,
+        data_airf,
+        Umag,
+        AR,
+        Atot,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
+        data_airf,
+    ) = get_elliptical_case_params()
 
     # analytical solution
     CL_th = 2 * np.pi * aoas / (1 + 2 / AR)
@@ -32,14 +77,16 @@ def test_elliptical():
     # OLD numerical
     CL_LLT, CD_LLT, CL_VSM, CD_VSM, gamma_LLT, gamma_VSM = (
         test_utils.calculate_old_for_alpha_range(
-            coord_input_params=[max_chord, span, N, dist],
-            Umag=Umag,
-            aoas=aoas,
-            wing_type=wing_type,
-            max_iterations=max_iterations,
-            allowed_error=allowed_error,
-            relaxation_factor=relaxation_factor,
-            core_radius_fraction=core_radius_fraction,
+            coord_input_params,
+            Umag,
+            Atot,
+            aoas,
+            wing_type,
+            data_airf,
+            max_iterations,
+            allowed_error,
+            relaxation_factor,
+            core_radius_fraction,
         )
     )
     # NEW numerical
@@ -52,14 +99,16 @@ def test_elliptical():
         gamma_VSM_new,
         panel_y,
     ) = test_utils.calculate_new_for_alpha_range(
-        coord_input_params=[max_chord, span, N, dist],
-        Umag=Umag,
-        aoas=aoas,
-        wing_type=wing_type,
-        max_iterations=max_iterations,
-        allowed_error=allowed_error,
-        relaxation_factor=relaxation_factor,
-        core_radius_fraction=core_radius_fraction,
+        coord_input_params,
+        Umag,
+        Atot,
+        aoas,
+        wing_type,
+        data_airf,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
         is_plotting=False,
     )
     for aoa in aoas:
@@ -90,21 +139,20 @@ def test_elliptical():
 
 if __name__ == "__main__":
 
-    max_chord = 1
-    span = 15.709  # AR = 20
-    # span = 2.36  # AR = 3
-    dist = "cos"
-    N = 40
-    aoas = np.arange(0, 20, 1) / 180 * np.pi
-    aoas = np.deg2rad([5, 10])
-    wing_type = "elliptical"
-    Umag = 20
-    AR = span**2 / (np.pi * span * max_chord / 4)
-    # convergence criteria
-    max_iterations = 1500
-    allowed_error = 1e-5
-    relaxation_factor = 0.05
-    core_radius_fraction = 1e-20
+    ## params
+    (
+        coord_input_params,
+        aoas,
+        wing_type,
+        Umag,
+        AR,
+        Atot,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
+        data_airf,
+    ) = get_elliptical_case_params()
 
     # analytical solution
     CL_th = 2 * np.pi * aoas / (1 + 2 / AR)
@@ -112,14 +160,16 @@ if __name__ == "__main__":
     # OLD numerical
     CL_LLT, CD_LLT, CL_VSM, CD_VSM, gamma_LLT, gamma_VSM = (
         test_utils.calculate_old_for_alpha_range(
-            coord_input_params=[max_chord, span, N, dist],
-            Umag=Umag,
-            aoas=aoas,
-            wing_type=wing_type,
-            max_iterations=max_iterations,
-            allowed_error=allowed_error,
-            relaxation_factor=relaxation_factor,
-            core_radius_fraction=core_radius_fraction,
+            coord_input_params,
+            Umag,
+            Atot,
+            aoas,
+            wing_type,
+            data_airf,
+            max_iterations,
+            allowed_error,
+            relaxation_factor,
+            core_radius_fraction,
         )
     )
     # NEW numerical
@@ -132,94 +182,32 @@ if __name__ == "__main__":
         gamma_VSM_new,
         panel_y,
     ) = test_utils.calculate_new_for_alpha_range(
-        coord_input_params=[max_chord, span, N, dist],
-        Umag=Umag,
-        aoas=aoas,
-        wing_type=wing_type,
-        max_iterations=max_iterations,
-        allowed_error=allowed_error,
-        relaxation_factor=relaxation_factor,
-        core_radius_fraction=core_radius_fraction,
+        coord_input_params,
+        Umag,
+        aoas,
+        wing_type,
+        data_airf,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
         is_plotting=False,
     )
 
-    logging.debug(f"CD_LLT_new = {CD_LLT_new}")
-    logging.debug(f"CD_VSM_new = {CD_VSM_new}")
-
+    CL_list = [CL_th, CL_LLT, CL_LLT_new, CL_VSM, CL_VSM_new]
+    CD_list = [CDi_th, CD_LLT, CD_LLT_new, CD_VSM, CD_VSM_new]
+    labels = ["Analytic LLT", "LLT", "LLT_new", "VSM", "VSM_new"]
+    test_utils.plotting_CL_CD_gamma_LLT_VSM_old_new_comparison(
+        panel_y=panel_y,
+        AR=AR,
+        wing_type="curved",
+        aoas=[aoas, aoas],
+        CL_list=CL_list,
+        CD_list=CD_list,
+        gamma_list=[gamma_LLT, gamma_LLT_new, gamma_VSM, gamma_VSM_new],
+        labels=labels,
+    )
     for i, aoa in enumerate(aoas):
         print(f"aoa = {np.rad2deg(aoa)}")
-        print(
-            f"CL_th: {CL_th[i]}, CL_LLT: {CL_LLT[i]}, CL_VSM: {CL_LLT[i]}, CL_LLT_new: {CL_LLT_new[i]}, CL_VSM_new: {CL_VSM_new[i]}"
-        )
-        print(
-            f"CDi_th: {CDi_th[i]}, CD_LLT: {CL_LLT[i]}, CD_VSM: {CL_VSM[i]}, CD_LLT_new: {CD_LLT_new[i]}, CD_VSM_new: {CD_VSM_new[i]}"
-        )
-
-    aoas_deg = np.rad2deg(aoas)
-    test_utils.plotting(
-        x_axis_list=[aoas_deg, aoas_deg, aoas_deg],
-        y_axis_list=[CL_th, CL_LLT, CL_LLT_new],
-        labels=["Analytic LLT", "LLT", "LLT_new"],
-        x_label=r"$\alpha$ ($^\circ$)",
-        y_label=r"$C_L$ ()",
-        title="CL_alpha_LTT_elliptic_AR_" + str(round(AR, 1)),
-        markers=None,
-        alphas=None,
-        colors=None,
-        file_type=".pdf",
-    )
-    test_utils.plotting(
-        x_axis_list=[aoas_deg, aoas_deg, aoas_deg],
-        y_axis_list=[CDi_th, CL_LLT, CD_LLT_new],
-        labels=["Analytic LLT", "LLT", "LLT_new"],
-        x_label=r"$\alpha$ ($^\circ$)",
-        y_label=r"$C_D$ ()",
-        title="CD_alpha_LTT_elliptic_AR_" + str(round(AR, 1)),
-        markers=None,
-        alphas=None,
-        colors=None,
-        file_type=".pdf",
-    )
-    test_utils.plotting(
-        x_axis_list=[aoas_deg, aoas_deg, aoas_deg, aoas_deg],
-        y_axis_list=[CL_th, CL_VSM, CL_VSM_new],
-        labels=["Analytic LLT", "VSM", "VSM_new"],
-        x_label=r"$\alpha$ ($^\circ$)",
-        y_label=r"$C_L$ ()",
-        title="CL_alpha_VSM_elliptic_AR_" + str(round(AR, 1)),
-        markers=None,
-        alphas=None,
-        colors=None,
-        file_type=".pdf",
-    )
-    test_utils.plotting(
-        x_axis_list=[aoas_deg, aoas_deg, aoas_deg, aoas_deg],
-        y_axis_list=[CDi_th, CL_VSM, CD_VSM_new],
-        labels=["Analytic LLT", "VSM", "VSM_new"],
-        x_label=r"$\alpha$ ($^\circ$)",
-        y_label=r"$C_D$ ()",
-        title="CD_alpha_VSM_elliptic_AR_" + str(round(AR, 1)),
-        markers=None,
-        alphas=None,
-        colors=None,
-        file_type=".pdf",
-    )
-    # Plotting gamma
-    idx = idx = int(len(aoas_deg) // 2)
-    test_utils.plotting(
-        x_axis_list=[panel_y, panel_y, panel_y, panel_y],
-        y_axis_list=[
-            gamma_LLT[idx],
-            gamma_VSM[idx],
-            gamma_LLT_new[idx],
-            gamma_VSM_new[idx],
-        ],
-        labels=["LLT", "VSM", "LLT_new", "VSM_new"],
-        x_label=r"$y$",
-        y_label=r"$Gamma$",
-        title="gamma_distribution_elliptic_AR_" + str(round(AR, 1)),
-        markers=None,
-        alphas=None,
-        colors=None,
-        file_type=".pdf",
-    )
+        for label, CD, CL in zip(labels, CD_list, CL_list):
+            print(f"{label}: CL = {CL[i]}, CD = {CD[i]}")

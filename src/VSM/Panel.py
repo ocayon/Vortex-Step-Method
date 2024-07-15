@@ -364,7 +364,9 @@ class Panel:
             return 2 * np.pi * alpha
         elif self._panel_aero_model == "polar_data":
             return np.interp(
-                alpha, self._panel_polar_data[:, 0], self._panel_polar_data[:, 1]
+                alpha,
+                self._panel_polar_data[:, 0],
+                self._panel_polar_data[:, 1],
             )
         else:
             raise NotImplementedError

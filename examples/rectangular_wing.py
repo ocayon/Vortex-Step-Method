@@ -30,7 +30,7 @@ wing = Wing(n_panels=6, spanwise_panel_distribution="split_provided")
 # airfoil data can be:
 # ['inviscid']
 # ['lei_airfoil_breukels', [tube_diameter, chamber_height]]
-# ['polars', []]
+# ['polar_data', [[alpha[rad], cl, cd, cm]]]
 
 ## Rectangular wing
 span = 20

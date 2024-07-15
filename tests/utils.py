@@ -1,5 +1,20 @@
 import numpy as np
 import logging
+import time
+import os
+import sys
+from copy import deepcopy
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Go back to root folder
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, root_path)
+import tests.thesis_functions_oriol_cayon as thesis_functions
+
+from VSM.WingGeometry import Wing
+from VSM.WingAerodynamics import WingAerodynamics
+from VSM.Solver import Solver
 
 
 def cosspace(min, max, n_points):
@@ -323,3 +338,308 @@ def print_matrix(matrix, name="Matrix"):
     # Use np.array2string to convert the matrix to a nicely formatted string
     matrix_str = np.array2string(matrix, formatter={"float_kind": lambda x: "%.3f" % x})
     print(f"{name}:\n{matrix_str}")
+
+
+def calculate_old_for_alpha_range(
+    coord_input_params,
+    Umag,
+    Atot,
+    aoas,
+    wing_type,
+    data_airf,
+    max_iterations=1500,
+    allowed_error=1e-5,
+    relaxation_factor=0.05,
+    core_radius_fraction=1e-20,
+):
+    ## defining coord
+    if wing_type == "elliptical":
+        max_chord, span, N, dist = coord_input_params
+        coord = thesis_functions.generate_coordinates_el_wing(max_chord, span, N, dist)
+    elif wing_type == "curved":
+        chord, span, theta, R, N, dist = coord_input_params
+        coord = thesis_functions.generate_coordinates_curved_wing(
+            chord, span, theta, R, N, dist
+        )
+
+    # aoa = 5.7106 * np.pi / 180
+    # Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
+    # Uinf = np.array([np.sqrt(0.99),0,0.1])
+    conv_crit = {
+        "Niterations": max_iterations,
+        "error": allowed_error,
+        "Relax_factor": relaxation_factor,
+    }
+
+    Gamma0 = np.zeros(N - 1)
+
+    ring_geo = "5fil"
+    model = "VSM"
+
+    ## SOLVER + OUTPUT F
+    start_time = time.time()
+    CL1 = np.zeros(len(aoas))
+    CL2 = np.zeros(len(aoas))
+    CD1 = np.zeros(len(aoas))
+    CD2 = np.zeros(len(aoas))
+    Gamma_LLT = []
+    Gamma_VSM = []
+    for i in range(len(aoas)):
+
+        Uinf = np.array([np.cos(aoas[i]), 0, np.sin(aoas[i])]) * Umag
+        model = "LLT"
+        # Define system of vorticity
+        controlpoints, rings, bladepanels, ringvec, coord_L = (
+            thesis_functions.create_geometry_general(coord, Uinf, N, ring_geo, model)
+        )
+        # Solve for Gamma
+        Fmag, Gamma, aero_coeffs = (
+            thesis_functions.solve_lifting_line_system_matrix_approach_semiinfinite(
+                ringvec, controlpoints, rings, Uinf, Gamma0, data_airf, conv_crit, model
+            )
+        )
+        # Output forces
+        F_rel, F_gl, Ltot, Dtot, CL1[i], CD1[i], CS = thesis_functions.output_results(
+            Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot
+        )
+        Gamma_LLT.append(Gamma)
+        model = "VSM"
+        # Define system of vorticity
+        controlpoints, rings, bladepanels, ringvec, coord_L = (
+            thesis_functions.create_geometry_general(coord, Uinf, N, ring_geo, model)
+        )
+        # Solve for Gamma
+        Fmag, Gamma, aero_coeffs = (
+            thesis_functions.solve_lifting_line_system_matrix_approach_semiinfinite(
+                ringvec, controlpoints, rings, Uinf, Gamma0, data_airf, conv_crit, model
+            )
+        )
+        Gamma_VSM.append(Gamma)
+        # Output forces
+        F_rel, F_gl, Ltot, Dtot, CL2[i], CD2[i], CS = thesis_functions.output_results(
+            Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot
+        )
+
+        Gamma0 = Gamma
+        print(str((i + 1) / len(aoas) * 100) + " %")
+    # end_time = time.time()
+    # print(end_time - start_time)
+
+    return CL1, CD1, CL2, CD2, Gamma_LLT, Gamma_VSM
+
+
+def calculate_new_for_alpha_range(
+    coord_input_params,
+    Umag,
+    Atot,
+    aoas,
+    wing_type,
+    data_airf,
+    max_iterations=1500,
+    allowed_error=1e-5,
+    relaxation_factor=0.05,
+    core_radius_fraction=1e-20,
+    is_plotting=False,
+):
+
+    # transfering the data_airf first column to radians
+    data_airf[:, 0] = np.deg2rad(data_airf[:, 0])
+
+    ## defining coord
+    if wing_type == "elliptical":
+        max_chord, span, N, dist = coord_input_params
+        coord = thesis_functions.generate_coordinates_el_wing(max_chord, span, N, dist)
+    elif wing_type == "curved":
+        chord, span, theta, R, N, dist = coord_input_params
+        coord = thesis_functions.generate_coordinates_curved_wing(
+            chord, span, theta, R, N, dist
+        )
+
+    coord_left_to_right = flip_created_coord_in_pairs(deepcopy(coord))
+    wing = Wing(N, "unchanged")
+    for idx in range(int(len(coord_left_to_right) / 2)):
+        logging.debug(f"coord_left_to_right[idx] = {coord_left_to_right[idx]}")
+        wing.add_section(
+            coord_left_to_right[2 * idx],
+            coord_left_to_right[2 * idx + 1],
+            # ["polar_data", data_airf],
+            ["inviscid"],
+        )
+
+    wing_aero = WingAerodynamics([wing])
+
+    # initializing zero lists
+    wing_aero = WingAerodynamics([wing])
+    CL_LLT_new = np.zeros(len(aoas))
+    CD_LLT_new = np.zeros(len(aoas))
+    gamma_LLT_new = np.zeros((len(aoas), N - 1))
+    CL_VSM_new = np.zeros(len(aoas))
+    CD_VSM_new = np.zeros(len(aoas))
+    gamma_VSM_new = np.zeros((len(aoas), N - 1))
+    controlpoints_list = []
+
+    for i, aoa_i in enumerate(aoas):
+        logging.debug(f"aoa_i = {np.rad2deg(aoa_i)}")
+        Uinf = np.array([np.cos(aoa_i), 0, np.sin(aoa_i)]) * Umag
+        wing_aero.va = Uinf
+        if i == 0 and is_plotting:
+            wing_aero.plot()
+        # LLT
+        LLT = Solver(
+            aerodynamic_model_type="LLT",
+            max_iterations=max_iterations,
+            allowed_error=allowed_error,
+            relaxation_factor=relaxation_factor,
+            core_radius_fraction=core_radius_fraction,
+        )
+        results_LLT, wing_aero_LLT = LLT.solve(wing_aero)
+        CL_LLT_new[i] = results_LLT["cl"]
+        CD_LLT_new[i] = results_LLT["cd"]
+        gamma_LLT_new[i] = results_LLT["gamma_distribution"]
+
+        # VSM
+        VSM = Solver(
+            aerodynamic_model_type="VSM",
+            max_iterations=max_iterations,
+            allowed_error=allowed_error,
+            relaxation_factor=relaxation_factor,
+            core_radius_fraction=core_radius_fraction,
+        )
+        results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
+        CL_VSM_new[i] = results_VSM["cl"]
+        CD_VSM_new[i] = results_VSM["cd"]
+        gamma_VSM_new[i] = results_VSM["gamma_distribution"]
+
+        logging.debug(f"CD_LLT_new = {results_LLT['cd']}")
+        logging.debug(f"CD_VSM_new = {results_VSM['cd']}")
+
+        controlpoints_list.append(
+            [panel.aerodynamic_center for panel in wing_aero_LLT.panels]
+        )
+    panel_y = [panel.aerodynamic_center[1] for panel in wing_aero_LLT.panels]
+    return (
+        CL_LLT_new,
+        CD_LLT_new,
+        CL_VSM_new,
+        CD_VSM_new,
+        gamma_LLT_new,
+        gamma_VSM_new,
+        panel_y,
+    )
+
+
+def plotting(
+    x_axis_list: list,
+    y_axis_list: list,
+    labels: list,
+    x_label: str,
+    y_label: str,
+    title: str,
+    markers=None,
+    alphas=None,
+    colors=None,
+    file_type=".pdf",
+):
+
+    if markers is None:
+        markers = ["x", "x", ".", "."]
+    if alphas is None:
+        alphas = [0.8, 0.8, 0.8, 0.8]
+    if colors is None:
+        colors = sns.color_palette()
+
+    plt_path = "./plots/"
+    plt.rcParams.update(
+        {
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Computer Modern Roman"],
+        }
+    )
+    plt.rcParams.update({"font.size": 10})
+    plt.figure(figsize=(6, 4))
+    for x_axis, y_axis, label, marker, alpha in zip(
+        x_axis_list, y_axis_list, labels, markers, alphas
+    ):
+        plt.plot(x_axis, y_axis, marker=marker, alpha=alpha, label=label)
+    plt.legend()
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.grid()
+    plt.savefig(plt_path + title + file_type, bbox_inches="tight")
+
+
+def plotting_CL_CD_gamma_LLT_VSM_old_new_comparison(
+    panel_y, AR, wing_type, aoas, CL_list, CD_list, gamma_list, labels
+):
+
+    aoas_comparison = aoas[0]
+    aoas = aoas[1]
+    aoas_deg = np.rad2deg(aoas)
+    plotting(
+        x_axis_list=[aoas_comparison, aoas_deg, aoas_deg],
+        y_axis_list=[CL_list[0], CL_list[1], CL_list[2]],
+        labels=[labels[0], labels[1], labels[2]],
+        x_label=r"$\alpha$ ($^\circ$)",
+        y_label=r"$C_L$ ()",
+        title=f"CL_alpha_LTT_{wing_type}_AR_" + str(round(AR, 1)),
+        markers=None,
+        alphas=None,
+        colors=None,
+        file_type=".pdf",
+    )
+    plotting(
+        x_axis_list=[aoas_comparison, aoas_deg, aoas_deg],
+        y_axis_list=[CD_list[0], CD_list[1], CD_list[2]],
+        labels=[labels[0], labels[1], labels[2]],
+        x_label=r"$\alpha$ ($^\circ$)",
+        y_label=r"$C_D$ ()",
+        title=f"CD_alpha_LTT_{wing_type}_AR_" + str(round(AR, 1)),
+        markers=None,
+        alphas=None,
+        colors=None,
+        file_type=".pdf",
+    )
+    plotting(
+        x_axis_list=[aoas_comparison, aoas_deg, aoas_deg],
+        y_axis_list=[CL_list[0], CL_list[3], CL_list[4]],
+        labels=[labels[0], labels[3], labels[4]],
+        x_label=r"$\alpha$ ($^\circ$)",
+        y_label=r"$C_L$ ()",
+        title=f"CL_alpha_VSM_{wing_type}_AR_" + str(round(AR, 1)),
+        markers=None,
+        alphas=None,
+        colors=None,
+        file_type=".pdf",
+    )
+    plotting(
+        x_axis_list=[aoas_comparison, aoas_deg, aoas_deg],
+        y_axis_list=[CD_list[0], CD_list[3], CD_list[4]],
+        labels=[labels[0], labels[3], labels[4]],
+        x_label=r"$\alpha$ ($^\circ$)",
+        y_label=r"$C_D$ ()",
+        title=f"CD_alpha_VSM_{wing_type}_AR_" + str(round(AR, 1)),
+        markers=None,
+        alphas=None,
+        colors=None,
+        file_type=".pdf",
+    )
+    # Plotting gamma for the mid aoa range
+    idx = idx = int(len(aoas_deg) // 2)
+    plotting(
+        x_axis_list=[panel_y, panel_y, panel_y, panel_y],
+        y_axis_list=[
+            gamma_list[0][idx],
+            gamma_list[1][idx],
+            gamma_list[2][idx],
+            gamma_list[3][idx],
+        ],
+        labels=[labels[1], labels[2], labels[3], labels[4]],
+        x_label=r"$y$",
+        y_label=r"$Gamma$",
+        title=f"gamma_distribution_{wing_type}_AR_" + str(round(AR, 1)),
+        markers=None,
+        alphas=None,
+        colors=None,
+        file_type=".pdf",
+    )

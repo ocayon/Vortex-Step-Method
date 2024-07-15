@@ -184,8 +184,13 @@ class Wing:
             )
         if aero_input[section_index][0] == "inviscid":
             return ["inviscid"]
-        elif aero_input[section_index][0] == "polars":
-            raise NotImplementedError("Polar interpolation not implemented")
+        elif aero_input[section_index][0] == "polar_data":
+            polar_left = aero_input[section_index][1]
+            polar_right = aero_input[section_index + 1][1]
+            if polar_left == polar_right:
+                return ["polar_data", polar_left]
+            else:
+                raise NotImplementedError("Polar interpolation not implemented")
         elif aero_input[section_index][0] == "lei_airfoil_breukels":
             tube_diameter_left = aero_input[section_index][1][0]
             tube_diameter_right = aero_input[section_index + 1][1][0]
