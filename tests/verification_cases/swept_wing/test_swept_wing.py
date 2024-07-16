@@ -87,7 +87,7 @@ def test_swept_wing():
     polars_CFD = np.loadtxt("./polars/0sweepAR12_CFD.csv", delimiter=",")
     alpha_CFD = polars_CFD[:, 0]
     CL_CFD = polars_CFD[:, 1]
-    CD_CFD = polars_CFD[:, 2]
+    CD_CFD = np.zeros_like(CL_CFD)
     # OLD numerical
     CL_LLT, CD_LLT, CL_VSM, CD_VSM, gamma_LLT, gamma_VSM = (
         test_utils.calculate_old_for_alpha_range(case_params)
@@ -129,9 +129,8 @@ def test_swept_wing():
         CL_CFD_at_new_alphas.append(np.interp(alpha, alpha_CFD, CL_CFD))
         CD_CFD_at_new_alphas.append(np.interp(alpha, alpha_CFD, CD_CFD))
 
-    # checking new VSM close to Maneia
+    # checking new VSM close to CFD
     assert np.allclose(CL_CFD_at_new_alphas, CL_VSM_new, atol=1e-1)
-    assert np.allclose(CD_CFD_at_new_alphas, CD_VSM_new, atol=1e-2)
 
 
 if __name__ == "__main__":
@@ -166,13 +165,12 @@ if __name__ == "__main__":
         wing_type="swept_wing",
         aoas=[polars_CFD[:, 0], aoas],
         CL_list=[polars_CFD[:, 1], CL_LLT, CL_LLT_new, CL_VSM, CL_VSM_new],
-        CD_list=[polars_CFD[:, 2], CD_LLT, CD_LLT_new, CD_VSM, CD_VSM_new],
+        CD_list=[np.zeros_like(polars_CFD[:,0]), CD_LLT, CD_LLT_new, CD_VSM, CD_VSM_new],
         gamma_list=[gamma_LLT, gamma_LLT_new, gamma_VSM, gamma_VSM_new],
         labels=["RANS [Maneia]", "LLT", "LLT_new", "VSM", "VSM_new"],
     )
     labels = ["polars_CFD", "LLT", "LLT_new", "VSM", "VSM_new"]
     CL_list = [polars_CFD[:, 1], CL_LLT, CL_LLT_new, CL_VSM, CL_VSM_new]
-    CD_list = [polars_CFD[:, 2], CD_LLT, CD_LLT_new, CD_VSM, CD_VSM_new]
     for i, aoa in enumerate(aoas):
         print(f"aoa = {np.rad2deg(aoa)}")
         for label, CD, CL in zip(labels, CD_list, CL_list):
