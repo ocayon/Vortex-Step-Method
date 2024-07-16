@@ -4,11 +4,20 @@ import logging
 import sys
 import os
 import matplotlib.pyplot as plt
+import pytest
 
 # Go back to root folder
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 sys.path.insert(0, root_path)
 import tests.utils as test_utils
+
+
+@pytest.fixture(autouse=True)
+def change_test_dir(request):
+    # Get the directory of the current test file
+    test_dir = os.path.dirname(request.fspath)
+    # Change the working directory to the test file's directory
+    os.chdir(test_dir)
 
 
 def get_curved_case_params():
@@ -33,9 +42,24 @@ def get_curved_case_params():
     relaxation_factor = 0.03
     core_radius_fraction = 1e-20
 
-    data_airf = np.loadtxt(r"./polars/clarky_maneia.csv", delimiter=",")
+    # # data_airf = np.loadtxt(r"./polars/clarky_maneia.csv", delimiter=",")
+    # root_path = os.path.abspath(
+    #     os.path.join(os.path.dirname(__file__), "..", "..", "..")
+    # )
+    # # print(f"root_path:{root_path}")
+    # sys.path.insert(0, root_path)
+    # print(sys.path)
+    # Get the absolute path of the current script
+    # script_dir = os.path.dirname(os.path.abspath(__file__))
+    # # Build the absolute path to the file
+    # file_path = os.path.join(script_dir, "./polars/clarky_maneia.csv")
+    # print(f"file_path:{file_path}")
+    data_airf = np.loadtxt(
+        r"./polars/clarky_maneia.csv",
+        delimiter=",",
+    )
 
-    case_parameters = (
+    case_parameters = [
         coord_input_params,
         aoas,
         wing_type,
@@ -47,59 +71,68 @@ def get_curved_case_params():
         relaxation_factor,
         core_radius_fraction,
         data_airf,
-    )
+    ]
     return case_parameters
 
 
-# def test_elliptical():
-#     case_params = get_elliptical_case_params()
+def test_curved():
+    case_params = get_curved_case_params()
+    # making sure not too many points are tested
+    case_params[1] = np.deg2rad(np.array([3, 6, 9]))
+    # comparison solution
+    aoas = case_params[1]
+    AR = case_params[4]
+    polars_Maneia = np.loadtxt(
+        "./polars/curved_wing_polars_maneia.csv",
+        delimiter=",",
+    )
+    alpha_Maneia = polars_Maneia[:, 0]
+    CL_Maneia = polars_Maneia[:, 1]
+    CD_Maneia = polars_Maneia[:, 2]
+    # OLD numerical
+    CL_LLT, CD_LLT, CL_VSM, CD_VSM, gamma_LLT, gamma_VSM = (
+        test_utils.calculate_old_for_alpha_range(case_params)
+    )
+    # NEW numerical
+    (
+        CL_LLT_new,
+        CD_LLT_new,
+        CL_VSM_new,
+        CD_VSM_new,
+        gamma_LLT_new,
+        gamma_VSM_new,
+        panel_y,
+    ) = test_utils.calculate_new_for_alpha_range(
+        case_params,
+        is_plotting=False,
+    )
+    # checking LTT old close to LLT new
+    assert np.allclose(CL_LLT, CL_LLT_new, atol=2e-2)
+    assert np.allclose(CD_LLT, CD_LLT_new, atol=2e-3)
 
-#     # analytical solution
-#     aoas = case_params[1]
-#     AR = case_params[4]
-#     CL_th = 2 * np.pi * aoas / (1 + 2 / AR)
-#     CDi_th = CL_th**2 / np.pi / AR
-#     # OLD numerical
-#     CL_LLT, CD_LLT, CL_VSM, CD_VSM, gamma_LLT, gamma_VSM = (
-#         test_utils.calculate_old_for_alpha_range(case_params)
-#     )
-#     # NEW numerical
-#     (
-#         CL_LLT_new,
-#         CD_LLT_new,
-#         CL_VSM_new,
-#         CD_VSM_new,
-#         gamma_LLT_new,
-#         gamma_VSM_new,
-#         panel_y,
-#     ) = test_utils.calculate_new_for_alpha_range(
-#         case_params,
-#         is_plotting=False,
-#     )
-#     for aoa in aoas:
-#         aoa_deg = np.rad2deg(aoa)
-#         # checking all LLTs to be close
-#         assert np.allclose(CL_th, CL_LLT, atol=1e-2)
-#         assert np.allclose(CDi_th, CD_LLT, atol=1e-4)
-#         assert np.allclose(CL_th, CL_LLT_new, atol=1e-2)
-#         assert np.allclose(CDi_th, CD_LLT_new, atol=1e-4)
-#         assert np.allclose(gamma_LLT, gamma_LLT_new, atol=1e-2)
+    # checking VSMs to be close to one another
+    assert np.allclose(CL_VSM, CL_VSM_new, atol=4e-2)
+    assert np.allclose(CD_VSM, CD_VSM_new, atol=4e-3)
 
-#         # checking VSMs to be close to one another
-#         assert np.allclose(CL_VSM, CL_VSM_new, atol=1e-2)
-#         assert np.allclose(CD_VSM, CD_VSM_new, atol=1e-4)
+    # checking the LLT to be close to the VSM, with HIGHER tolerance
+    tol_llt_to_vsm_CL = 2e-1
+    tol_llt_to_vsm_CD = 4e-2
+    assert np.allclose(CL_LLT, CL_VSM, atol=tol_llt_to_vsm_CL)
+    assert np.allclose(CD_LLT, CD_VSM, atol=tol_llt_to_vsm_CD)
+    assert np.allclose(CL_LLT_new, CL_VSM_new, atol=tol_llt_to_vsm_CL)
+    assert np.allclose(CD_LLT_new, CD_VSM_new, atol=tol_llt_to_vsm_CD)
 
-#         # checking the LLT to be close to the VSM, with HIGHER tolerance
-#         tol_llt_to_vsm_CL = 1e-1
-#         tol_llt_to_vsm_CD = 1e-3
-#         assert np.allclose(CL_th, CL_VSM, atol=tol_llt_to_vsm_CL)
-#         assert np.allclose(CDi_th, CD_VSM, atol=tol_llt_to_vsm_CD)
-#         assert np.allclose(CL_th, CL_VSM_new, atol=tol_llt_to_vsm_CL)
-#         assert np.allclose(CDi_th, CD_VSM_new, atol=tol_llt_to_vsm_CD)
-#         assert np.allclose(CL_LLT, CL_VSM, atol=tol_llt_to_vsm_CL)
-#         assert np.allclose(CD_LLT, CD_VSM, atol=tol_llt_to_vsm_CD)
-#         assert np.allclose(CL_LLT_new, CL_VSM_new, atol=tol_llt_to_vsm_CL)
-#         assert np.allclose(CD_LLT_new, CD_VSM_new, atol=tol_llt_to_vsm_CD)
+    # interpolating Maneia results to match the alphas
+    CL_maneia_at_new_alphas = []
+    CD_maneia_at_new_alphas = []
+    for alpha in aoas:
+        alpha = np.rad2deg(alpha)
+        CL_maneia_at_new_alphas.append(np.interp(alpha, alpha_Maneia, CL_Maneia))
+        CD_maneia_at_new_alphas.append(np.interp(alpha, alpha_Maneia, CD_Maneia))
+
+    # checking new VSM close to Maneia
+    assert np.allclose(CL_maneia_at_new_alphas, CL_VSM_new, atol=1e-1)
+    assert np.allclose(CD_maneia_at_new_alphas, CD_VSM_new, atol=1e-2)
 
 
 if __name__ == "__main__":
@@ -109,7 +142,10 @@ if __name__ == "__main__":
     aoas = case_params[1]
     AR = case_params[4]
     # comparing solution
-    polars_Maneia = np.loadtxt("./polars/curved_wing_polars_maneia.csv", delimiter=",")
+    polars_Maneia = np.loadtxt(
+        "./polars/curved_wing_polars_maneia.csv",
+        delimiter=",",
+    )
     # OLD numerical
     CL_LLT, CD_LLT, CL_VSM, CD_VSM, gamma_LLT, gamma_VSM = (
         test_utils.calculate_old_for_alpha_range(case_params)

@@ -60,7 +60,7 @@ def get_elliptical_case_params():
 def test_elliptical():
     case_params = get_elliptical_case_params()
     # making sure not too many points are tested
-    case_params[1] = np.deg2rad(np.array([5, 10]))
+    case_params[1] = np.deg2rad(np.array([3, 6, 9]))
     # analytical solution
     aoas = case_params[1]
     AR = case_params[4]
@@ -83,30 +83,29 @@ def test_elliptical():
         case_params,
         is_plotting=False,
     )
-    for aoa in aoas:
-        aoa_deg = np.rad2deg(aoa)
-        # checking all LLTs to be close
-        assert np.allclose(CL_th, CL_LLT, atol=1e-2)
-        assert np.allclose(CDi_th, CD_LLT, atol=1e-3)
-        assert np.allclose(CL_th, CL_LLT_new, atol=1e-2)
-        assert np.allclose(CDi_th, CD_LLT_new, atol=1e-3)
-        assert np.allclose(gamma_LLT, gamma_LLT_new, atol=1e-2)
 
-        # checking VSMs to be close to one another
-        assert np.allclose(CL_VSM, CL_VSM_new, atol=1e-2)
-        assert np.allclose(CD_VSM, CD_VSM_new, atol=1e-3)
+    # checking all LLTs to be close
+    assert np.allclose(CL_th, CL_LLT, atol=1e-2)
+    assert np.allclose(CDi_th, CD_LLT, atol=1e-3)
+    assert np.allclose(CL_th, CL_LLT_new, atol=1e-2)
+    assert np.allclose(CDi_th, CD_LLT_new, atol=1e-3)
+    assert np.allclose(gamma_LLT, gamma_LLT_new, atol=1e-2)
 
-        # checking the LLT to be close to the VSM, with HIGHER tolerance
-        tol_llt_to_vsm_CL = 1e-1
-        tol_llt_to_vsm_CD = 1e-3
-        assert np.allclose(CL_th, CL_VSM, atol=tol_llt_to_vsm_CL)
-        assert np.allclose(CDi_th, CD_VSM, atol=tol_llt_to_vsm_CD)
-        assert np.allclose(CL_th, CL_VSM_new, atol=tol_llt_to_vsm_CL)
-        assert np.allclose(CDi_th, CD_VSM_new, atol=tol_llt_to_vsm_CD)
-        assert np.allclose(CL_LLT, CL_VSM, atol=tol_llt_to_vsm_CL)
-        assert np.allclose(CD_LLT, CD_VSM, atol=tol_llt_to_vsm_CD)
-        assert np.allclose(CL_LLT_new, CL_VSM_new, atol=tol_llt_to_vsm_CL)
-        assert np.allclose(CD_LLT_new, CD_VSM_new, atol=tol_llt_to_vsm_CD)
+    # checking VSMs to be close to one another
+    assert np.allclose(CL_VSM, CL_VSM_new, atol=1e-2)
+    assert np.allclose(CD_VSM, CD_VSM_new, atol=1e-3)
+
+    # checking the LLT to be close to the VSM, with HIGHER tolerance
+    tol_llt_to_vsm_CL = 1e-1
+    tol_llt_to_vsm_CD = 1e-3
+    assert np.allclose(CL_th, CL_VSM, atol=tol_llt_to_vsm_CL)
+    assert np.allclose(CDi_th, CD_VSM, atol=tol_llt_to_vsm_CD)
+    assert np.allclose(CL_th, CL_VSM_new, atol=tol_llt_to_vsm_CL)
+    assert np.allclose(CDi_th, CD_VSM_new, atol=tol_llt_to_vsm_CD)
+    assert np.allclose(CL_LLT, CL_VSM, atol=tol_llt_to_vsm_CL)
+    assert np.allclose(CD_LLT, CD_VSM, atol=tol_llt_to_vsm_CD)
+    assert np.allclose(CL_LLT_new, CL_VSM_new, atol=tol_llt_to_vsm_CL)
+    assert np.allclose(CD_LLT_new, CD_VSM_new, atol=tol_llt_to_vsm_CD)
 
 
 if __name__ == "__main__":
