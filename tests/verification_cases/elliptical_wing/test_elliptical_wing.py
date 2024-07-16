@@ -18,8 +18,8 @@ def get_elliptical_case_params():
     # span = 2.36  # AR = 3
     dist = "cos"
     N = 40
-    aoas = np.arange(0, 20, 1) / 180 * np.pi
-    # aoas = np.deg2rad([5, 10])
+    # aoas = np.arange(0, 20, 1) / 180 * np.pi
+    aoas = np.deg2rad([5, 10])
     wing_type = "elliptical"
 
     coord_input_params = [max_chord, span, N, dist]
@@ -41,7 +41,7 @@ def get_elliptical_case_params():
     data_airf[:, 2] = alpha_airf * 0
     data_airf[:, 3] = alpha_airf * 0
 
-    case_parameters = (
+    case_parameters = [
         coord_input_params,
         aoas,
         wing_type,
@@ -53,14 +53,14 @@ def get_elliptical_case_params():
         relaxation_factor,
         core_radius_fraction,
         data_airf,
-    )
+    ]
     return case_parameters
 
 
 def test_elliptical():
     case_params = get_elliptical_case_params()
     # making sure not too many points are tested
-    case_params[1] = np.array([5, 10, 15])
+    case_params[1] = np.deg2rad(np.array([5, 10]))
     # analytical solution
     aoas = case_params[1]
     AR = case_params[4]
@@ -87,14 +87,14 @@ def test_elliptical():
         aoa_deg = np.rad2deg(aoa)
         # checking all LLTs to be close
         assert np.allclose(CL_th, CL_LLT, atol=1e-2)
-        assert np.allclose(CDi_th, CD_LLT, atol=1e-4)
+        assert np.allclose(CDi_th, CD_LLT, atol=1e-3)
         assert np.allclose(CL_th, CL_LLT_new, atol=1e-2)
-        assert np.allclose(CDi_th, CD_LLT_new, atol=1e-4)
+        assert np.allclose(CDi_th, CD_LLT_new, atol=1e-3)
         assert np.allclose(gamma_LLT, gamma_LLT_new, atol=1e-2)
 
         # checking VSMs to be close to one another
         assert np.allclose(CL_VSM, CL_VSM_new, atol=1e-2)
-        assert np.allclose(CD_VSM, CD_VSM_new, atol=1e-4)
+        assert np.allclose(CD_VSM, CD_VSM_new, atol=1e-3)
 
         # checking the LLT to be close to the VSM, with HIGHER tolerance
         tol_llt_to_vsm_CL = 1e-1

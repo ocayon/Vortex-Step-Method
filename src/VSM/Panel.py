@@ -114,15 +114,10 @@ class Panel:
         self._y_airf = y_airf
         self._z_airf = z_airf
 
-        # TODO:
+        # TODO: Discuss with Mac...
         # Calculuting width at the bound, should be done averaged over whole panel
+        # Conceptually, you should mulitply by the width of the bound vortex and thus take the average width.
         self._width = np.linalg.norm(bound_point_2 - bound_point_1)
-        # self._width = np.average(
-        #     [
-        #         np.linalg.norm(self._TE_point_1 - self._TE_point_2),
-        #         np.linalg.norm(self._LE_point_1 - self._LE_point_2),
-        #     ]
-        # )
 
         ### Setting up the filaments (order used to reversed for right-to-left input)
         self._filaments = []
@@ -361,6 +356,7 @@ class Panel:
                 cl = 2 * np.cos(alpha) * np.sin(alpha) ** 2
             return cl
         elif self._panel_aero_model == "inviscid":
+            # TODO: could change back to sin(alpha)?
             return 2 * np.pi * alpha
         elif self._panel_aero_model == "polar_data":
             return np.interp(
@@ -414,7 +410,10 @@ class Panel:
         Returns:
             np.array: Induced velocity at the control point
         """
+        ### DIRECTION
+        # r3 perpendicular to the bound vortex
         r3 = evaluation_point - (self.bound_point_1 + self.bound_point_2) / 2
+        # r0 should be the direction of the bound vortex
         r0 = self.bound_point_1 - self.bound_point_2
         cross = np.cross(r0, r3)
         return (
@@ -450,6 +449,9 @@ class Panel:
 
         """
         velind = [0, 0, 0]
+
+        # TODO: could remove the i checks, and write FIlament calculate_induced_velocity generic to work for each class.
+        # TODO: would need to split up the BoundFilament class
         for i, filament in enumerate(self.filaments):
             # bound
             if i == 0:
@@ -464,12 +466,12 @@ class Panel:
                 tempvel = filament.velocity_3D_trailing_vortex(
                     evaluation_point, gamma, va_norm
                 )
-            # trailing_inf1
+            # trailing_semi_inf1
             elif i == 3:
                 tempvel = filament.velocity_3D_trailing_vortex_semiinfinite(
                     va_unit, evaluation_point, gamma, va_norm
                 )
-            # trailing_inf2
+            # trailing_semi_inf2
             elif i == 4:
                 tempvel = filament.velocity_3D_trailing_vortex_semiinfinite(
                     va_unit, evaluation_point, gamma, va_norm

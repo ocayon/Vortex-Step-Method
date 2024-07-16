@@ -167,6 +167,7 @@ class Solver:
             aoa_stall = np.deg2rad(20.0)
             for ia, alpha_i in enumerate(alpha):
                 if alpha_i > aoa_stall:
+                    # TODO: set to True
                     stall = False
                     logging.info(
                         "Stall detected, alpha[i]: %f, it: %d, panel_number: %d"

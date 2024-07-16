@@ -70,7 +70,11 @@ class Wing:
             return self.refine_mesh_by_splitting_provided_sections()
 
         # Linear or cosine spacing
-        if self.spanwise_panel_distribution == "linear" or "cosine":
+        if (
+            self.spanwise_panel_distribution == "linear"
+            or "cosine"
+            or "cosine_van_Garrel"
+        ):
             return self.refine_mesh_for_linear_cosine_distribution(
                 self.spanwise_panel_distribution, n_sections, LE, TE, aero_input
             )
@@ -159,8 +163,8 @@ class Wing:
 
             new_sections.append(Section(new_LE[i], new_TE[i], new_aero_input[i]))
 
-            # if self.spanwise_panel_distribution == "cosine_van_Garrel":
-            #     new_sections = self.calculate_cosine_van_Garrel(new_sections)
+            if self.spanwise_panel_distribution == "cosine_van_Garrel":
+                new_sections = self.calculate_cosine_van_Garrel(new_sections)
 
         return new_sections
 
@@ -189,6 +193,7 @@ class Wing:
             polar_right = aero_input[section_index + 1][1]
             if polar_left == polar_right:
                 return ["polar_data", polar_left]
+            # TODO: Implement polar interpolation
             else:
                 raise NotImplementedError("Polar interpolation not implemented")
         elif aero_input[section_index][0] == "lei_airfoil_breukels":
@@ -306,78 +311,78 @@ class Wing:
 
         return new_sections
 
-    # def calculate_cosine_van_Garrel(self, new_sections):
-    #     """Calculate the van Garrel cosine distribution of sections
-    #     URL: http://dx.doi.org/10.13140/RG.2.1.2773.8000
+    def calculate_cosine_van_Garrel(self, new_sections):
+        """Calculate the van Garrel cosine distribution of sections
+        URL: http://dx.doi.org/10.13140/RG.2.1.2773.8000
 
-    #     Args:
-    #         new_sections (list): List of Section objects
+        Args:
+            new_sections (list): List of Section objects
 
-    #     Returns:
-    #         new_sections_van_Garrel (list): List of Section objects with van Garrel cosine distribution
-    #     """
-    #     n = len(new_sections)
-    #     control_points = np.zeros((n, 3))
+        Returns:
+            new_sections_van_Garrel (list): List of Section objects with van Garrel cosine distribution
+        """
+        n = len(new_sections)
+        control_points = np.zeros((n, 3))
 
-    #     # Calculate chords and quarter chords
-    #     chords = []
-    #     quarter_chords = []
-    #     for section in new_sections:
-    #         chord = section.TE_point - section.LE_point
-    #         chords.append(chord)
-    #         quarter_chords.append(section.LE_point + 0.25 * chord)
+        # Calculate chords and quarter chords
+        chords = []
+        quarter_chords = []
+        for section in new_sections:
+            chord = section.TE_point - section.LE_point
+            chords.append(chord)
+            quarter_chords.append(section.LE_point + 0.25 * chord)
 
-    #     # Calculate widths
-    #     widths = np.zeros(n - 1)
-    #     for i in range(n - 1):
-    #         widths[i] = np.linalg.norm(quarter_chords[i + 1] - quarter_chords[i])
+        # Calculate widths
+        widths = np.zeros(n - 1)
+        for i in range(n - 1):
+            widths[i] = np.linalg.norm(quarter_chords[i + 1] - quarter_chords[i])
 
-    #     # Calculate correction eta_cp
-    #     eta_cp = np.zeros(n - 1)
+        # Calculate correction eta_cp
+        eta_cp = np.zeros(n - 1)
 
-    #     # First panel
-    #     eta_cp[0] = widths[0] / (widths[0] + widths[1])
+        # First panel
+        eta_cp[0] = widths[0] / (widths[0] + widths[1])
 
-    #     # Internal panels
-    #     for j in range(1, n - 2):
-    #         eta_cp[j] = 0.25 * (
-    #             widths[j - 1] / (widths[j - 1] + widths[j])
-    #             + widths[j] / (widths[j] + widths[j + 1])
-    #             + 1
-    #         )
-    #         control_points[j] = quarter_chords[j] + eta_cp[j] * (
-    #             quarter_chords[j + 1] - quarter_chords[j]
-    #         )
-    #     # Last panel
-    #     eta_cp[-1] = widths[-2] / (widths[-2] + widths[-1])
+        # Internal panels
+        for j in range(1, n - 2):
+            eta_cp[j] = 0.25 * (
+                widths[j - 1] / (widths[j - 1] + widths[j])
+                + widths[j] / (widths[j] + widths[j + 1])
+                + 1
+            )
+            control_points[j] = quarter_chords[j] + eta_cp[j] * (
+                quarter_chords[j + 1] - quarter_chords[j]
+            )
+        # Last panel
+        eta_cp[-1] = widths[-2] / (widths[-2] + widths[-1])
 
-    #     logging.debug(f"eta_cp: {eta_cp}")
+        logging.debug(f"eta_cp: {eta_cp}")
 
-    #     # Calculate control points
-    #     control_points = []
-    #     for i, eta_cp_i in enumerate(eta_cp):
-    #         control_points.append(
-    #             quarter_chords[i]
-    #             + eta_cp_i * (quarter_chords[i + 1] - quarter_chords[i])
-    #         )
+        # Calculate control points
+        control_points = []
+        for i, eta_cp_i in enumerate(eta_cp):
+            control_points.append(
+                quarter_chords[i]
+                + eta_cp_i * (quarter_chords[i + 1] - quarter_chords[i])
+            )
 
-    #     # Calculate new_sections_van_Garrel
-    #     new_sections_van_Garrel = []
+        # Calculate new_sections_van_Garrel
+        new_sections_van_Garrel = []
 
-    #     for i, control_point_i in enumerate(control_points):
-    #         # Use the original chord length
-    #         chord = chords[i]
-    #         new_LE_point = control_point_i - 0.25 * chord
-    #         new_TE_point = control_point_i + 0.75 * chord
+        for i, control_point_i in enumerate(control_points):
+            # Use the original chord length
+            chord = chords[i]
+            new_LE_point = control_point_i - 0.25 * chord
+            new_TE_point = control_point_i + 0.75 * chord
 
-    #         # Keep the original aero_input
-    #         aero_input_i = new_sections[i].aero_input
+            # Keep the original aero_input
+            aero_input_i = new_sections[i].aero_input
 
-    #         new_sections_van_Garrel.append(
-    #             Section(new_LE_point, new_TE_point, aero_input_i)
-    #         )
+            new_sections_van_Garrel.append(
+                Section(new_LE_point, new_TE_point, aero_input_i)
+            )
 
-    #     return new_sections_van_Garrel
+        return new_sections_van_Garrel
 
     # TODO: add test here, assessing for example the types of the inputs
     def calculate_wing_span(self):
@@ -404,6 +409,7 @@ class Wing:
         return span
 
 
+# TODO: remove this, no need for inherance here, can be just a function :)
 @dataclass
 class Section:
     LE_point: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))

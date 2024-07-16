@@ -106,6 +106,7 @@ def generate_coordinates_curved_wing(chord, span, theta, R, N, dist):
 
 
 def generate_coordinates_el_wing(max_chord, span, N, dist):
+    # cosine van garrel
     coord = np.empty((2 * N, 3))
     start = span * 1e-5
     if dist == "cos":

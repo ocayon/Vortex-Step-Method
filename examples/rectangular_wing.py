@@ -37,7 +37,7 @@ span = 20
 # wing.add_section([0, -span / 2, 0], [1, -span / 2, 0], ["inviscid"])
 wing.add_section([0, span / 2, 0], [1, span / 2, 0], ["inviscid"])
 # wing.add_section([0, span / 4, 0], [1, span / 4, 0], ["inviscid"])
-wing.add_section([0, 0, 0], [1, 0, 0], ["inviscid"])
+# wing.add_section([0, 0, 0], [1, 0, 0], ["inviscid"])
 # wing.add_section([0, -span / 4, 0], [1, -span / 4, 0], ["inviscid"])
 wing.add_section([0, -span / 2, 0], [1, -span / 2, 0], ["inviscid"])
 
