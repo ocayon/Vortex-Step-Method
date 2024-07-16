@@ -460,11 +460,13 @@ def calculate_new_for_alpha_range(
     if wing_type == "elliptical":
         max_chord, span, N, dist = coord_input_params
         coord = thesis_functions.generate_coordinates_el_wing(max_chord, span, N, dist)
+        airfoil_input = ["inviscid"]
     elif wing_type == "curved":
         chord, span, theta, R, N, dist = coord_input_params
         coord = thesis_functions.generate_coordinates_curved_wing(
             chord, span, theta, R, N, dist
         )
+        airfoil_input = ["polar_data", data_airf]
 
     coord_left_to_right = flip_created_coord_in_pairs(deepcopy(coord))
     wing = Wing(N, "unchanged")
@@ -473,8 +475,7 @@ def calculate_new_for_alpha_range(
         wing.add_section(
             coord_left_to_right[2 * idx],
             coord_left_to_right[2 * idx + 1],
-            # ["polar_data", data_airf],
-            ["inviscid"],
+            airfoil_input,
         )
 
     wing_aero = WingAerodynamics([wing])
