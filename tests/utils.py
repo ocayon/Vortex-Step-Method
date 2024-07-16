@@ -365,6 +365,13 @@ def calculate_old_for_alpha_range(case_params):
         coord = thesis_functions.generate_coordinates_curved_wing(
             chord, span, theta, R, N, dist
         )
+    elif wing_type == "swept_wing":
+        chord, offset, span, twist, beta, N, dist = coord_input_params
+        coord = thesis_functions.generate_coordinates_swept_wing(
+            chord, offset, span, twist, beta, N, dist
+        )
+    else:
+        raise ValueError(f"wing_type: {wing_type} not recognized")
 
     # aoa = 5.7106 * np.pi / 180
     # Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
@@ -467,6 +474,14 @@ def calculate_new_for_alpha_range(
             chord, span, theta, R, N, dist
         )
         airfoil_input = ["polar_data", data_airf]
+    elif wing_type == "swept_wing":
+        chord, offset, span, twist, beta, N, dist = coord_input_params
+        coord = thesis_functions.generate_coordinates_swept_wing(
+            chord, offset, span, twist, beta, N, dist
+        )
+        airfoil_input = ["polar_data", data_airf]
+    else:
+        raise ValueError(f"wing_type: {wing_type} not recognized")
 
     coord_left_to_right = flip_created_coord_in_pairs(deepcopy(coord))
     wing = Wing(N, "unchanged")

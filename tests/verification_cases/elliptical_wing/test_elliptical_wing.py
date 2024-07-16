@@ -18,8 +18,7 @@ def get_elliptical_case_params():
     # span = 2.36  # AR = 3
     dist = "cos"
     N = 40
-    # aoas = np.arange(0, 20, 1) / 180 * np.pi
-    aoas = np.deg2rad([5, 10])
+    aoas = np.arange(0, 20, 1) / 180 * np.pi
     wing_type = "elliptical"
 
     coord_input_params = [max_chord, span, N, dist]

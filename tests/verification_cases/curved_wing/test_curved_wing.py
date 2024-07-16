@@ -26,8 +26,7 @@ def get_curved_case_params():
     span = 6.969
     dist = "lin"
     N = 60
-    # aoas = np.arange(-4, 24, 1) / 180 * np.pi
-    aoas = np.deg2rad([0, 5, 10, 15])
+    aoas = np.arange(-4, 24, 1) / 180 * np.pi
     wing_type = "curved"
     Umag = 20
     AR = span / max_chord
@@ -42,18 +41,6 @@ def get_curved_case_params():
     relaxation_factor = 0.03
     core_radius_fraction = 1e-20
 
-    # # data_airf = np.loadtxt(r"./polars/clarky_maneia.csv", delimiter=",")
-    # root_path = os.path.abspath(
-    #     os.path.join(os.path.dirname(__file__), "..", "..", "..")
-    # )
-    # # print(f"root_path:{root_path}")
-    # sys.path.insert(0, root_path)
-    # print(sys.path)
-    # Get the absolute path of the current script
-    # script_dir = os.path.dirname(os.path.abspath(__file__))
-    # # Build the absolute path to the file
-    # file_path = os.path.join(script_dir, "./polars/clarky_maneia.csv")
-    # print(f"file_path:{file_path}")
     data_airf = np.loadtxt(
         r"./polars/clarky_maneia.csv",
         delimiter=",",
