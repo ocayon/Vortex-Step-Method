@@ -3,6 +3,7 @@ import numpy as np
 import logging
 import sys
 import os
+import matplotlib.pyplot as plt
 
 # Go back to root folder
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -18,7 +19,7 @@ def get_elliptical_case_params():
     dist = "cos"
     N = 40
     aoas = np.arange(0, 20, 1) / 180 * np.pi
-    aoas = np.deg2rad([5, 10])
+    # aoas = np.deg2rad([5, 10])
     wing_type = "elliptical"
 
     coord_input_params = [max_chord, span, N, dist]
@@ -40,7 +41,7 @@ def get_elliptical_case_params():
     data_airf[:, 2] = alpha_airf * 0
     data_airf[:, 3] = alpha_airf * 0
 
-    return (
+    case_parameters = (
         coord_input_params,
         aoas,
         wing_type,
@@ -53,41 +54,21 @@ def get_elliptical_case_params():
         core_radius_fraction,
         data_airf,
     )
+    return case_parameters
 
 
 def test_elliptical():
-    (
-        coord_input_params,
-        aoas,
-        wing_type,
-        data_airf,
-        Umag,
-        AR,
-        Atot,
-        max_iterations,
-        allowed_error,
-        relaxation_factor,
-        core_radius_fraction,
-        data_airf,
-    ) = get_elliptical_case_params()
-
+    case_params = get_elliptical_case_params()
+    # making sure not too many points are tested
+    case_params[1] = np.array([5, 10, 15])
     # analytical solution
+    aoas = case_params[1]
+    AR = case_params[4]
     CL_th = 2 * np.pi * aoas / (1 + 2 / AR)
     CDi_th = CL_th**2 / np.pi / AR
     # OLD numerical
     CL_LLT, CD_LLT, CL_VSM, CD_VSM, gamma_LLT, gamma_VSM = (
-        test_utils.calculate_old_for_alpha_range(
-            coord_input_params,
-            Umag,
-            Atot,
-            aoas,
-            wing_type,
-            data_airf,
-            max_iterations,
-            allowed_error,
-            relaxation_factor,
-            core_radius_fraction,
-        )
+        test_utils.calculate_old_for_alpha_range(case_params)
     )
     # NEW numerical
     (
@@ -99,16 +80,7 @@ def test_elliptical():
         gamma_VSM_new,
         panel_y,
     ) = test_utils.calculate_new_for_alpha_range(
-        coord_input_params,
-        Umag,
-        Atot,
-        aoas,
-        wing_type,
-        data_airf,
-        max_iterations,
-        allowed_error,
-        relaxation_factor,
-        core_radius_fraction,
+        case_params,
         is_plotting=False,
     )
     for aoa in aoas:
@@ -139,38 +111,16 @@ def test_elliptical():
 
 if __name__ == "__main__":
 
-    ## params
-    (
-        coord_input_params,
-        aoas,
-        wing_type,
-        Umag,
-        AR,
-        Atot,
-        max_iterations,
-        allowed_error,
-        relaxation_factor,
-        core_radius_fraction,
-        data_airf,
-    ) = get_elliptical_case_params()
+    case_params = get_elliptical_case_params()
 
     # analytical solution
+    aoas = case_params[1]
+    AR = case_params[4]
     CL_th = 2 * np.pi * aoas / (1 + 2 / AR)
     CDi_th = CL_th**2 / np.pi / AR
     # OLD numerical
     CL_LLT, CD_LLT, CL_VSM, CD_VSM, gamma_LLT, gamma_VSM = (
-        test_utils.calculate_old_for_alpha_range(
-            coord_input_params,
-            Umag,
-            Atot,
-            aoas,
-            wing_type,
-            data_airf,
-            max_iterations,
-            allowed_error,
-            relaxation_factor,
-            core_radius_fraction,
-        )
+        test_utils.calculate_old_for_alpha_range(case_params)
     )
     # NEW numerical
     (
@@ -182,15 +132,7 @@ if __name__ == "__main__":
         gamma_VSM_new,
         panel_y,
     ) = test_utils.calculate_new_for_alpha_range(
-        coord_input_params,
-        Umag,
-        aoas,
-        wing_type,
-        data_airf,
-        max_iterations,
-        allowed_error,
-        relaxation_factor,
-        core_radius_fraction,
+        case_params,
         is_plotting=False,
     )
 

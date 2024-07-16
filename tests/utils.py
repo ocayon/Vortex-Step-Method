@@ -340,18 +340,21 @@ def print_matrix(matrix, name="Matrix"):
     print(f"{name}:\n{matrix_str}")
 
 
-def calculate_old_for_alpha_range(
-    coord_input_params,
-    Umag,
-    Atot,
-    aoas,
-    wing_type,
-    data_airf,
-    max_iterations=1500,
-    allowed_error=1e-5,
-    relaxation_factor=0.05,
-    core_radius_fraction=1e-20,
-):
+def calculate_old_for_alpha_range(case_params):
+    (
+        coord_input_params,
+        aoas,
+        wing_type,
+        Umag,
+        AR,
+        Atot,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
+        data_airf,
+    ) = case_params
+
     ## defining coord
     if wing_type == "elliptical":
         max_chord, span, N, dist = coord_input_params
@@ -371,8 +374,6 @@ def calculate_old_for_alpha_range(
         "Relax_factor": relaxation_factor,
     }
 
-    Gamma0 = np.zeros(N - 1)
-
     ring_geo = "5fil"
     model = "VSM"
 
@@ -385,6 +386,8 @@ def calculate_old_for_alpha_range(
     Gamma_LLT = []
     Gamma_VSM = []
     for i in range(len(aoas)):
+
+        Gamma0 = np.zeros(N - 1)
 
         Uinf = np.array([np.cos(aoas[i]), 0, np.sin(aoas[i])]) * Umag
         model = "LLT"
@@ -420,7 +423,7 @@ def calculate_old_for_alpha_range(
             Fmag, aero_coeffs, ringvec, Uinf, controlpoints, Atot
         )
 
-        Gamma0 = Gamma
+        # Gamma0 = Gamma
         print(str((i + 1) / len(aoas) * 100) + " %")
     # end_time = time.time()
     # print(end_time - start_time)
@@ -429,20 +432,27 @@ def calculate_old_for_alpha_range(
 
 
 def calculate_new_for_alpha_range(
-    coord_input_params,
-    Umag,
-    Atot,
-    aoas,
-    wing_type,
-    data_airf,
-    max_iterations=1500,
-    allowed_error=1e-5,
-    relaxation_factor=0.05,
-    core_radius_fraction=1e-20,
+    case_params,
     is_plotting=False,
 ):
+    (
+        coord_input_params,
+        aoas,
+        wing_type,
+        Umag,
+        AR,
+        Atot,
+        max_iterations,
+        allowed_error,
+        relaxation_factor,
+        core_radius_fraction,
+        data_airf,
+    ) = case_params
 
     # transfering the data_airf first column to radians
+    # data_airf[:, 0] = np.array(
+    #     [np.deg2rad(data_airf_i[0]) for data_airf_i in data_airf]
+    # )
     data_airf[:, 0] = np.deg2rad(data_airf[:, 0])
 
     ## defining coord
