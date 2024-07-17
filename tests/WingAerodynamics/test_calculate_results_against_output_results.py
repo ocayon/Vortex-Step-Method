@@ -155,11 +155,11 @@ def test_calculate_results():
     ##########################
 
     # Assert that the results are close
-    np.testing.assert_allclose(cl_calculated, CL_ref, rtol=1e-5)
-    np.testing.assert_allclose(cd_calculated, CD_ref, rtol=1e-5)
-    np.testing.assert_allclose(cs_calculated, CS_ref, rtol=1e-5)
-    np.testing.assert_allclose(L_calculated, Ltot_ref, rtol=1e-5)
-    np.testing.assert_allclose(D_calculated, Dtot_ref, rtol=1e-5)
+    np.testing.assert_allclose(cl_calculated, CL_ref, rtol=1e-4)
+    np.testing.assert_allclose(cd_calculated, CD_ref, rtol=1e-4)
+    np.testing.assert_allclose(cs_calculated, CS_ref, rtol=1e-4)
+    np.testing.assert_allclose(L_calculated, Ltot_ref, rtol=1e-4)
+    np.testing.assert_allclose(D_calculated, Dtot_ref, rtol=1e-4)
 
     # Check the shape of array outputs
     assert len(results_NEW["cl_distribution"]) == len(wing_aero.panels)

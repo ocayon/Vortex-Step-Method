@@ -127,6 +127,8 @@ if __name__ == "__main__":
     case_params = get_curved_case_params()
 
     aoas = case_params[1]
+    aoas = np.deg2rad(np.linspace(0,20,10))
+    case_params[1] = aoas
     AR = case_params[4]
     # comparing solution
     polars_Maneia = np.loadtxt(
@@ -167,6 +169,6 @@ if __name__ == "__main__":
     for i, aoa in enumerate(aoas):
         print(f"aoa = {np.rad2deg(aoa)}")
         for label, CD, CL in zip(labels, CD_list, CL_list):
-            print(f"{label}: CL = {CL[i]}, CD = {CD[i]}")
+            print(f"{label}: CL = {CL}, CD = {CD}")
 
     plt.show()

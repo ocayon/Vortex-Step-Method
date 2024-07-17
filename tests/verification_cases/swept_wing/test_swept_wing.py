@@ -170,10 +170,12 @@ if __name__ == "__main__":
         labels=["RANS [Maneia]", "LLT", "LLT_new", "VSM", "VSM_new"],
     )
     labels = ["polars_CFD", "LLT", "LLT_new", "VSM", "VSM_new"]
-    CL_list = [polars_CFD[:, 1], CL_LLT, CL_LLT_new, CL_VSM, CL_VSM_new]
+    CL_list = [polars_CFD[:,1],CL_LLT, CL_LLT_new, CL_VSM, CL_VSM_new]
+    CD_list = [np.zeros_like(polars_CFD[:,0]),CD_LLT, CD_LLT_new, CD_VSM, CD_VSM_new]
+
     for i, aoa in enumerate(aoas):
         print(f"aoa = {np.rad2deg(aoa)}")
         for label, CD, CL in zip(labels, CD_list, CL_list):
-            print(f"{label}: CL = {CL[i]}, CD = {CD[i]}")
+            print(f"{label}: CL = {CL}, CD = {CD}")
 
     plt.show()
