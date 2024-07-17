@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Go back to root folder
-root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, root_path)
 import tests.thesis_functions_oriol_cayon as thesis_functions
 
@@ -485,7 +485,7 @@ def calculate_new_for_alpha_range(
         airfoil_input = ["polar_data", data_airf]
     elif wing_type == "LEI_kite":
         coord, thicc, camber = coord_input_params
-        airfoil_input = ["polar_data", data_airf]
+        airfoil_input = ["lei_airfoil_breukels", [thicc, camber]]
         N = len(coord) // 2
     else:
         raise ValueError(f"wing_type: {wing_type} not recognized")

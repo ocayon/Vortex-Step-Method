@@ -2,6 +2,12 @@ import pytest
 import numpy as np
 from VSM.Panel import Panel  # Assuming the Panel class is in a file named Panel.py
 
+import os
+import sys
+# Go back to root folder
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, root_path)
+from thesis_functions_oriol_cayon import LEI_airf_coeff
 
 # Mock Section class for testing
 class MockSection:
@@ -130,105 +136,8 @@ def test_polar_data_input():
     assert np.allclose(panel._panel_polar_data, expected_data, atol=1e-6)
 
 
-# taken from Uri thesis code
-def LEI_airf_coeff(t, k, alpha):
-    """
-    ----------
-    t : TYPE
-        DESCRIPTION.
-    k : TYPE
-        DESCRIPTION.
-    alpha : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    Cl : TYPE
-        DESCRIPTION.
-    Cd : TYPE
-        DESCRIPTION.
-    Cm : TYPE
-        DESCRIPTION.
-
-    """
-    C20 = -0.008011
-    C21 = -0.000336
-    C22 = 0.000992
-    C23 = 0.013936
-    C24 = -0.003838
-    C25 = -0.000161
-    C26 = 0.001243
-    C27 = -0.009288
-    C28 = -0.002124
-    C29 = 0.012267
-    C30 = -0.002398
-    C31 = -0.000274
-    C32 = 0
-    C33 = 0
-    C34 = 0
-    C35 = -3.371000
-    C36 = 0.858039
-    C37 = 0.141600
-    C38 = 7.201140
-    C39 = -0.676007
-    C40 = 0.806629
-    C41 = 0.170454
-    C42 = -0.390563
-    C43 = 0.101966
-    C44 = 0.546094
-    C45 = 0.022247
-    C46 = -0.071462
-    C47 = -0.006527
-    C48 = 0.002733
-    C49 = 0.000686
-    C50 = 0.123685
-    C51 = 0.143755
-    C52 = 0.495159
-    C53 = -0.105362
-    C54 = 0.033468
-    C55 = -0.284793
-    C56 = -0.026199
-    C57 = -0.024060
-    C58 = 0.000559
-    C59 = -1.787703
-    C60 = 0.352443
-    C61 = -0.839323
-    C62 = 0.137932
-
-    S9 = C20 * t**2 + C21 * t + C22
-    S10 = C23 * t**2 + C24 * t + C25
-    S11 = C26 * t**2 + C27 * t + C28
-    S12 = C29 * t**2 + C30 * t + C31
-    S13 = C32 * t**2 + C33 * t + C34
-    S14 = C35 * t**2 + C36 * t + C37
-    S15 = C38 * t**2 + C39 * t + C40
-    S16 = C41 * t**2 + C42 * t + C43
-
-    lambda5 = S9 * k + S10
-    lambda6 = S11 * k + S12
-    lambda7 = S13 * k + S14
-    lambda8 = S15 * k + S16
-
-    Cl = lambda5 * alpha**3 + lambda6 * alpha**2 + lambda7 * alpha + lambda8
-    Cd = (
-        ((C44 * t + C45) * k**2 + (C46 * t + C47) * k + (C48 * t + C49)) * alpha**2
-        + (C50 * t + C51) * k
-        + (C52 * t**2 + C53 * t + C54)
-    )
-    Cm = (
-        ((C55 * t + C56) * k + (C57 * t + C58)) * alpha**2
-        + (C59 * t + C60) * k
-        + (C61 * t + C62)
-    )
-
-    if alpha > 20 or alpha < -20:
-        Cl = 2 * np.cos(alpha * np.pi / 180) * np.sin(alpha * np.pi / 180) ** 2
-        Cd = 2 * np.sin(alpha * np.pi / 180) ** 3
-
-    return Cl, Cd, Cm
-
-
 def test_lei_airfoil_breukels_input():
+    
     # Create two sections with LEI airfoil parameters
     t1, k1 = 0.12, 0.8
     t2, k2 = 0.15, 0.7
@@ -408,8 +317,8 @@ def test_calculate_cl_and_cd_cm(sample_panel):
     # calculating average t and k
     t_avg = (0.12 + 0.15) / 2
     k_avg = (0.8 + 0.7) / 2
-    t = t_avg / lei_airfoil_panel_instance._chord
-    k = k_avg / lei_airfoil_panel_instance._chord
+    t = t_avg 
+    k = k_avg 
 
     # testing several angles
     test_alphas = [-10, 0, 10, 40]

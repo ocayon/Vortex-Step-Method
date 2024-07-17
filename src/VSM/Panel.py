@@ -233,12 +233,8 @@ class Panel:
     ):
         t1, k1 = section_1.aero_input[1]
         t2, k2 = section_2.aero_input[1]
-        t_avg = (t1 + t2) / 2
-        k_avg = (k1 + k2) / 2
-        # non-dimensionalized average tube_diameter
-        t = t_avg / self._chord
-        # non-dimensionalized average max-chamber
-        k = k_avg / self._chord
+        t = (t1 + t2) / 2
+        k = (k1 + k2) / 2
 
         # cl_coefficients
         C20 = -0.008011

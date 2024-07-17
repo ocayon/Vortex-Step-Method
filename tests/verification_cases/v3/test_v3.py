@@ -25,7 +25,7 @@ def get_v3_case_params():
 
     wing_type = "LEI_kite"
     dist = "lin"
-    N_split = 3
+    N_split = 4
     aoas = np.arange(-4, 24, 2)
     Umag = 22
     # convergence criteria
@@ -56,7 +56,6 @@ def get_v3_case_params():
     # Based on Breukels (2011) correlation model
     aoas = np.arange(-20, 21, 1)
     data_airf = np.empty((len(aoas), 4))
-    t_c = np.empty(N - 1)
     for j in range(len(aoas)):
         alpha = aoas[j]
         Cl, Cd, Cm = thesis_functions.LEI_airf_coeff(LE_thicc, camber, alpha)
@@ -139,7 +138,7 @@ if __name__ == "__main__":
 
     case_params = get_v3_case_params()
 
-    aoas = np.deg2rad(np.arange(0,20, 2))
+    aoas = np.deg2rad(np.linspace(0,15,5))
     case_params[1] = aoas
     # comparing solution
     CL_struts = np.loadtxt("./CFD_data/RANS_CL_alpha_struts.csv", delimiter=",")
