@@ -452,6 +452,7 @@ class Wing:
             projected_area += area
 
         return projected_area
+    
 
 
 # TODO: remove this, no need for inherance here, can be just a function :)
@@ -460,3 +461,19 @@ class Section:
     LE_point: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
     TE_point: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
     aero_input: list = field(default_factory=list)
+
+
+def flip_created_coord_in_pairs_if_needed(coord):
+        """
+        Ensure the coordinates are ordered from positive to negative along the y-axis.
+        """
+        # Reshape the array into pairs
+        reshaped = coord.reshape(-1, 2, coord.shape[1])
+
+        # Check the overall y-axis order
+        overall_y = reshaped[:, 0, 1]  # Take the y values of the leading edge coordinates
+        if not np.all(overall_y[:-1] >= overall_y[1:]):  # Check if y values are in descending order
+            reshaped = np.flip(reshaped, axis=0)
+
+        # Flatten back to the original shape
+        return reshaped.reshape(-1, coord.shape[1])
