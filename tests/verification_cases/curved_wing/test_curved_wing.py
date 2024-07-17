@@ -127,6 +127,8 @@ if __name__ == "__main__":
     case_params = get_curved_case_params()
 
     aoas = case_params[1]
+    aoas = np.deg2rad(np.linspace(0,20,10))
+    case_params[1] = aoas
     AR = case_params[4]
     # comparing solution
     polars_Maneia = np.loadtxt(

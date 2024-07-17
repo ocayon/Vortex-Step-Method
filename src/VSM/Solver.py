@@ -67,14 +67,14 @@ class Solver:
 
         if wing_aero.va is None:
             raise ValueError("Inflow conditions are not set")
-
+        wing_aero.core_radius_fraction = self.core_radius_fraction
         # Solve the circulation distribution
-        wing_aero, gamma_new, alpha_corrected, alpha_uncorrected = (
+        wing_aero, gamma_new = (
             self.solve_iterative_loop(wing_aero, gamma_distribution)
         )
 
         results = wing_aero.calculate_results(
-            gamma_new, alpha_corrected, alpha_uncorrected, self.density
+            gamma_new, self.density, self.aerodynamic_model_type
         )
 
         return results, wing_aero
@@ -200,17 +200,6 @@ class Solver:
                 converged = True
                 break
 
-        ### Update angle of attack
-        alpha_uncorrected = np.array(alpha)
-        if self.aerodynamic_model_type == "VSM":
-            alpha_corrected = wing_aero.update_effective_angle_of_attack_if_VSM(
-                gamma_new, self.core_radius_fraction
-            )
-        elif self.aerodynamic_model_type == "LLT":
-            alpha_corrected = alpha
-        else:
-            raise ValueError("Unknown aerodynamic model type, should be LLT or VSM")
-
         if converged:
             logging.info("------------------------------------")
             logging.info(
@@ -226,7 +215,7 @@ class Solver:
 
         # alpha_corrected,_uncorrected and gamma are ONLY used in Wing_Aero to calculate results
         # therefore they are not defined as attributes, bit merely passed on
-        return wing_aero, gamma_new, alpha_corrected, alpha_uncorrected
+        return wing_aero, gamma_new
 
     def calculate_artificial_damping(self, gamma):
         n_gamma = len(gamma)

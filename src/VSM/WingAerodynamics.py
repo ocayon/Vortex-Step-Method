@@ -369,8 +369,21 @@ class WingAerodynamics:
 
         return gamma_i
 
-    def calculate_results(self, gamma_new, alpha_corrected, alpha_uncorrected, density):
+    def calculate_results(self, gamma_new, density,aerodynamic_model_type = "VSM"):
+        
 
+        # Calculate the aerodynamic forces acting on the wing
+        lift, drag, moment, alpha_uncorrected = self.calculate_aerodynamic_forces(
+            gamma_new, density, aerodynamic_model_type
+        )
+        if aerodynamic_model_type == "VSM":
+            alpha_corrected = self.update_effective_angle_of_attack_if_VSM(
+                gamma_new, self.core_radius_fraction
+            )
+        elif aerodynamic_model_type == "LLT":
+            alpha_corrected = alpha_uncorrected
+        else:
+            raise ValueError("Unknown aerodynamic model type, should be LLT or VSM")
         # Checking that va is not distributed input
         if len(self._va) != 3:
             raise ValueError("Calc.results not ready for va_distributed input")
@@ -442,14 +455,9 @@ class WingAerodynamics:
             ### Calculating the MAGNITUDE of the lift and drag
             # The VSM and LTT methods do NOT differ here, both use the uncorrected angle of attack
             # i.e. evaluate the magnitude at the (3/4c) control point
-
-            # panel/airfoil 2D C_l NORMAL to CALCULATED induced velocity
-            cl_induced_va = panel_i.calculate_cl(alpha_uncorrected_i)
-            # panel/airfoil 2D C_d, C_m TANGENTIAL to CALCULATED induced velocity
-            cd_induced_va, cm_local_va = panel_i.calculate_cd_cm(alpha_uncorrected_i)
             # 2D AIRFOIL aerodynamic forces, so multiplied by chord
-            lift_induced_va_mag = cl_induced_va * q_inf * panel_chord
-            drag_induced_va_mag = cd_induced_va * q_inf * panel_chord
+            lift_induced_va_mag = lift[i]
+            drag_induced_va_mag = drag[i]
 
             # panel force VECTOR NORMAL to CALCULATED induced velocity
             lift_induced_va = lift_induced_va_mag * dir_lift_induced_va
@@ -568,8 +576,65 @@ class WingAerodynamics:
     ###########################
     ## UPDATE FUNCTIONS
     ###########################
+    def calculate_aerodynamic_forces(self, gamma, density, aerodynamic_model_type = "VSM"):
+        """Calculates the aerodynamic forces acting on the wing
 
-    def update_effective_angle_of_attack_if_VSM(self, gamma_new, core_radius_fraction):
+        Args:
+            gamma_new (np.array): The circulation distribution
+            density (float): The density of the air
+
+        Returns:
+            dict: A dictionary containing the aerodynamic forces
+        """
+        panels = self.panels
+        AIC_x, AIC_y, AIC_z = self.calculate_AIC_matrices(
+            aerodynamic_model_type, self.core_radius_fraction
+        )
+        alpha_uncorrected = np.zeros(len(panels))
+        lift = np.zeros(len(panels))
+        drag = np.zeros(len(panels))
+        moment = np.zeros(len(panels))
+        for icp, panel in enumerate(panels):
+                # Initialize induced velocity to 0
+                u = 0
+                v = 0
+                w = 0
+                # Compute induced velocities with previous gamma distribution
+                for jring, gamma_jring in enumerate(gamma):
+                    u = u + AIC_x[icp][jring] * gamma_jring
+                    # x-component of velocity
+                    v = v + AIC_y[icp][jring] * gamma_jring
+                    # y-component of velocity
+                    w = w + AIC_z[icp][jring] * gamma_jring
+                    # z-component of velocity
+
+                # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
+                induced_velocity = np.array([u, v, w])
+
+                # This is double checked
+                alpha_uncorrected[icp], relative_velocity = (
+                    panel.calculate_relative_alpha_and_relative_velocity(
+                        induced_velocity
+                    )
+                )
+                relative_velocity_crossz = np.cross(relative_velocity, panel.z_airf)
+                Umag = np.linalg.norm(relative_velocity_crossz)
+                Uinfcrossz = np.cross(panel.va, panel.z_airf)
+                Umagw = np.linalg.norm(Uinfcrossz)
+
+                # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
+                # Lookup cl for this specific alpha
+                cl = panel.calculate_cl(alpha_uncorrected[icp])
+                cd, cm = panel.calculate_cd_cm(alpha_uncorrected[icp])
+                # Retrieve forces and moments
+                lift[icp] = 0.5 * density * Umag**2 * cl * panel.chord
+                drag[icp] = 0.5 * density * Umag**2 * cd * panel.chord
+                moment[icp] = 0.5 * density * Umag**2 * cm * panel.chord ** 2
+
+        # Return forces and alpha uncorrected
+        return lift, drag, moment, alpha_uncorrected
+    
+    def update_effective_angle_of_attack_if_VSM(self, gamma, core_radius_fraction):
         """Updates the angle of attack at the aerodynamic center of each panel,
             Calculated at the AERODYNAMIC CENTER, which needs an update for VSM
             And can just use the old value for the LLT
@@ -582,62 +647,41 @@ class WingAerodynamics:
         """
         # The correction is done by calculating the alpha at the aerodynamic center,
         # where as before the control_point was used in the VSM method
-        evaluation_point = "aerodynamic_center"
+        aerodynamic_model_type = "LLT"
+        anels = self.panels
+        AIC_x, AIC_y, AIC_z = self.calculate_AIC_matrices(
+            aerodynamic_model_type, self.core_radius_fraction
+        )
+        panels = self.panels
+        alpha_corrected = np.zeros(len(panels))
+        lift = np.zeros(len(panels))
+        drag = np.zeros(len(panels))
+        moment = np.zeros(len(panels))
+        for icp, panel in enumerate(panels):
+                # Initialize induced velocity to 0
+                u = 0
+                v = 0
+                w = 0
+                # Compute induced velocities with previous gamma distribution
+                for jring, gamma_jring in enumerate(gamma):
+                    u = u + AIC_x[icp][jring] * gamma_jring
+                    # x-component of velocity
+                    v = v + AIC_y[icp][jring] * gamma_jring
+                    # y-component of velocity
+                    w = w + AIC_z[icp][jring] * gamma_jring
+                    # z-component of velocity
 
-        # Initialize the matrices, WITHOUT U2D CORRECTION
-        n_panels = self._n_panels
-        AIC_x = np.empty((n_panels, n_panels))
-        AIC_y = np.empty((n_panels, n_panels))
-        AIC_z = np.empty((n_panels, n_panels))
-        va_norm = np.linalg.norm(self.va)
-        va_unit = self.va / np.linalg.norm(self.va)
+                # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
+                induced_velocity = np.array([u, v, w])
 
-        for icp, panel_icp in enumerate(self.panels):
-
-            for jring, panel_jring in enumerate(self.panels):
-                # When checking influence of its own bound on aerodynamic center
-                if icp == jring:
-                    evaluation_point_on_bound = True
-                else:
-                    evaluation_point_on_bound = False
-                # gamma = 1 should be used as is about setting up the AIC matrices
-                velocity_induced = (
-                    panel_jring.calculate_velocity_induced_single_ring_semiinfinite(
-                        getattr(panel_icp, evaluation_point),
-                        evaluation_point_on_bound,
-                        va_norm,
-                        va_unit,
-                        gamma=1,
-                        core_radius_fraction=core_radius_fraction,
+                # This is double checked
+                alpha_corrected[icp], relative_velocity = (
+                    panel.calculate_relative_alpha_and_relative_velocity(
+                        induced_velocity
                     )
                 )
 
-                # AIC Matrix,WITHOUT U2D CORRECTION
-                AIC_x[icp, jring] = velocity_induced[0]
-                AIC_y[icp, jring] = velocity_induced[1]
-                AIC_z[icp, jring] = velocity_induced[2]
-
-        alpha_corrected_to_aerodynamic_center = np.zeros(len(self.panels))
-        for icp, panel in enumerate(self.panels):
-            # Initialize induced velocity to 0
-            u = 0
-            v = 0
-            w = 0
-            # Compute induced velocities with NEW gamma distribution
-            for jring, gamma_jring in enumerate(gamma_new):
-                u = u + AIC_x[icp][jring] * gamma_jring
-                # x-component of velocity
-                v = v + AIC_y[icp][jring] * gamma_jring
-                # y-component of velocity
-                w = w + AIC_z[icp][jring] * gamma_jring
-                # z-component of velocity
-
-            induced_velocity = np.array([u, v, w])
-            alpha_corrected_to_aerodynamic_center[icp], _ = (
-                panel.calculate_relative_alpha_and_relative_velocity(induced_velocity)
-            )
-
-        return alpha_corrected_to_aerodynamic_center
+        return alpha_corrected
 
     ###########################
     ## PLOTTING FUNCTIONS
