@@ -18,6 +18,7 @@ from tests.utils import (
     generate_coordinates_rect_wing,
     generate_coordinates_curved_wing,
     flip_created_coord_in_pairs,
+    calculate_projected_area,
 )
 import tests.thesis_functions_oriol_cayon as thesis_functions
 
@@ -125,10 +126,7 @@ def test_calculate_results():
         {"tangential": panel.y_airf, "normal": panel.x_airf}
         for panel in wing_aero.panels
     ]
-    Atot = sum(
-        panel.chord * np.linalg.norm(panel.width * panel.z_airf)
-        for panel in wing_aero.panels
-    )
+    Atot = calculate_projected_area(coord)
 
     # Calculate results using the reference function
     F_rel_ref, F_gl_ref, Ltot_ref, Dtot_ref, CL_ref, CD_ref, CS_ref = (

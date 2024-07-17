@@ -470,7 +470,6 @@ class WingAerodynamics:
             dir_lift_prescribed_va = dir_lift_prescribed_va / np.linalg.norm(
                 dir_lift_prescribed_va
             )
-            print(spanwise_direction)
             lift_prescribed_va = np.dot(
                 lift_induced_va, dir_lift_prescribed_va
             ) + np.dot(drag_induced_va, dir_lift_prescribed_va)
@@ -534,7 +533,9 @@ class WingAerodynamics:
             fx_global += fx_global * panel_width
             fy_global += fy_global * panel_width
             fz_global += fz_global * panel_width
-
+        projected_area = 0
+        for wing in self.wings:
+            projected_area += wing.calculate_projected_area()
         ### Storing results in a dictionary
         results_dict = {}
         # Global wing aerodynamics
@@ -544,9 +545,9 @@ class WingAerodynamics:
         results_dict.update([("lift", lift_wing)])
         results_dict.update([("drag", drag_wing)])
         results_dict.update([("side", side_wing)])
-        results_dict.update([("cl", lift_wing / (q_inf * area_all_panels))])
-        results_dict.update([("cd", drag_wing / (q_inf * area_all_panels))])
-        results_dict.update([("cs", side_wing / (q_inf * area_all_panels))])
+        results_dict.update([("cl", lift_wing / (q_inf * projected_area))])
+        results_dict.update([("cd", drag_wing / (q_inf * projected_area))])
+        results_dict.update([("cs", side_wing / (q_inf * projected_area))])
         # Local panel aerodynamics
         results_dict.update([("cl_distribution", cl_prescribed_va_list)])
         results_dict.update([("cd_distribution", cd_prescribed_va_list)])
@@ -555,9 +556,9 @@ class WingAerodynamics:
         results_dict.update([("Ftotal_distribution", ftotal_prescribed_va_list)])
 
         # Additional info
-        results_dict.update([("cfz", fz_global / (q_inf * area_all_panels))])
-        results_dict.update([("cfx", fx_global / (q_inf * area_all_panels))])
-        results_dict.update([("cfy", fy_global / (q_inf * area_all_panels))])
+        results_dict.update([("cfz", fz_global / (q_inf * projected_area))])
+        results_dict.update([("cfx", fx_global / (q_inf * projected_area))])
+        results_dict.update([("cfy", fy_global / (q_inf * projected_area))])
         results_dict.update([("alpha_at_ac", alpha_corrected)])
         results_dict.update([("alpha_uncorrected", alpha_uncorrected)])
         results_dict.update([("gamma_distribution", gamma_new)])
@@ -570,6 +571,7 @@ class WingAerodynamics:
         logging.debug(f"drag:{drag_wing}")
         logging.debug(f"side:{side_wing}")
         logging.debug(f"Area: {area_all_panels}")
+        logging.debug(f"Projected Area: {projected_area}")
 
         return results_dict
 

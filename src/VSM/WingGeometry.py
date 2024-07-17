@@ -407,6 +407,51 @@ class Wing:
         # Calculate the span of the wing along the given vector axis
         span = np.max(projections) - np.min(projections)
         return span
+    def calculate_projected_area(self, z_plane_vector=np.array([0, 0, 1])):
+        """Calculates the projected area of the wing onto a specified plane.
+
+        The projected area is calculated based on the leading and trailing edge points of each section
+        projected onto a plane defined by a normal vector (default is z-plane).
+
+        Args:
+            z_plane_vector (np.ndarray): Normal vector defining the projection plane (default is [0, 0, 1]).
+
+        Returns:
+            projected_area (float): The projected area of the wing.
+        """
+        # Normalize the z_plane_vector
+        z_plane_vector = z_plane_vector / np.linalg.norm(z_plane_vector)
+
+        # Helper function to project a point onto the plane
+        def project_onto_plane(point, normal):
+            return point - np.dot(point, normal) * normal
+
+        projected_area = 0.0
+        for i in range(len(self.sections) - 1):
+            # Get the points for the current and next section
+            LE_current = self.sections[i].LE_point
+            TE_current = self.sections[i].TE_point
+            LE_next = self.sections[i + 1].LE_point
+            TE_next = self.sections[i + 1].TE_point
+
+            # Project the points onto the plane
+            LE_current_proj = project_onto_plane(LE_current, z_plane_vector)
+            TE_current_proj = project_onto_plane(TE_current, z_plane_vector)
+            LE_next_proj = project_onto_plane(LE_next, z_plane_vector)
+            TE_next_proj = project_onto_plane(TE_next, z_plane_vector)
+
+            # Calculate the lengths of the projected edges
+            chord_current_proj = np.linalg.norm(TE_current_proj - LE_current_proj)
+            chord_next_proj = np.linalg.norm(TE_next_proj - LE_next_proj)
+
+            # Calculate the spanwise distance between the projected sections
+            spanwise_distance_proj = np.linalg.norm(LE_next_proj - LE_current_proj)
+
+            # Calculate the projected area of the trapezoid formed by these points
+            area = 0.5 * (chord_current_proj + chord_next_proj) * spanwise_distance_proj
+            projected_area += area
+
+        return projected_area
 
 
 # TODO: remove this, no need for inherance here, can be just a function :)

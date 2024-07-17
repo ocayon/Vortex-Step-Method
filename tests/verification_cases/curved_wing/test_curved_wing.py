@@ -30,7 +30,6 @@ def get_curved_case_params():
     wing_type = "curved"
     Umag = 20
     AR = span / max_chord
-    Atot = 16
     R = 4.673
     theta = 45 * np.pi / 180
 
@@ -45,7 +44,7 @@ def get_curved_case_params():
         r"./polars/clarky_maneia.csv",
         delimiter=",",
     )
-
+    Atot = 14.40679
     case_parameters = [
         coord_input_params,
         aoas,
