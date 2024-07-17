@@ -370,6 +370,9 @@ def calculate_old_for_alpha_range(case_params):
         coord = thesis_functions.generate_coordinates_swept_wing(
             chord, offset, span, twist, beta, N, dist
         )
+    elif wing_type == "LEI_kite":
+        coord,t,k = coord_input_params
+        N = len(coord) // 2
     else:
         raise ValueError(f"wing_type: {wing_type} not recognized")
 
@@ -480,6 +483,10 @@ def calculate_new_for_alpha_range(
             chord, offset, span, twist, beta, N, dist
         )
         airfoil_input = ["polar_data", data_airf]
+    elif wing_type == "LEI_kite":
+        coord, thicc, camber = coord_input_params
+        airfoil_input = ["polar_data", data_airf]
+        N = len(coord) // 2
     else:
         raise ValueError(f"wing_type: {wing_type} not recognized")
 

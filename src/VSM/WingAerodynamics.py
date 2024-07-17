@@ -462,7 +462,7 @@ class WingAerodynamics:
             dir_lift_prescribed_va = dir_lift_prescribed_va / np.linalg.norm(
                 dir_lift_prescribed_va
             )
-
+            print(spanwise_direction)
             lift_prescribed_va = np.dot(
                 lift_induced_va, dir_lift_prescribed_va
             ) + np.dot(drag_induced_va, dir_lift_prescribed_va)
