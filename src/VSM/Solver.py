@@ -67,14 +67,16 @@ class Solver:
 
         if wing_aero.va is None:
             raise ValueError("Inflow conditions are not set")
-        wing_aero.core_radius_fraction = self.core_radius_fraction
-        # Solve the circulation distribution
-        wing_aero, gamma_new = (
-            self.solve_iterative_loop(wing_aero, gamma_distribution)
-        )
 
+        # Solve the circulation distribution
+        wing_aero, gamma_new = self.solve_iterative_loop(wing_aero, gamma_distribution)
+
+        # Calculating results
         results = wing_aero.calculate_results(
-            gamma_new, self.density, self.aerodynamic_model_type
+            gamma_new,
+            self.density,
+            self.aerodynamic_model_type,
+            self.core_radius_fraction,
         )
 
         return results, wing_aero
@@ -88,29 +90,30 @@ class Solver:
         logging.debug(f"AIC_y: {AIC_y}")
         logging.debug(f"AIC_z: {AIC_z}")
 
-        # initialize gamma distribution inside
-        if (
-            gamma_distribution is None
-            and self.type_initial_gamma_distribution == "elliptic"
-        ):
-            gamma_new = wing_aero.calculate_circulation_distribution_elliptical_wing()
-        elif len(gamma_distribution) == len(wing_aero.panels):
-            gamma_new = gamma_distribution
-
-        # TODO: for now use ZERO, remove this to speed things up
-        gamma_new = np.zeros(len(gamma_new))
-        # logging.info("Initial gamma_new: %s", gamma_new)
-
         # TODO: CPU optimization: instantiate non-changing (geometric dependent) attributes here
         # TODO: Further optimization: is to populate only in the loop, not create new arrays
         panels = wing_aero.panels
+        n_panels = wing_aero.n_panels
         z_airf_array = np.array([panel.z_airf for panel in panels])
         va_array = np.array([panel.va for panel in panels])
         chord_array = np.array([panel.chord for panel in panels])
         alpha = np.zeros(len(panels))
         gamma = np.zeros(len(panels))
         # Adjust relaxation factor based on the number of panels
-        relaxation_factor = self.relaxation_factor * 20 / len(panels)
+        relaxation_factor = self.relaxation_factor * 20 / n_panels
+
+        # initialize gamma distribution inside
+        if (
+            gamma_distribution is None
+            and self.type_initial_gamma_distribution == "elliptic"
+        ):
+            gamma_new = wing_aero.calculate_circulation_distribution_elliptical_wing()
+        elif len(gamma_distribution) == n_panels:
+            gamma_new = gamma_distribution
+
+        # TODO: for now use ZERO, remove this to speed things up
+        gamma_new = np.zeros(len(gamma_new))
+        # logging.info("Initial gamma_new: %s", gamma_new)
 
         converged = False
         for i in range(self.max_iterations):

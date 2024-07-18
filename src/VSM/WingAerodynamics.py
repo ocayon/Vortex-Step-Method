@@ -369,15 +369,17 @@ class WingAerodynamics:
 
         return gamma_i
 
-    def calculate_results(self, gamma_new, density, aerodynamic_model_type="VSM"):
+    def calculate_results(
+        self, gamma_new, density, aerodynamic_model_type, core_radius_fraction
+    ):
 
         # Calculate the aerodynamic forces acting on the wing
         lift, drag, moment, alpha_uncorrected = self.calculate_aerodynamic_forces(
-            gamma_new, density, aerodynamic_model_type
+            gamma_new, density, aerodynamic_model_type, core_radius_fraction
         )
         if aerodynamic_model_type == "VSM":
             alpha_corrected = self.update_effective_angle_of_attack_if_VSM(
-                gamma_new, self.core_radius_fraction
+                gamma_new, core_radius_fraction
             )
         elif aerodynamic_model_type == "LLT":
             alpha_corrected = alpha_uncorrected
@@ -588,7 +590,7 @@ class WingAerodynamics:
     ## UPDATE FUNCTIONS
     ###########################
     def calculate_aerodynamic_forces(
-        self, gamma, density, aerodynamic_model_type="VSM"
+        self, gamma, density, aerodynamic_model_type, core_radius_fraction
     ):
         """Calculates the aerodynamic forces acting on the wing
 
@@ -601,7 +603,7 @@ class WingAerodynamics:
         """
         panels = self.panels
         AIC_x, AIC_y, AIC_z = self.calculate_AIC_matrices(
-            aerodynamic_model_type, self.core_radius_fraction
+            aerodynamic_model_type, core_radius_fraction
         )
         alpha_uncorrected = np.zeros(len(panels))
         lift = np.zeros(len(panels))
@@ -659,15 +661,11 @@ class WingAerodynamics:
         # The correction is done by calculating the alpha at the aerodynamic center,
         # where as before the control_point was used in the VSM method
         aerodynamic_model_type = "LLT"
-        anels = self.panels
         AIC_x, AIC_y, AIC_z = self.calculate_AIC_matrices(
-            aerodynamic_model_type, self.core_radius_fraction
+            aerodynamic_model_type, core_radius_fraction
         )
         panels = self.panels
         alpha_corrected = np.zeros(len(panels))
-        lift = np.zeros(len(panels))
-        drag = np.zeros(len(panels))
-        moment = np.zeros(len(panels))
         for icp, panel in enumerate(panels):
             # Initialize induced velocity to 0
             u = 0
@@ -686,7 +684,7 @@ class WingAerodynamics:
             induced_velocity = np.array([u, v, w])
 
             # This is double checked
-            alpha_corrected[icp], relative_velocity = (
+            alpha_corrected[icp], _ = (
                 panel.calculate_relative_alpha_and_relative_velocity(induced_velocity)
             )
 
