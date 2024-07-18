@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
     case_params = get_v3_case_params()
 
-    aoas = np.deg2rad(np.linspace(0, 15, 5))
+    aoas = np.deg2rad(np.linspace(0, 25, 30))
     case_params[1] = aoas
     # comparing solution
     CL_struts = np.loadtxt("./CFD_data/RANS_CL_alpha_struts.csv", delimiter=",")

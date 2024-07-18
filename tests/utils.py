@@ -512,7 +512,21 @@ def calculate_new_for_alpha_range(
     CD_VSM_new = np.zeros(len(aoas))
     gamma_VSM_new = np.zeros((len(aoas), N - 1))
     controlpoints_list = []
-
+    LLT = Solver(
+            aerodynamic_model_type="LLT",
+            max_iterations=max_iterations,
+            allowed_error=allowed_error,
+            relaxation_factor=relaxation_factor,
+            core_radius_fraction=core_radius_fraction,
+        )
+    # VSM
+    VSM = Solver(
+        aerodynamic_model_type="VSM",
+        max_iterations=max_iterations,
+        allowed_error=allowed_error,
+        relaxation_factor=relaxation_factor,
+        core_radius_fraction=core_radius_fraction,
+    )
     for i, aoa_i in enumerate(aoas):
         logging.debug(f"aoa_i = {np.rad2deg(aoa_i)}")
         Uinf = np.array([np.cos(aoa_i), 0, np.sin(aoa_i)]) * Umag
@@ -520,26 +534,13 @@ def calculate_new_for_alpha_range(
         if i == 0 and is_plotting:
             wing_aero.plot()
         # LLT
-        LLT = Solver(
-            aerodynamic_model_type="LLT",
-            max_iterations=max_iterations,
-            allowed_error=allowed_error,
-            relaxation_factor=relaxation_factor,
-            core_radius_fraction=core_radius_fraction,
-        )
+        
         results_LLT, wing_aero_LLT = LLT.solve(wing_aero)
         CL_LLT_new[i] = results_LLT["cl"]
         CD_LLT_new[i] = results_LLT["cd"]
         gamma_LLT_new[i] = results_LLT["gamma_distribution"]
 
-        # VSM
-        VSM = Solver(
-            aerodynamic_model_type="VSM",
-            max_iterations=max_iterations,
-            allowed_error=allowed_error,
-            relaxation_factor=relaxation_factor,
-            core_radius_fraction=core_radius_fraction,
-        )
+        
         results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
         CL_VSM_new[i] = results_VSM["cl"]
         CD_VSM_new[i] = results_VSM["cd"]
