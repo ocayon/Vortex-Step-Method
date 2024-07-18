@@ -101,6 +101,7 @@ def test_swept_wing():
         gamma_LLT_new,
         gamma_VSM_new,
         panel_y,
+        AR_projected,
     ) = test_utils.calculate_new_for_alpha_range(
         case_params,
         is_plotting=False,
@@ -154,6 +155,7 @@ if __name__ == "__main__":
         gamma_LLT_new,
         gamma_VSM_new,
         panel_y,
+        AR_projected,
     ) = test_utils.calculate_new_for_alpha_range(
         case_params,
         is_plotting=False,
@@ -165,13 +167,19 @@ if __name__ == "__main__":
         wing_type="swept_wing",
         aoas=[polars_CFD[:, 0], aoas],
         CL_list=[polars_CFD[:, 1], CL_LLT, CL_LLT_new, CL_VSM, CL_VSM_new],
-        CD_list=[np.zeros_like(polars_CFD[:,0]), CD_LLT, CD_LLT_new, CD_VSM, CD_VSM_new],
+        CD_list=[
+            np.zeros_like(polars_CFD[:, 0]),
+            CD_LLT,
+            CD_LLT_new,
+            CD_VSM,
+            CD_VSM_new,
+        ],
         gamma_list=[gamma_LLT, gamma_LLT_new, gamma_VSM, gamma_VSM_new],
         labels=["RANS [Maneia]", "LLT", "LLT_new", "VSM", "VSM_new"],
     )
     labels = ["polars_CFD", "LLT", "LLT_new", "VSM", "VSM_new"]
-    CL_list = [polars_CFD[:,1],CL_LLT, CL_LLT_new, CL_VSM, CL_VSM_new]
-    CD_list = [np.zeros_like(polars_CFD[:,0]),CD_LLT, CD_LLT_new, CD_VSM, CD_VSM_new]
+    CL_list = [polars_CFD[:, 1], CL_LLT, CL_LLT_new, CL_VSM, CL_VSM_new]
+    CD_list = [np.zeros_like(polars_CFD[:, 0]), CD_LLT, CD_LLT_new, CD_VSM, CD_VSM_new]
 
     for i, aoa in enumerate(aoas):
         print(f"aoa = {np.rad2deg(aoa)}")

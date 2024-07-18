@@ -23,7 +23,7 @@ def change_test_dir(request):
 
 def get_v3_case_params():
 
-    wing_type = "LEI_kite_polars"
+    wing_type = "LEI_kite"
     dist = "lin"
     N_split = 4
     aoas = np.arange(-4, 24, 2)
@@ -85,7 +85,7 @@ def get_v3_case_params():
 def test_v3():
     case_params = get_v3_case_params()
     # making sure not too many points are tested
-    case_params[1] = np.deg2rad(np.array([3, 6, 9]))
+    case_params[1] = np.deg2rad(np.array([4, 12]))
     # changing wing_type to take the polars and not polynomial directly
     case_params[2] = "LEI_kite_polars"
     # comparison solution
@@ -105,6 +105,7 @@ def test_v3():
         gamma_LLT_new,
         gamma_VSM_new,
         panel_y,
+        AR,
     ) = test_utils.calculate_new_for_alpha_range(
         case_params,
         is_plotting=False,
@@ -142,6 +143,7 @@ def test_v3():
         gamma_LLT_new,
         gamma_VSM_new,
         panel_y,
+        AR,
     ) = test_utils.calculate_new_for_alpha_range(
         case_params,
         is_plotting=False,
@@ -202,6 +204,7 @@ if __name__ == "__main__":
         gamma_LLT_new,
         gamma_VSM_new,
         panel_y,
+        AR,
     ) = test_utils.calculate_new_for_alpha_range(
         case_params,
         is_plotting=False,
@@ -209,7 +212,7 @@ if __name__ == "__main__":
 
     test_utils.plotting_CL_CD_gamma_LLT_VSM_old_new_comparison(
         panel_y=panel_y,
-        AR=0,
+        AR=AR,
         wing_type="LEI_kite",
         aoas=[polars_CFD[:, 0], aoas],
         CL_list=[polars_CFD[:, 1], CL_LLT, CL_LLT_new, CL_VSM, CL_VSM_new],

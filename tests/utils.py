@@ -513,12 +513,12 @@ def calculate_new_for_alpha_range(
     gamma_VSM_new = np.zeros((len(aoas), N - 1))
     controlpoints_list = []
     LLT = Solver(
-            aerodynamic_model_type="LLT",
-            max_iterations=max_iterations,
-            allowed_error=allowed_error,
-            relaxation_factor=relaxation_factor,
-            core_radius_fraction=core_radius_fraction,
-        )
+        aerodynamic_model_type="LLT",
+        max_iterations=max_iterations,
+        allowed_error=allowed_error,
+        relaxation_factor=relaxation_factor,
+        core_radius_fraction=core_radius_fraction,
+    )
     # VSM
     VSM = Solver(
         aerodynamic_model_type="VSM",
@@ -534,13 +534,12 @@ def calculate_new_for_alpha_range(
         if i == 0 and is_plotting:
             wing_aero.plot()
         # LLT
-        
+
         results_LLT, wing_aero_LLT = LLT.solve(wing_aero)
         CL_LLT_new[i] = results_LLT["cl"]
         CD_LLT_new[i] = results_LLT["cd"]
         gamma_LLT_new[i] = results_LLT["gamma_distribution"]
 
-        
         results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
         CL_VSM_new[i] = results_VSM["cl"]
         CD_VSM_new[i] = results_VSM["cd"]
@@ -553,6 +552,7 @@ def calculate_new_for_alpha_range(
             [panel.aerodynamic_center for panel in wing_aero_LLT.panels]
         )
     panel_y = [panel.aerodynamic_center[1] for panel in wing_aero_LLT.panels]
+    AR = results_VSM["aspect_ratio_projected"]
     return (
         CL_LLT_new,
         CD_LLT_new,
@@ -561,6 +561,7 @@ def calculate_new_for_alpha_range(
         gamma_LLT_new,
         gamma_VSM_new,
         panel_y,
+        AR,
     )
 
 

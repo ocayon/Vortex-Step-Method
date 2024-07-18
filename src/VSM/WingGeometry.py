@@ -407,6 +407,7 @@ class Wing:
         # Calculate the span of the wing along the given vector axis
         span = np.max(projections) - np.min(projections)
         return span
+
     def calculate_projected_area(self, z_plane_vector=np.array([0, 0, 1])):
         """Calculates the projected area of the wing onto a specified plane.
 
@@ -452,7 +453,6 @@ class Wing:
             projected_area += area
 
         return projected_area
-    
 
 
 # TODO: remove this, no need for inherance here, can be just a function :)
@@ -464,16 +464,18 @@ class Section:
 
 
 def flip_created_coord_in_pairs_if_needed(coord):
-        """
-        Ensure the coordinates are ordered from positive to negative along the y-axis.
-        """
-        # Reshape the array into pairs
-        reshaped = coord.reshape(-1, 2, coord.shape[1])
+    """
+    Ensure the coordinates are ordered from positive to negative along the y-axis.
+    """
+    # Reshape the array into pairs
+    reshaped = coord.reshape(-1, 2, coord.shape[1])
 
-        # Check the overall y-axis order
-        overall_y = reshaped[:, 0, 1]  # Take the y values of the leading edge coordinates
-        if not np.all(overall_y[:-1] >= overall_y[1:]):  # Check if y values are in descending order
-            reshaped = np.flip(reshaped, axis=0)
+    # Check the overall y-axis order
+    overall_y = reshaped[:, 0, 1]  # Take the y values of the leading edge coordinates
+    if not np.all(
+        overall_y[:-1] >= overall_y[1:]
+    ):  # Check if y values are in descending order
+        reshaped = np.flip(reshaped, axis=0)
 
-        # Flatten back to the original shape
-        return reshaped.reshape(-1, coord.shape[1])
+    # Flatten back to the original shape
+    return reshaped.reshape(-1, coord.shape[1])

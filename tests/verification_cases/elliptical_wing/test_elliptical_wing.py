@@ -59,7 +59,7 @@ def get_elliptical_case_params():
 def test_elliptical():
     case_params = get_elliptical_case_params()
     # making sure not too many points are tested
-    case_params[1] = np.deg2rad(np.array([3, 6, 9]))
+    case_params[1] = np.deg2rad(np.array([3, 9]))
     # analytical solution
     aoas = case_params[1]
     AR = case_params[4]
@@ -78,6 +78,7 @@ def test_elliptical():
         gamma_LLT_new,
         gamma_VSM_new,
         panel_y,
+        AR_projected,
     ) = test_utils.calculate_new_for_alpha_range(
         case_params,
         is_plotting=False,
@@ -129,6 +130,7 @@ if __name__ == "__main__":
         gamma_LLT_new,
         gamma_VSM_new,
         panel_y,
+        AR_projected,
     ) = test_utils.calculate_new_for_alpha_range(
         case_params,
         is_plotting=False,

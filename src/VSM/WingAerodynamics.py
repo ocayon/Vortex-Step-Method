@@ -532,9 +532,14 @@ class WingAerodynamics:
             fx_global += fx_global * panel_width
             fy_global += fy_global * panel_width
             fz_global += fz_global * panel_width
+
+        # Calculating projected_area, wing_span, aspect_ratio
         projected_area = 0
-        for wing in self.wings:
+        for i, wing in enumerate(self.wings):
             projected_area += wing.calculate_projected_area()
+        wing_span = wing.calculate_wing_span()
+        aspect_ratio_projected = wing_span**2 / projected_area
+
         ### Storing results in a dictionary
         results_dict = {}
         # Global wing aerodynamics
@@ -561,6 +566,10 @@ class WingAerodynamics:
         results_dict.update([("alpha_at_ac", alpha_corrected)])
         results_dict.update([("alpha_uncorrected", alpha_uncorrected)])
         results_dict.update([("gamma_distribution", gamma_new)])
+        results_dict.update([("area_all_panels", area_all_panels)])
+        results_dict.update([("projected_area", projected_area)])
+        results_dict.update([("wing_span", wing_span)])
+        results_dict.update([("aspect_ratio_projected", aspect_ratio_projected)])
 
         ### Logging
         logging.debug(f"cl:{results_dict['cl']}")
@@ -569,8 +578,9 @@ class WingAerodynamics:
         logging.debug(f"lift:{lift_wing}")
         logging.debug(f"drag:{drag_wing}")
         logging.debug(f"side:{side_wing}")
-        logging.debug(f"Area: {area_all_panels}")
+        logging.debug(f"area: {area_all_panels}")
         logging.debug(f"Projected Area: {projected_area}")
+        logging.debug(f"Aspect Ratio Projected: {aspect_ratio_projected}")
 
         return results_dict
 
