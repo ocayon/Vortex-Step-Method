@@ -68,10 +68,10 @@ class Solver:
         if wing_aero.va is None:
             raise ValueError("Inflow conditions are not set")
 
-        # Solve the circulation distribution
-        wing_aero, gamma_new = self.solve_iterative_loop(wing_aero, gamma_distribution)
+        # Calculate the new circulation distribution iteratively
+        gamma_new = self.calculate_gamma_new_iteratively(wing_aero, gamma_distribution)
 
-        # Calculating results
+        # Calculating results (incl. updating angle of attack for VSM)
         results = wing_aero.calculate_results(
             gamma_new,
             self.density,
@@ -81,7 +81,7 @@ class Solver:
 
         return results, wing_aero
 
-    def solve_iterative_loop(self, wing_aero, gamma_distribution):
+    def calculate_gamma_new_iteratively(self, wing_aero, gamma_distribution):
         AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
             self.aerodynamic_model_type, self.core_radius_fraction
         )
@@ -216,9 +216,7 @@ class Solver:
             )
             logging.info("------------------------------------")
 
-        # alpha_corrected,_uncorrected and gamma are ONLY used in Wing_Aero to calculate results
-        # therefore they are not defined as attributes, bit merely passed on
-        return wing_aero, gamma_new
+        return gamma_new
 
     def calculate_artificial_damping(self, gamma):
         n_gamma = len(gamma)
