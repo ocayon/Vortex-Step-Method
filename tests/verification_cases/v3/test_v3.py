@@ -53,7 +53,7 @@ def get_v3_case_params():
 
     # Definition of airfoil coefficients
     # Based on Breukels (2011) correlation model
-    aoas_for_polar = np.arange(-20, 21, 1)
+    aoas_for_polar = np.arange(-80, 80, 0.1)
     data_airf = np.empty((len(aoas_for_polar), 4))
     for j in range(len(aoas_for_polar)):
         alpha = aoas_for_polar[j]

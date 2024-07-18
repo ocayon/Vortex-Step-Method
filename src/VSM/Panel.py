@@ -86,9 +86,6 @@ class Panel:
 
         # Initializing the panel aerodynamic data dependent on the aero_model
         if self._panel_aero_model == "lei_airfoil_breukels":
-            self._cl_coefficients = None
-            self._cd_coefficients = None
-            self._cm_coefficients = None
             self.instantiate_lei_airfoil_breukels_cl_cd_cm_coefficients(
                 section_1, section_2
             )
