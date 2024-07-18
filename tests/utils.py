@@ -370,8 +370,8 @@ def calculate_old_for_alpha_range(case_params):
         coord = thesis_functions.generate_coordinates_swept_wing(
             chord, offset, span, twist, beta, N, dist
         )
-    elif wing_type == "LEI_kite":
-        coord,t,k = coord_input_params
+    elif wing_type == "LEI_kite" or wing_type == "LEI_kite_polars":
+        coord, t, k = coord_input_params
         N = len(coord) // 2
     else:
         raise ValueError(f"wing_type: {wing_type} not recognized")
@@ -461,9 +461,6 @@ def calculate_new_for_alpha_range(
     ) = case_params
 
     # transfering the data_airf first column to radians
-    # data_airf[:, 0] = np.array(
-    #     [np.deg2rad(data_airf_i[0]) for data_airf_i in data_airf]
-    # )
     data_airf[:, 0] = np.deg2rad(data_airf[:, 0])
 
     ## defining coord
@@ -483,6 +480,10 @@ def calculate_new_for_alpha_range(
             chord, offset, span, twist, beta, N, dist
         )
         airfoil_input = ["polar_data", data_airf]
+    elif wing_type == "LEI_kite_polars":
+        coord, thicc, camber = coord_input_params
+        airfoil_input = ["polar_data", data_airf]
+        N = len(coord) // 2
     elif wing_type == "LEI_kite":
         coord, thicc, camber = coord_input_params
         airfoil_input = ["lei_airfoil_breukels", [thicc, camber]]
@@ -678,6 +679,7 @@ def plotting_CL_CD_gamma_LLT_VSM_old_new_comparison(
         file_type=".pdf",
     )
 
+
 def calculate_projected_area(coord, z_plane_vector=np.array([0, 0, 1])):
     """Calculates the projected area of the wing onto a specified plane.
 
@@ -698,7 +700,7 @@ def calculate_projected_area(coord, z_plane_vector=np.array([0, 0, 1])):
         return point - np.dot(point, normal) * normal
 
     projected_area = 0.0
-    for i in range(len(coord) // 2-1):
+    for i in range(len(coord) // 2 - 1):
         # Get the points for the current and next section
         LE_current = coord[2 * i]
         TE_current = coord[2 * i + 1]

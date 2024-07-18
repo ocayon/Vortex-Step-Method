@@ -369,8 +369,7 @@ class WingAerodynamics:
 
         return gamma_i
 
-    def calculate_results(self, gamma_new, density,aerodynamic_model_type = "VSM"):
-        
+    def calculate_results(self, gamma_new, density, aerodynamic_model_type="VSM"):
 
         # Calculate the aerodynamic forces acting on the wing
         lift, drag, moment, alpha_uncorrected = self.calculate_aerodynamic_forces(
@@ -578,7 +577,9 @@ class WingAerodynamics:
     ###########################
     ## UPDATE FUNCTIONS
     ###########################
-    def calculate_aerodynamic_forces(self, gamma, density, aerodynamic_model_type = "VSM"):
+    def calculate_aerodynamic_forces(
+        self, gamma, density, aerodynamic_model_type="VSM"
+    ):
         """Calculates the aerodynamic forces acting on the wing
 
         Args:
@@ -597,45 +598,43 @@ class WingAerodynamics:
         drag = np.zeros(len(panels))
         moment = np.zeros(len(panels))
         for icp, panel in enumerate(panels):
-                # Initialize induced velocity to 0
-                u = 0
-                v = 0
-                w = 0
-                # Compute induced velocities with previous gamma distribution
-                for jring, gamma_jring in enumerate(gamma):
-                    u = u + AIC_x[icp][jring] * gamma_jring
-                    # x-component of velocity
-                    v = v + AIC_y[icp][jring] * gamma_jring
-                    # y-component of velocity
-                    w = w + AIC_z[icp][jring] * gamma_jring
-                    # z-component of velocity
+            # Initialize induced velocity to 0
+            u = 0
+            v = 0
+            w = 0
+            # Compute induced velocities with previous gamma distribution
+            for jring, gamma_jring in enumerate(gamma):
+                u = u + AIC_x[icp][jring] * gamma_jring
+                # x-component of velocity
+                v = v + AIC_y[icp][jring] * gamma_jring
+                # y-component of velocity
+                w = w + AIC_z[icp][jring] * gamma_jring
+                # z-component of velocity
 
-                # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
-                induced_velocity = np.array([u, v, w])
+            # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
+            induced_velocity = np.array([u, v, w])
 
-                # This is double checked
-                alpha_uncorrected[icp], relative_velocity = (
-                    panel.calculate_relative_alpha_and_relative_velocity(
-                        induced_velocity
-                    )
-                )
-                relative_velocity_crossz = np.cross(relative_velocity, panel.z_airf)
-                Umag = np.linalg.norm(relative_velocity_crossz)
-                Uinfcrossz = np.cross(panel.va, panel.z_airf)
-                Umagw = np.linalg.norm(Uinfcrossz)
+            # This is double checked
+            alpha_uncorrected[icp], relative_velocity = (
+                panel.calculate_relative_alpha_and_relative_velocity(induced_velocity)
+            )
+            relative_velocity_crossz = np.cross(relative_velocity, panel.z_airf)
+            Umag = np.linalg.norm(relative_velocity_crossz)
+            Uinfcrossz = np.cross(panel.va, panel.z_airf)
+            Umagw = np.linalg.norm(Uinfcrossz)
 
-                # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
-                # Lookup cl for this specific alpha
-                cl = panel.calculate_cl(alpha_uncorrected[icp])
-                cd, cm = panel.calculate_cd_cm(alpha_uncorrected[icp])
-                # Retrieve forces and moments
-                lift[icp] = 0.5 * density * Umag**2 * cl * panel.chord
-                drag[icp] = 0.5 * density * Umag**2 * cd * panel.chord
-                moment[icp] = 0.5 * density * Umag**2 * cm * panel.chord ** 2
+            # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
+            # Lookup cl for this specific alpha
+            cl = panel.calculate_cl(alpha_uncorrected[icp])
+            cd, cm = panel.calculate_cd_cm(alpha_uncorrected[icp])
+            # Retrieve forces and moments
+            lift[icp] = 0.5 * density * Umag**2 * cl * panel.chord
+            drag[icp] = 0.5 * density * Umag**2 * cd * panel.chord
+            moment[icp] = 0.5 * density * Umag**2 * cm * panel.chord**2
 
         # Return forces and alpha uncorrected
         return lift, drag, moment, alpha_uncorrected
-    
+
     def update_effective_angle_of_attack_if_VSM(self, gamma, core_radius_fraction):
         """Updates the angle of attack at the aerodynamic center of each panel,
             Calculated at the AERODYNAMIC CENTER, which needs an update for VSM
@@ -660,28 +659,26 @@ class WingAerodynamics:
         drag = np.zeros(len(panels))
         moment = np.zeros(len(panels))
         for icp, panel in enumerate(panels):
-                # Initialize induced velocity to 0
-                u = 0
-                v = 0
-                w = 0
-                # Compute induced velocities with previous gamma distribution
-                for jring, gamma_jring in enumerate(gamma):
-                    u = u + AIC_x[icp][jring] * gamma_jring
-                    # x-component of velocity
-                    v = v + AIC_y[icp][jring] * gamma_jring
-                    # y-component of velocity
-                    w = w + AIC_z[icp][jring] * gamma_jring
-                    # z-component of velocity
+            # Initialize induced velocity to 0
+            u = 0
+            v = 0
+            w = 0
+            # Compute induced velocities with previous gamma distribution
+            for jring, gamma_jring in enumerate(gamma):
+                u = u + AIC_x[icp][jring] * gamma_jring
+                # x-component of velocity
+                v = v + AIC_y[icp][jring] * gamma_jring
+                # y-component of velocity
+                w = w + AIC_z[icp][jring] * gamma_jring
+                # z-component of velocity
 
-                # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
-                induced_velocity = np.array([u, v, w])
+            # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
+            induced_velocity = np.array([u, v, w])
 
-                # This is double checked
-                alpha_corrected[icp], relative_velocity = (
-                    panel.calculate_relative_alpha_and_relative_velocity(
-                        induced_velocity
-                    )
-                )
+            # This is double checked
+            alpha_corrected[icp], relative_velocity = (
+                panel.calculate_relative_alpha_and_relative_velocity(induced_velocity)
+            )
 
         return alpha_corrected
 
