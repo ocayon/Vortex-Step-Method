@@ -121,17 +121,31 @@ class WingAerodynamics:
 
         # # Removing old wake filaments
         # self.panels = Wake.remove_frozen_wake(self.panels)
+        if isinstance(va, tuple) and len(va) == 2:
+            va, yaw_rate = va
 
         self._va = np.array(va)
-        self._yaw_rate = yaw_rate
 
-        if yaw_rate != 0.0:
-            raise ValueError("Yaw rate not yet implemented")
-
-        if len(va) == 3:
+        if len(va) == 3 and yaw_rate == 0.0:
             va_distribution = np.repeat([va], len(self.panels), axis=0)
         elif len(va) == len(self.panels):
             va_distribution = va
+        elif yaw_rate != 0.0 and len(va) == 3:
+            va_distribution = []
+
+            for wing in self.wings:
+                # Create the spanwise positions array
+                spanwise_positions = np.array([panel.control_point[1] for panel in self.panels])
+
+                for i in range(wing.n_panels):
+                    yaw_rate_apparent_velocity = np.array([0, 0, -yaw_rate * spanwise_positions[i]])
+
+                    # Append the current wing's velocities to the overall distribution
+                    va_distribution.append(yaw_rate_apparent_velocity+va)
+
+            # Concatenate all wings' distributions into a single array
+            va_distribution = np.vstack(va_distribution)
+            
         else:
             raise ValueError(
                 f"Invalid va distribution, len(va) :{len(va)} != len(self.panels):{len(self.panels)}"
@@ -359,7 +373,7 @@ class WingAerodynamics:
         if len(self.wings) > 1:
             raise NotImplementedError("Multiple wings not yet implemented")
 
-        wing_span = self.wings[0].calculate_wing_span()
+        wing_span = self.wings[0].span
 
         logging.debug(f"wing_span: {wing_span}")
 
@@ -539,7 +553,7 @@ class WingAerodynamics:
         projected_area = 0
         for i, wing in enumerate(self.wings):
             projected_area += wing.calculate_projected_area()
-        wing_span = wing.calculate_wing_span()
+        wing_span = wing.span
         aspect_ratio_projected = wing_span**2 / projected_area
 
         ### Storing results in a dictionary
@@ -822,3 +836,6 @@ class WingAerodynamics:
 
         # Display the plot
         plt.show()
+
+    #TODO: Add method to solve range of input variables
+        

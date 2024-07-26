@@ -217,6 +217,7 @@ class Wing:
                 np.array([tube_diameter_i, chamber_height_i]),
             ]
 
+    #TODO: correct this function, not working
     def refine_mesh_by_splitting_provided_sections(self):
         n_provided_sections = len(self.sections)
         n_new_sections = self.n_panels + 1 - n_provided_sections
@@ -258,6 +259,7 @@ class Wing:
         is_iterating_in_between_provided_sections = True
         left_section_index = 0
         new_sections = []
+        aero_input_pair_list = []
         # looping over all the new sections
         for i in range(0, n_new_panels + 1):
             logging.debug(
@@ -285,12 +287,11 @@ class Wing:
                 TE_pair_list = np.array(
                     [TE[left_section_index], TE[left_section_index + 1]]
                 )
-                aero_input_pair_list = np.array(
-                    [
+                aero_input_pair_list = [
                         aero_input[left_section_index],
                         aero_input[left_section_index + 1],
                     ]
-                )
+                
                 new_splitted_sections = self.refine_mesh_for_linear_cosine_distribution(
                     "linear",
                     new_sections_per_pair + 2,
@@ -385,7 +386,8 @@ class Wing:
         return new_sections_van_Garrel
 
     # TODO: add test here, assessing for example the types of the inputs
-    def calculate_wing_span(self):
+    @property
+    def span(self):
         """Calculates the span of the wing along a given vector axis
 
         Args:
