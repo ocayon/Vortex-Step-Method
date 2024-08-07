@@ -138,7 +138,7 @@ class WingAerodynamics:
                 spanwise_positions = np.array([panel.control_point[1] for panel in self.panels])
 
                 for i in range(wing.n_panels):
-                    yaw_rate_apparent_velocity = np.array([0, 0, -yaw_rate * spanwise_positions[i]])
+                    yaw_rate_apparent_velocity = np.array([-yaw_rate * spanwise_positions[i],0,0])
 
                     # Append the current wing's velocities to the overall distribution
                     va_distribution.append(yaw_rate_apparent_velocity+va)
