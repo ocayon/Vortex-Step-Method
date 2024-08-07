@@ -2,9 +2,15 @@ import numpy as np
 from VSM.WingGeometry import Wing, flip_created_coord_in_pairs_if_needed
 from VSM.WingAerodynamics import WingAerodynamics
 from VSM.Solver import Solver
+from VSM.color_palette import set_plot_style, get_color
 import logging
-#TODO: Convert into a Kite class
 
+set_plot_style()
+#TODO: Convert into a Kite class
+def Ry(theta):
+  return np.matrix([[ np.cos(theta), 0, np.sin(theta)],
+                   [ 0           , 1, 0           ],
+                   [-np.sin(theta), 0, np.cos(theta)]])
 def struct2aero_geometry(coord_struc):
 
     coord = np.empty((20, 3))
@@ -67,10 +73,23 @@ def refine_LEI_mesh(coord, N_sect, N_split):
     return refined_coord
 
 #%% Read the coordinates from the CAD file
-coord_struc = np.loadtxt("./data/coordinates/coords_v3_kite.csv", delimiter=",")
+coord_straight = np.loadtxt("./data/coordinates/coords_v3_kite.csv", delimiter=",")
+coord_straight = np.loadtxt("./data/coordinates/position_up1_us00.csv", delimiter=",")
+aoa01 = np.arctan((coord_straight[6,2]-coord_straight[14,2])/(coord_straight[6,0]-coord_straight[14,0]))
+# print(np.rad2deg(aoa01))
+# nplane= np.cross(coord_straight[6]-coord_straight[0],coord_straight[5]-coord_straight[0])
+# aoa01 = -np.arcsin((np.dot(nplane,[0,0,1]))/np.linalg.norm(nplane))
+# print(np.rad2deg(aoa01))
+R = Ry(-aoa01)
+coord_straight = coord_straight*R
+coord_turn = np.loadtxt("./data/coordinates/position_up1_us04.csv", delimiter=",")
+aoa04 = (np.arctan((coord_turn[5,2]-coord_turn[15,2])/(coord_turn[5,0]-coord_turn[15,0]))+np.arctan((coord_turn[6,2]-coord_turn[14,2])/(coord_turn[6,0]-coord_turn[14,0])))/2
+R = Ry(-aoa04)
+coord_turn = coord_turn*R
+
 
 ## Convert the coordinates to the aero coordinates
-coord_aero = struct2aero_geometry(coord_struc)/1000
+coord_aero = struct2aero_geometry(coord_straight)/1000
 n_aero = len(coord_aero) // 2
 coord = refine_LEI_mesh(coord_aero, n_aero-1, 5)
 coord = flip_created_coord_in_pairs_if_needed(coord)
@@ -83,6 +102,30 @@ LE_thicc = np.ones(n_sections) * 0.1
 # camber of the leading edge airfoil
 camber = np.ones(n_sections) * 0.095
 
+#Create wing geometry
+wing = Wing(n_panels, "unchanged")
+for idx,idx2 in enumerate(range(0, len(coord), 2)):
+    logging.debug(f"coord[{idx2}] = {coord[idx2]}")
+    wing.add_section(
+        coord[idx2],
+        coord[idx2 + 1],
+        ["lei_airfoil_breukels", [LE_thicc[idx], camber[idx]]],
+    )
+wing_aero_straight = WingAerodynamics([wing])
+
+## Convert the coordinates to the aero coordinates
+coord_aero = struct2aero_geometry(coord_turn)/1000
+n_aero = len(coord_aero) // 2
+coord = refine_LEI_mesh(coord_aero, n_aero-1, 5)
+coord = flip_created_coord_in_pairs_if_needed(coord)
+
+n_sections = len(coord) // 2
+n_panels = n_sections - 1
+# thickness of the leading edge tube
+LE_thicc = np.ones(n_sections) * 0.1
+
+# camber of the leading edge airfoil
+camber = np.ones(n_sections) * 0.095
 
 #Create wing geometry
 wing = Wing(n_panels, "unchanged")
@@ -93,8 +136,9 @@ for idx,idx2 in enumerate(range(0, len(coord), 2)):
         coord[idx2 + 1],
         ["lei_airfoil_breukels", [LE_thicc[idx], camber[idx]]],
     )
+wing_aero_turn = WingAerodynamics([wing])
 
-wing_aero = WingAerodynamics([wing])
+
 # VSM
 VSM = Solver(
     aerodynamic_model_type="VSM",
@@ -104,56 +148,77 @@ aoas = np.arange(0, 21, 1)
 cl_straight = np.zeros(len(aoas))
 cd_straight = np.zeros(len(aoas))
 cs_straight = np.zeros(len(aoas))
-gamma_straight = np.zeros((len(aoas), len(wing_aero.panels)))
+gamma_straight = np.zeros((len(aoas), len(wing_aero_straight.panels)))
 cl_turn = np.zeros(len(aoas))
 cd_turn = np.zeros(len(aoas))
 cs_turn = np.zeros(len(aoas))
-gamma_turn = np.zeros((len(aoas), len(wing_aero.panels)))
-yaw_rate = 1.5
+gamma_turn = np.zeros((len(aoas), len(wing_aero_turn.panels)))
+yaw_rate = 1.
 for i, aoa in enumerate(aoas):
     aoa = np.deg2rad(aoa)
     sideslip = 0
-    Umag = 20
+    Umag = 25
 
 
-    wing_aero.va = np.array([np.cos(aoa)*np.cos(sideslip), np.sin(sideslip), np.sin(aoa)]) * Umag, 0
-    results, wing_aero= VSM.solve(wing_aero)
+    wing_aero_straight.va = np.array([np.cos(aoa)*np.cos(sideslip), np.sin(sideslip), np.sin(aoa)]) * Umag, 0
+    results, wing_aero= VSM.solve(wing_aero_straight)
     cl_straight[i] = results["cl"]
     cd_straight[i] = results["cd"]
     cs_straight[i] = results["cs"]
     gamma_straight[i] = results["gamma_distribution"]
-    print(f"Straight: aoa: {aoa}, CL: {cl_straight[i]}, CD: {cd_straight[i]}, CS: {cs_straight[i]}")
+    print(f"Straight: aoa: {np.rad2deg(aoa)}, CL: {cl_straight[i]}, CD: {cd_straight[i]}, CS: {cs_straight[i]}")
 
-    wing_aero.va = np.array([np.cos(aoa)*np.cos(sideslip), np.sin(sideslip), np.sin(aoa)]) * Umag, yaw_rate
-    results, wing_aero= VSM.solve(wing_aero)
+    wing_aero_turn.va = np.array([np.cos(aoa)*np.cos(sideslip), np.sin(sideslip), np.sin(aoa)]) * Umag, yaw_rate
+    results, wing_aero= VSM.solve(wing_aero_turn)
     cl_turn[i] = results["cl"]
     cd_turn[i] = results["cd"]
     cs_turn[i] = results["cs"]
     gamma_turn[i] = results["gamma_distribution"]
-    print(f"Turn: aoa: {aoa}, CL: {cl_turn[i]}, CD: {cd_turn[i]}, CS: {cs_turn[i]}")
-    
+    print(f"Turn: aoa: {np.rad2deg(aoa)}, CL: {cl_turn[i]}, CD: {cd_turn[i]}, CS: {cs_turn[i]}")
+
+#%% Find the equilibrium angle of attack
+import matplotlib.pyplot as plt
+aoas = np.deg2rad(aoas)
+tan_force = cl_straight * np.sin(aoas) - cd_straight * np.cos(aoas)
+aoas = np.rad2deg(aoas)
+aoa_trim_straight = np.interp(0, tan_force, aoas)
+cl = np.interp(0, tan_force, cl_straight)
+cd = np.interp(0, tan_force, cd_straight)
+print(f"Equilibrium point straight flight: AOA: {aoa_trim_straight}, CL: {cl}, CD: {cd}")
+aoas = np.deg2rad(aoas)
+tan_force = cl_turn * np.sin(aoas) - cd_turn * np.cos(aoas)
+aoas = np.rad2deg(aoas)
+aoa_trim_turn = np.interp(0, tan_force, aoas)
+cl = np.interp(0, tan_force, cl_turn)
+cd = np.interp(0, tan_force, cd_turn)
+print(f"Equilibrium point turning flight: AOA: {aoa_trim_turn}, CL: {cl}, CD: {cd}")
+
+plt.figure()
+plt.plot(aoas, tan_force)
 
 # Plot the results
-import matplotlib.pyplot as plt
+
 fig, axs = plt.subplots(3, figsize=(10, 15))
 axs[0].plot(aoas, cl_straight, label="$C_L$ straight")
+axs[0].axvline(x=aoa_trim_straight, linestyle='--', label="Straight equilibrium point")
 axs[0].plot(aoas, cl_turn, label="$C_L$ turn")
+axs[0].axvline(x=aoa_trim_turn, linestyle='--', label="Turn equilibrium point", color = 'orange')
 axs[0].legend()
-axs[0].grid()
 axs[0].set_ylabel("CL")
 axs[0].set_xlabel("AOA [deg]")
 axs[1].plot(aoas, cd_straight, label="$C_D$ straight")
+axs[1].axvline(x=aoa_trim_straight, linestyle='--', label="Straight equilibrium point")
 axs[1].plot(aoas, cd_turn, label="$C_D$ turn")
+axs[1].axvline(x=aoa_trim_turn, linestyle='--', label="Turn equilibrium point", color = 'orange')
 axs[1].legend()
 axs[1].set_ylabel("CD")
 axs[1].set_xlabel("AOA [deg]")
-axs[1].grid()
 axs[2].plot(aoas, cs_straight, label="$C_S$ straight")
 axs[2].plot(aoas, cs_turn, label="$C_S$ turn")
 axs[2].legend()
 axs[2].set_ylabel("CS")
 axs[2].set_xlabel("AOA [deg]")
-axs[2].grid()
+
 plt.show()
 
 
@@ -169,5 +234,28 @@ axs[1].legend()
 axs[1].set_title("Turning flight")
 axs[1].set_ylabel("Gamma")
 
-
 plt.show()
+
+# import pandas as pd
+# # Save straight polars
+# polar_df = pd.DataFrame(
+#     {
+#         "angle_of_attack": np.deg2rad(aoas),
+#         "lift_coefficient": cl_straight,
+#         "drag_coefficient": cd_straight,
+#     }
+# )
+
+# polar_df.to_csv("./data/polars/straight_powered_polars.csv", index=False)
+
+# # Save turn polars
+# polar_df = pd.DataFrame(
+#     {
+#         "angle_of_attack": np.deg2rad(aoas),
+#         "lift_coefficient": cl_turn,
+#         "drag_coefficient": cd_turn,
+#     }
+# )
+
+# polar_df.to_csv("./data/polars/turn_powered_polars.csv", index=False)
+
