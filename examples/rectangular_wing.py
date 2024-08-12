@@ -2,6 +2,7 @@ from VSM.WingAerodynamics import WingAerodynamics
 from VSM.WingGeometry import Wing
 from VSM.Solver import Solver
 import numpy as np
+import matplotlib.pyplot as plt
 import logging
 from copy import deepcopy
 
@@ -21,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 #   - "cosine"
 #   - "cosine_van_Garrel" (http://dx.doi.org/10.13140/RG.2.1.2773.8000)
 # spanwise_direction: np.array = np.array([0, 1, 0])
-wing = Wing(n_panels=25, spanwise_panel_distribution="split_provided")
+wing = Wing(n_panels=20, spanwise_panel_distribution="split_provided")
 
 ## Add sections to the wing
 # MUST be done in order from left-to-right
@@ -72,34 +73,45 @@ results_LLT, wing_aero_LLT = LLT.solve(wing_aero_LLT)
 ###############
 
 
-import matplotlib.pyplot as plt
+fig, axs = plt.subplots(2, 2, figsize=(12, 10))
+fig.suptitle("Spanwise distributions", fontsize=16)
 
+# CL plot
+axs[0, 0].plot(results_VSM["cl_distribution"], label="VSM")
+axs[0, 0].plot(results_LLT["cl_distribution"], label="LLT")
+axs[0, 0].set_title(r"$C_L$ Distribution")
+axs[0, 0].set_xlabel(r"Spanwise Position $y/b$")
+axs[0, 0].set_ylabel(r"Lift Coefficient $C_L$")
+axs[0, 0].legend()
 
-def plot_a_distribution(title, VSM_distribution, LLT_distribution):
-    plt.figure()
-    plt.title(title)
-    plt.plot(VSM_distribution, label="VSM")
-    plt.plot(LLT_distribution, label="LLT")
-    plt.legend()
+# CD plot
+axs[0, 1].plot(results_VSM["cd_distribution"], label="VSM")
+axs[0, 1].plot(results_LLT["cd_distribution"], label="LLT")
+axs[0, 1].set_title(r"$C_D$ Distribution")
+axs[0, 1].set_xlabel(r"Spanwise Position $y/b$")
+axs[0, 1].set_ylabel(r"Drag Coefficient $C_D$")
+axs[0, 1].legend()
 
+# Gamma plot
+axs[1, 0].plot(results_VSM["gamma_distribution"], label="VSM")
+axs[1, 0].plot(results_LLT["gamma_distribution"], label="LLT")
+axs[1, 0].set_title(r"$\Gamma$ Distribution")
+axs[1, 0].set_xlabel(r"Spanwise Position $y/b$")
+axs[1, 0].set_ylabel(r"Circulation $\Gamma$")
+axs[1, 0].legend()
 
-plot_a_distribution(
-    "gamma_distribution",
-    results_VSM["gamma_distribution"],
-    results_LLT["gamma_distribution"],
+# Alpha plot
+axs[1, 1].plot(
+    results_VSM["alpha_uncorrected"], label="Uncorrected (alpha at 3/4c, i.e. c.p.)"
 )
-plot_a_distribution(
-    "cl_distribution", results_VSM["cl_distribution"], results_LLT["cl_distribution"]
-)
-plot_a_distribution(
-    "alpha_at_ac", results_VSM["alpha_at_ac"], results_LLT["alpha_at_ac"]
-)
-plot_a_distribution(
-    "alpha_uncorrected",
-    results_VSM["alpha_uncorrected"],
-    results_LLT["alpha_uncorrected"],
-)
+axs[1, 1].plot(results_VSM["alpha_at_ac"], label="Corrected (alpha at 1/4c, i.e. a.c.)")
+axs[1, 1].plot(results_LLT["alpha_geometric"], label="Geometric")
+axs[1, 1].set_title(r"$\alpha$ Comparison (from VSM)")
+axs[1, 1].set_xlabel(r"Spanwise Position $y/b$")
+axs[1, 1].set_ylabel(r"Angle of Attack $\alpha$ (rad)")
+axs[1, 1].legend()
 
+plt.tight_layout()
 plt.show()
 
 
