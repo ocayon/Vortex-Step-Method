@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO)
 #   - "cosine"
 #   - "cosine_van_Garrel" (http://dx.doi.org/10.13140/RG.2.1.2773.8000)
 # spanwise_direction: np.array = np.array([0, 1, 0])
-wing = Wing(n_panels=6, spanwise_panel_distribution="split_provided")
+wing = Wing(n_panels=25, spanwise_panel_distribution="split_provided")
 
 ## Add sections to the wing
 # MUST be done in order from left-to-right
@@ -51,7 +51,7 @@ LLT = Solver(aerodynamic_model_type="LLT")
 VSM = Solver(aerodynamic_model_type="VSM")
 
 Umag = 20
-aoa = 10
+aoa = 30
 aoa = np.deg2rad(aoa)
 Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
 

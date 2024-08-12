@@ -603,6 +603,7 @@ def plotting(
     plt.legend()
     plt.xlabel(x_label)
     plt.ylabel(y_label)
+    plt.title(title)
     plt.grid()
     plt.savefig(plt_path + title + file_type, bbox_inches="tight")
 
@@ -675,7 +676,12 @@ def plotting_CL_CD_gamma_LLT_VSM_old_new_comparison(
         labels=[labels[1], labels[2], labels[3], labels[4]],
         x_label=r"$y$",
         y_label=r"$Gamma$",
-        title=f"gamma_distribution_{wing_type}_AR_" + str(round(AR, 1)),
+        title=f"gamma_distribution_{wing_type}_AR_"
+        + str(round(AR, 1))
+        + "_aoa_"
+        + str(round(AR, 1))
+        + "_aoa_"
+        + str(aoas_deg[idx]),
         markers=None,
         alphas=None,
         colors=None,
