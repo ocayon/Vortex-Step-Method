@@ -135,17 +135,21 @@ class WingAerodynamics:
 
             for wing in self.wings:
                 # Create the spanwise positions array
-                spanwise_positions = np.array([panel.control_point[1] for panel in self.panels])
+                spanwise_positions = np.array(
+                    [panel.control_point[1] for panel in self.panels]
+                )
 
                 for i in range(wing.n_panels):
-                    yaw_rate_apparent_velocity = np.array([-yaw_rate * spanwise_positions[i],0,0])
+                    yaw_rate_apparent_velocity = np.array(
+                        [-yaw_rate * spanwise_positions[i], 0, 0]
+                    )
 
                     # Append the current wing's velocities to the overall distribution
-                    va_distribution.append(yaw_rate_apparent_velocity+va)
+                    va_distribution.append(yaw_rate_apparent_velocity + va)
 
             # Concatenate all wings' distributions into a single array
             va_distribution = np.vstack(va_distribution)
-            
+
         else:
             raise ValueError(
                 f"Invalid va distribution, len(va) :{len(va)} != len(self.panels):{len(self.panels)}"
@@ -556,6 +560,21 @@ class WingAerodynamics:
         wing_span = wing.span
         aspect_ratio_projected = wing_span**2 / projected_area
 
+        # Calculate geometric angle of attack wrt horizontal at mid-span
+        horizontal_direction = np.array([1, 0, 0])
+        alpha_geometric = np.array(
+            [
+                np.rad2deg(
+                    np.arccos(np.dot(panel_i.y_airf, horizontal_direction))
+                    / (
+                        np.linalg.norm(panel_i.y_airf)
+                        * np.linalg.norm(horizontal_direction)
+                    )
+                )
+                for panel_i in self.panels
+            ]
+        )
+
         ### Storing results in a dictionary
         results_dict = {}
         # Global wing aerodynamics
@@ -581,6 +600,7 @@ class WingAerodynamics:
         results_dict.update([("cfy", fy_global / (q_inf * projected_area))])
         results_dict.update([("alpha_at_ac", alpha_corrected)])
         results_dict.update([("alpha_uncorrected", alpha_uncorrected)])
+        results_dict.update([("alpha_geometric", alpha_geometric)])
         results_dict.update([("gamma_distribution", gamma_new)])
         results_dict.update([("area_all_panels", area_all_panels)])
         results_dict.update([("projected_area", projected_area)])
@@ -837,5 +857,4 @@ class WingAerodynamics:
         # Display the plot
         plt.show()
 
-    #TODO: Add method to solve range of input variables
-        
+    # TODO: Add method to solve range of input variables
