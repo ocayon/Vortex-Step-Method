@@ -102,15 +102,14 @@ plot_a_distribution(
 
 plt.show()
 
+
 # Check if the gamma distribution is symmetric
-
-
 def is_symmetric_1d(array, tol=1e-8):
     return np.allclose(array, array[::-1], atol=tol)
 
 
-print(f"VSM is symmetric: {is_symmetric_1d(wing_aero_VSM.gamma_distribution)}")
-print(f"LLT is symmetric: {is_symmetric_1d(wing_aero_LLT.gamma_distribution)}")
+print(f"VSM is symmetric: {is_symmetric_1d(results_VSM['gamma_distribution'])}")
+print(f"LLT is symmetric: {is_symmetric_1d(results_LLT['gamma_distribution'])}")
 
 
 # TODOs

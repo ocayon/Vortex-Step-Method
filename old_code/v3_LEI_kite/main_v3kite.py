@@ -5,10 +5,16 @@ Created on Mon Jan 10 18:09:16 2022
 @author: oriol2
 """
 
+import os, sys
+
+# Go back to root folder
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, root_path)
+
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-import src.functions_VSM_LLT as VSM
+import old_code.functions_VSM_LLT as VSM
 
 
 # %%  Input DATA
@@ -61,7 +67,7 @@ plt.plot(indexes, t, "ro", label="CAD Drawing")
 
 
 # Number of splits per panel
-N_split = 4
+N_split = 1
 # Refine structrural mesh into more panels
 coord = VSM.refine_LEI_mesh(coord, N - 1, N_split)
 # Define system of vorticity
@@ -90,13 +96,20 @@ plt.legend()
 # Definition of airfoil coefficients
 # Based on Breukels (2011) correlation model
 aoas = np.arange(-20, 21, 1)
+aoas = [5.75]
 data_airf = np.empty((len(aoas), 4, N - 1))
 t_c = np.empty(N - 1)
+print(f"N = {N}")
 for i in range(N - 1):
+    print(f"i = {i}")
     for j in range(len(aoas)):
         t_c[i] = thicc[i] / controlpoints[i]["chord"]
+        print(f"t_c = {t_c[i]}")
+        print(f"k = {k}")
         alpha = aoas[j]
         Cl, Cd, Cm = VSM.LEI_airf_coeff(t_c[i], k, alpha)
+        print("alpha, Cl, Cd, Cm")
+        print(alpha, Cl, Cd, Cm)
         data_airf[j, 0, i] = alpha
         data_airf[j, 1, i] = Cl
         data_airf[j, 2, i] = Cd

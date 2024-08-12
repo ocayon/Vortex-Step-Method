@@ -553,6 +553,7 @@ def calculate_new_for_alpha_range(
         )
     panel_y = [panel.aerodynamic_center[1] for panel in wing_aero_LLT.panels]
     AR = results_VSM["aspect_ratio_projected"]
+
     return (
         CL_LLT_new,
         CD_LLT_new,
