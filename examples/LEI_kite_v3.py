@@ -73,23 +73,11 @@ def refine_LEI_mesh(coord, N_sect, N_split):
     return refined_coord
 
 #%% Read the coordinates from the CAD file
-coord_straight = np.loadtxt("./data/coordinates/coords_v3_kite.csv", delimiter=",")
-coord_straight = np.loadtxt("./data/coordinates/position_up1_us00.csv", delimiter=",")
-aoa01 = np.arctan((coord_straight[6,2]-coord_straight[14,2])/(coord_straight[6,0]-coord_straight[14,0]))
-# print(np.rad2deg(aoa01))
-# nplane= np.cross(coord_straight[6]-coord_straight[0],coord_straight[5]-coord_straight[0])
-# aoa01 = -np.arcsin((np.dot(nplane,[0,0,1]))/np.linalg.norm(nplane))
-# print(np.rad2deg(aoa01))
-R = Ry(-aoa01)
-coord_straight = coord_straight*R
-coord_turn = np.loadtxt("./data/coordinates/position_up1_us04.csv", delimiter=",")
-aoa04 = (np.arctan((coord_turn[5,2]-coord_turn[15,2])/(coord_turn[5,0]-coord_turn[15,0]))+np.arctan((coord_turn[6,2]-coord_turn[14,2])/(coord_turn[6,0]-coord_turn[14,0])))/2
-R = Ry(-aoa04)
-coord_turn = coord_turn*R
+coord_struct = np.loadtxt("./data/coordinates/coords_v3_kite.csv", delimiter=",")
 
 
 ## Convert the coordinates to the aero coordinates
-coord_aero = struct2aero_geometry(coord_straight)/1000
+coord_aero = struct2aero_geometry(coord_struct)/1000
 n_aero = len(coord_aero) // 2
 coord = refine_LEI_mesh(coord_aero, n_aero-1, 5)
 coord = flip_created_coord_in_pairs_if_needed(coord)
@@ -111,33 +99,7 @@ for idx,idx2 in enumerate(range(0, len(coord), 2)):
         coord[idx2 + 1],
         ["lei_airfoil_breukels", [LE_thicc[idx], camber[idx]]],
     )
-wing_aero_straight = WingAerodynamics([wing])
-
-## Convert the coordinates to the aero coordinates
-coord_aero = struct2aero_geometry(coord_turn)/1000
-n_aero = len(coord_aero) // 2
-coord = refine_LEI_mesh(coord_aero, n_aero-1, 5)
-coord = flip_created_coord_in_pairs_if_needed(coord)
-
-n_sections = len(coord) // 2
-n_panels = n_sections - 1
-# thickness of the leading edge tube
-LE_thicc = np.ones(n_sections) * 0.1
-
-# camber of the leading edge airfoil
-camber = np.ones(n_sections) * 0.095
-
-#Create wing geometry
-wing = Wing(n_panels, "unchanged")
-for idx,idx2 in enumerate(range(0, len(coord), 2)):
-    logging.debug(f"coord[{idx2}] = {coord[idx2]}")
-    wing.add_section(
-        coord[idx2],
-        coord[idx2 + 1],
-        ["lei_airfoil_breukels", [LE_thicc[idx], camber[idx]]],
-    )
-wing_aero_turn = WingAerodynamics([wing])
-
+wing_aero = WingAerodynamics([wing])
 
 # VSM
 VSM = Solver(
@@ -148,28 +110,28 @@ aoas = np.arange(0, 21, 1)
 cl_straight = np.zeros(len(aoas))
 cd_straight = np.zeros(len(aoas))
 cs_straight = np.zeros(len(aoas))
-gamma_straight = np.zeros((len(aoas), len(wing_aero_straight.panels)))
+gamma_straight = np.zeros((len(aoas), len(wing_aero.panels)))
 cl_turn = np.zeros(len(aoas))
 cd_turn = np.zeros(len(aoas))
 cs_turn = np.zeros(len(aoas))
-gamma_turn = np.zeros((len(aoas), len(wing_aero_turn.panels)))
-yaw_rate = 1.
+gamma_turn = np.zeros((len(aoas), len(wing_aero.panels)))
+yaw_rate = 1.5
 for i, aoa in enumerate(aoas):
     aoa = np.deg2rad(aoa)
     sideslip = 0
     Umag = 25
 
 
-    wing_aero_straight.va = np.array([np.cos(aoa)*np.cos(sideslip), np.sin(sideslip), np.sin(aoa)]) * Umag, 0
-    results, wing_aero= VSM.solve(wing_aero_straight)
+    wing_aero.va = np.array([np.cos(aoa)*np.cos(sideslip), np.sin(sideslip), np.sin(aoa)]) * Umag, 0
+    results, wing_aero= VSM.solve(wing_aero)
     cl_straight[i] = results["cl"]
     cd_straight[i] = results["cd"]
     cs_straight[i] = results["cs"]
     gamma_straight[i] = results["gamma_distribution"]
     print(f"Straight: aoa: {np.rad2deg(aoa)}, CL: {cl_straight[i]}, CD: {cd_straight[i]}, CS: {cs_straight[i]}")
 
-    wing_aero_turn.va = np.array([np.cos(aoa)*np.cos(sideslip), np.sin(sideslip), np.sin(aoa)]) * Umag, yaw_rate
-    results, wing_aero= VSM.solve(wing_aero_turn)
+    wing_aero.va = np.array([np.cos(aoa)*np.cos(sideslip), np.sin(sideslip), np.sin(aoa)]) * Umag, yaw_rate
+    results, wing_aero= VSM.solve(wing_aero)
     cl_turn[i] = results["cl"]
     cd_turn[i] = results["cd"]
     cs_turn[i] = results["cs"]
