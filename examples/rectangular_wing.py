@@ -4,7 +4,10 @@ from VSM.Solver import Solver
 import numpy as np
 import matplotlib.pyplot as plt
 import logging
+from VSM.color_palette import set_plot_style
 from copy import deepcopy
+
+set_plot_style()
 
 
 logging.basicConfig(level=logging.INFO)
@@ -60,7 +63,7 @@ Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
 wing_aero.va = Uinf
 wing_aero_LLT = deepcopy(wing_aero)
 # Plotting the wing
-wing_aero.plot()
+# wing_aero.plot()
 
 ## Solve the aerodynamics
 # cl,cd,cs coefficients are flipped to "normal ref frame"

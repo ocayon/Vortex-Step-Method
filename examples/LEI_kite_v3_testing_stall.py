@@ -1,9 +1,10 @@
 import numpy as np
 from VSM.WingGeometry import Wing, flip_created_coord_in_pairs_if_needed
 from VSM.WingAerodynamics import WingAerodynamics
-from VSM.Solver import Solver
+from VSM.Solver import Solver, Solver_with_stall_correction
 from VSM.color_palette import set_plot_style, get_color
 import logging
+import matplotlib.pyplot as plt
 
 set_plot_style()
 
@@ -85,7 +86,6 @@ def refine_LEI_mesh(coord, N_sect, N_split):
 # %% Read the coordinates from the CAD file
 coord_struct = np.loadtxt("../data/coordinates/coords_v3_kite.csv", delimiter=",")
 
-
 ## Convert the coordinates to the aero coordinates
 coord_aero = struct2aero_geometry(coord_struct) / 1000
 n_aero = len(coord_aero) // 2
@@ -115,19 +115,25 @@ wing_aero = WingAerodynamics([wing])
 VSM = Solver(
     aerodynamic_model_type="VSM",
 )
+VSM_with_stall_correction = Solver_with_stall_correction(
+    aerodynamic_model_type="VSM",
+)
 
 # aoas = np.arange(0, 21, 1)
-aoas = [15, 20, 25]
+aoas = [14, 15, 16]
 cl_straight = np.zeros(len(aoas))
 cd_straight = np.zeros(len(aoas))
 cs_straight = np.zeros(len(aoas))
 gamma_straight = np.zeros((len(aoas), len(wing_aero.panels)))
+gamma_straight_with_correction = np.zeros((len(aoas), len(wing_aero.panels)))
 cl_turn = np.zeros(len(aoas))
 cd_turn = np.zeros(len(aoas))
 cs_turn = np.zeros(len(aoas))
 gamma_turn = np.zeros((len(aoas), len(wing_aero.panels)))
 yaw_rate = 1.5
 for i, aoa in enumerate(aoas):
+    print(f" ")
+    print(f"Calculating for AOA: {aoa}")
     aoa = np.deg2rad(aoa)
     sideslip = 0
     Umag = 25
@@ -137,94 +143,54 @@ for i, aoa in enumerate(aoas):
         * Umag,
         0,
     )
-    results, wing_aero = VSM.solve(wing_aero)
-    cl_straight[i] = results["cl"]
-    cd_straight[i] = results["cd"]
-    cs_straight[i] = results["cs"]
+    results, _ = VSM.solve(wing_aero)
+    # cl_straight[i] = results["cl"]
+    # cd_straight[i] = results["cd"]
+    # cs_straight[i] = results["cs"]
+    # print(
+    #     f"Straight: aoa: {np.rad2deg(aoa)}, CL: {cl_straight[i]}, CD: {cd_straight[i]}, CS: {cs_straight[i]}"
+    # )
     gamma_straight[i] = results["gamma_distribution"]
-    print(
-        f"Straight: aoa: {np.rad2deg(aoa)}, CL: {cl_straight[i]}, CD: {cd_straight[i]}, CS: {cs_straight[i]}"
-    )
 
-    wing_aero.va = (
-        np.array([np.cos(aoa) * np.cos(sideslip), np.sin(sideslip), np.sin(aoa)])
-        * Umag,
-        yaw_rate,
-    )
-    results, wing_aero = VSM.solve(wing_aero)
-    cl_turn[i] = results["cl"]
-    cd_turn[i] = results["cd"]
-    cs_turn[i] = results["cs"]
-    gamma_turn[i] = results["gamma_distribution"]
-    print(
-        f"Turn: aoa: {np.rad2deg(aoa)}, CL: {cl_turn[i]}, CD: {cd_turn[i]}, CS: {cs_turn[i]}"
-    )
-
-# %% Find the equilibrium angle of attack
-import matplotlib.pyplot as plt
-
-aoas = np.deg2rad(aoas)
-tan_force = cl_straight * np.sin(aoas) - cd_straight * np.cos(aoas)
-aoas = np.rad2deg(aoas)
-aoa_trim_straight = np.interp(0, tan_force, aoas)
-cl = np.interp(0, tan_force, cl_straight)
-cd = np.interp(0, tan_force, cd_straight)
-print(
-    f"Equilibrium point straight flight: AOA: {aoa_trim_straight}, CL: {cl}, CD: {cd}"
-)
-aoas = np.deg2rad(aoas)
-tan_force = cl_turn * np.sin(aoas) - cd_turn * np.cos(aoas)
-aoas = np.rad2deg(aoas)
-aoa_trim_turn = np.interp(0, tan_force, aoas)
-cl = np.interp(0, tan_force, cl_turn)
-cd = np.interp(0, tan_force, cd_turn)
-print(f"Equilibrium point turning flight: AOA: {aoa_trim_turn}, CL: {cl}, CD: {cd}")
-
-plt.figure()
-plt.plot(aoas, tan_force)
-
-# Plot the results
-
-fig, axs = plt.subplots(3, figsize=(10, 15))
-axs[0].plot(aoas, cl_straight, label="$C_L$ straight")
-axs[0].axvline(x=aoa_trim_straight, linestyle="--", label="Straight equilibrium point")
-axs[0].plot(aoas, cl_turn, label="$C_L$ turn")
-axs[0].axvline(
-    x=aoa_trim_turn, linestyle="--", label="Turn equilibrium point", color="orange"
-)
-axs[0].legend()
-axs[0].set_ylabel("CL")
-axs[0].set_xlabel("AOA [deg]")
-axs[1].plot(aoas, cd_straight, label="$C_D$ straight")
-axs[1].axvline(x=aoa_trim_straight, linestyle="--", label="Straight equilibrium point")
-axs[1].plot(aoas, cd_turn, label="$C_D$ turn")
-axs[1].axvline(
-    x=aoa_trim_turn, linestyle="--", label="Turn equilibrium point", color="orange"
-)
-axs[1].legend()
-axs[1].set_ylabel("CD")
-axs[1].set_xlabel("AOA [deg]")
-axs[2].plot(aoas, cs_straight, label="$C_S$ straight")
-axs[2].plot(aoas, cs_turn, label="$C_S$ turn")
-axs[2].legend()
-axs[2].set_ylabel("CS")
-axs[2].set_xlabel("AOA [deg]")
-
-plt.show()
+    # with stall correction
+    print(f"    Running with stall correction")
+    results_with_stall_correction, _ = VSM_with_stall_correction.solve(wing_aero)
+    gamma_straight_with_correction[i] = results_with_stall_correction[
+        "gamma_distribution"
+    ]
 
 
-# plot two gamma distributions
-fig, axs = plt.subplots(2)
-for i in range(0, len(gamma_straight), 5):
-    axs[0].plot(gamma_straight[i], label=f"AOA: {aoas[i]}")
-    axs[1].plot(gamma_turn[i], label=f"AOA: {aoas[i]}")
-axs[0].legend()
-axs[0].set_title("Straight flight")
-axs[0].set_ylabel("Gamma")
-axs[1].legend()
-axs[1].set_title("Turning flight")
-axs[1].set_ylabel("Gamma")
+# %% plotting the results
 
+# plt.figure()
+# plt.plot(aoas)
+
+# # Plot the results
+
+# fig, axs = plt.subplots(3, figsize=(10, 15))
+# axs[0].plot(aoas, cl_straight, label="$C_L$ straight")
+# axs[0].legend()
+# axs[0].set_ylabel("CL")
+# axs[0].set_xlabel("AOA [deg]")
+# axs[1].plot(aoas, cd_straight, label="$C_D$ straight")
+# axs[1].plot(aoas, cd_turn, label="$C_D$ turn")
+# axs[1].legend()
+# axs[1].set_ylabel("CD")
+# axs[1].set_xlabel("AOA [deg]")
+# axs[2].plot(aoas, cs_straight, label="$C_S$ straight")
+# axs[2].legend()
+# axs[2].set_ylabel("CS")
+# axs[2].set_xlabel("AOA [deg]")
+# plt.show()
+
+# plot gamma distributions for each the aoas
+fig, ax = plt.subplots(len(aoas), figsize=(10, 15))
+for i, ax in enumerate(ax):
+    ax.plot(gamma_straight[i], label=f"No stall correction")
+    ax.plot(gamma_straight_with_correction[i], label=f"With stall correction")
+    ax.legend()
+    ax.set_title(r"Angle of Attack $\alpha$ = {}".format(aoas[i]))
+    ax.set_ylabel("Gamma")
 plt.show()
 
 # import pandas as pd
