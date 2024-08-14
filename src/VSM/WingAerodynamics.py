@@ -37,8 +37,11 @@ class WingAerodynamics:
     def __init__(
         self,
         wings: list,  # List of Wing object instances
+        aerodynamic_center_location: float = 0.25,
+        control_point_location: float = 0.75,
     ):
-
+        self._wings = wings
+        # Defining the panels by refining the aerodynamic mesh
         panels = []
         for i, wing_instance in enumerate(wings):
             section_list = wing_instance.refine_aerodynamic_mesh()
@@ -54,8 +57,8 @@ class WingAerodynamics:
             ) = self.calculate_panel_properties(
                 section_list,
                 n_panels_per_wing,
-                aerodynamic_center_location=0.25,
-                control_point_location=0.75,
+                aerodynamic_center_location,
+                control_point_location,
             )
             for j in range(n_panels_per_wing):
                 panels.append(
@@ -71,14 +74,13 @@ class WingAerodynamics:
                         z_airf_list[j],
                     )
                 )
-
-        self._wings = wings
         self._panels = panels
         self._n_panels = len(panels)
         self._va = None
         self._gamma_distribution = None
         self._alpha_uncorrected = None
         self._alpha_corrected = None
+        self._stall_angle_list = self.calculate_stall_angle_list()
 
     ###########################
     ## GETTER FUNCTIONS
@@ -103,6 +105,10 @@ class WingAerodynamics:
     @property
     def wings(self):
         return self._wings
+
+    @property
+    def stall_angle_list(self):
+        return self._stall_angle_list
 
     ###########################
     ## SETTER FUNCTIONS
@@ -166,14 +172,13 @@ class WingAerodynamics:
     ## CALCULATE FUNCTIONS
     ###########################
 
-    # TODO: implement usaged of the .25 and .75 variables
     # TODO: could be CPU optimized
     def calculate_panel_properties(
         self,
         section_list,
         n_panels,
-        aerodynamic_center_location=0.25,
-        control_point_location=0.75,
+        aerodynamic_center_location,
+        control_point_location,
     ):
         # Initialize lists
         aerodynamic_center_list = []
@@ -386,6 +391,49 @@ class WingAerodynamics:
         gamma_i = np.append(gamma_i, gamma_i_wing)
 
         return gamma_i
+
+    def calculate_stall_angle_list(
+        self,
+        begin_aoa: float = 9,
+        end_aoa: float = 22,
+        step_aoa: float = 1,
+        stall_angle_if_none_detected: float = 50,
+        cl_initial: float = -10,
+    ):
+        """Calculates the stall angle list for each panel
+
+        Args:
+            begin_aoa (float): The beginning angle of attack
+            end_aoa (float): The end angle of attack
+            step_aoa (float): The step angle of attack
+            stall_angle_if_none_detected (float): The stall angle if none is detected
+            cl_initial (float): The initial lift coefficient
+
+        Returns:
+            np.array: The stall angle list"""
+
+        aoa_range_over_which_stall_is_expected = np.deg2rad(
+            np.arange(
+                begin_aoa,
+                end_aoa,
+                step_aoa,
+            )
+        )
+        stall_angle_list = []
+        for panel in self.panels:
+            # initialising a value, for when no stall is found
+            panel_aoa_stall = stall_angle_if_none_detected
+
+            # starting with a very small cl value
+            cl_old = cl_initial
+            for aoa in aoa_range_over_which_stall_is_expected:
+                cl = panel.calculate_cl(aoa)
+                if cl < cl_old:
+                    panel_aoa_stall = aoa
+                    break
+                cl_old = cl
+            stall_angle_list.append(panel_aoa_stall)
+        return np.array(stall_angle_list)
 
     def calculate_results(
         self, gamma_new, density, aerodynamic_model_type, core_radius_fraction

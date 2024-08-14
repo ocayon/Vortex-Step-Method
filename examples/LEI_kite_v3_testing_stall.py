@@ -1,7 +1,7 @@
 import numpy as np
 from VSM.WingGeometry import Wing, flip_created_coord_in_pairs_if_needed
 from VSM.WingAerodynamics import WingAerodynamics
-from VSM.Solver import Solver, Solver_with_stall_correction
+from VSM.Solver import Solver
 from VSM.color_palette import set_plot_style, get_color
 import logging
 import matplotlib.pyplot as plt
@@ -114,8 +114,9 @@ wing_aero = WingAerodynamics([wing])
 # VSM
 VSM = Solver(
     aerodynamic_model_type="VSM",
+    artificial_damping={"k2": 0, "k4": 0},
 )
-VSM_with_stall_correction = Solver_with_stall_correction(
+VSM_with_stall_correction = Solver(
     aerodynamic_model_type="VSM",
 )
 
@@ -125,7 +126,9 @@ aoas = [10, 15, 20]
 cl_straight = np.zeros(len(aoas))
 cl_straight_with_correction = np.zeros(len(aoas))
 cd_straight = np.zeros(len(aoas))
+cd_straight_with_correction = np.zeros(len(aoas))
 cs_straight = np.zeros(len(aoas))
+cs_straight_with_correction = np.zeros(len(aoas))
 gamma_straight = np.zeros((len(aoas), len(wing_aero.panels)))
 gamma_straight_with_correction = np.zeros((len(aoas), len(wing_aero.panels)))
 gamma_turn = np.zeros((len(aoas), len(wing_aero.panels)))
@@ -134,11 +137,13 @@ cl_distribution_straight = np.zeros((len(aoas), len(wing_aero.panels)))
 cl_distribution_straight_with_correction = np.zeros((len(aoas), len(wing_aero.panels)))
 cl_distribution_turn = np.zeros((len(aoas), len(wing_aero.panels)))
 cl_distribution_turn_with_correction = np.zeros((len(aoas), len(wing_aero.panels)))
+cl_turn = np.zeros(len(aoas))
+cl_turn_with_correction = np.zeros(len(aoas))
+cd_turn = np.zeros(len(aoas))
+cd_turn_with_correction = np.zeros(len(aoas))
+cs_turn = np.zeros(len(aoas))
+cs_turn_with_correction = np.zeros(len(aoas))
 
-# cl_turn = np.zeros(len(aoas))
-# cd_turn = np.zeros(len(aoas))
-# cs_turn = np.zeros(len(aoas))
-# gamma_turn = np.zeros((len(aoas), len(wing_aero.panels)))
 yaw_rate = 1.5
 for i, aoa in enumerate(aoas):
     print(f" ")
@@ -153,18 +158,18 @@ for i, aoa in enumerate(aoas):
         0,
     )
     results, _ = VSM.solve(wing_aero)
-    # cl_straight[i] = results["cl"]
-    # cd_straight[i] = results["cd"]
-    # cs_straight[i] = results["cs"]
-    # print(
-    #     f"Straight: aoa: {np.rad2deg(aoa)}, CL: {cl_straight[i]}, CD: {cd_straight[i]}, CS: {cs_straight[i]}"
-    # )
+    cl_straight[i] = results["cl"]
+    cd_straight[i] = results["cd"]
+    cs_straight[i] = results["cs"]
     gamma_straight[i] = results["gamma_distribution"]
     cl_distribution_straight[i] = results["cl_distribution"]
 
     # with stall correction
     print(f"    Running with stall correction")
     results_with_stall_correction, _ = VSM_with_stall_correction.solve(wing_aero)
+    cl_straight_with_correction[i] = results_with_stall_correction["cl"]
+    cd_straight_with_correction[i] = results_with_stall_correction["cd"]
+    cs_straight_with_correction[i] = results_with_stall_correction["cs"]
     gamma_straight_with_correction[i] = results_with_stall_correction[
         "gamma_distribution"
     ]
@@ -180,12 +185,18 @@ for i, aoa in enumerate(aoas):
         yaw_rate,
     )
     results, _ = VSM.solve(wing_aero)
+    cl_turn[i] = results["cl"]
+    cd_turn[i] = results["cd"]
+    cs_turn[i] = results["cs"]
     cl_distribution_turn[i] = results["cl_distribution"]
     gamma_turn[i] = results["gamma_distribution"]
 
     # with stall correction
     print(f"    Running with stall correction")
     results_with_stall_correction, _ = VSM_with_stall_correction.solve(wing_aero)
+    cl_turn_with_correction[i] = results_with_stall_correction["cl"]
+    cd_turn_with_correction[i] = results_with_stall_correction["cd"]
+    cs_turn_with_correction[i] = results_with_stall_correction["cs"]
     gamma_turn_with_correction[i] = results_with_stall_correction["gamma_distribution"]
     cl_distribution_turn_with_correction[i] = results_with_stall_correction[
         "cl_distribution"
@@ -197,23 +208,32 @@ for i, aoa in enumerate(aoas):
 # plt.figure()
 # plt.plot(aoas)
 
-# # Plot the results
+# # Plot the CL and CD alpha plots
+fig, axs = plt.subplots(3, figsize=(10, 15))
+axs[0].plot(aoas, cl_straight, label="$C_L$ straight")
+axs[0].plot(aoas, cl_straight_with_correction, label="$C_L$ straight with correction")
+axs[0].plot(aoas, cl_turn, label="$C_L$ turn")
+axs[0].plot(aoas, cl_turn_with_correction, label="$C_L$ turn with correction")
+axs[0].legend()
+axs[0].set_ylabel("CL")
+axs[0].set_xlabel("AOA [deg]")
 
-# fig, axs = plt.subplots(3, figsize=(10, 15))
-# axs[0].plot(aoas, cl_straight, label="$C_L$ straight")
-# axs[0].legend()
-# axs[0].set_ylabel("CL")
-# axs[0].set_xlabel("AOA [deg]")
-# axs[1].plot(aoas, cd_straight, label="$C_D$ straight")
-# axs[1].plot(aoas, cd_turn, label="$C_D$ turn")
-# axs[1].legend()
-# axs[1].set_ylabel("CD")
-# axs[1].set_xlabel("AOA [deg]")
-# axs[2].plot(aoas, cs_straight, label="$C_S$ straight")
-# axs[2].legend()
-# axs[2].set_ylabel("CS")
-# axs[2].set_xlabel("AOA [deg]")
-# plt.show()
+axs[1].plot(aoas, cd_straight, label="$C_D$ straight")
+axs[1].plot(aoas, cd_straight_with_correction, label="$C_D$ straight with correction")
+axs[1].plot(aoas, cd_turn, label="$C_D$ turn")
+axs[1].plot(aoas, cd_turn_with_correction, label="$C_D$ turn with correction")
+axs[1].legend()
+axs[1].set_ylabel("CD")
+axs[1].set_xlabel("AOA [deg]")
+
+axs[2].plot(aoas, cs_straight, label="$C_S$ straight")
+axs[2].plot(aoas, cs_straight_with_correction, label="$C_S$ straight with correction")
+axs[2].plot(aoas, cs_turn, label="$C_S$ turn")
+axs[2].plot(aoas, cs_turn_with_correction, label="$C_S$ turn with correction")
+axs[2].legend()
+axs[2].set_ylabel("CS")
+axs[2].set_xlabel("AOA [deg]")
+plt.show()
 
 # plot gamma distributions and cl distributions for each the aoas
 fig, axs = plt.subplots(len(aoas), 4, figsize=(15, 15))
@@ -223,6 +243,7 @@ for i, (ax1, ax2, ax3, ax4) in enumerate(axs):
     ax1.legend()
     ax1.set_title(r"Straight $\alpha$ = {}".format(aoas[i]))
     ax1.set_ylabel("Gamma")
+    ax1.set_xlabel("spanwise position")
 
     ax2.plot(cl_distribution_straight[i], label=f"No stall correction")
     ax2.plot(
@@ -231,18 +252,21 @@ for i, (ax1, ax2, ax3, ax4) in enumerate(axs):
     ax2.legend()
     ax2.set_title(r"Straight $\alpha$ = {}".format(aoas[i]))
     ax2.set_ylabel("CL")
+    ax2.set_xlabel("spanwise position")
 
     ax3.plot(gamma_turn[i], label=f"No stall correction")
     ax3.plot(gamma_turn_with_correction[i], label=f"With stall correction")
     ax3.legend()
     ax3.set_title(r"Turn $\alpha$ = {}".format(aoas[i]) + f" - Yaw rate: {yaw_rate}")
     ax3.set_ylabel("Gamma")
+    ax3.set_xlabel("spanwise position")
 
     ax4.plot(cl_distribution_turn[i], label=f"No stall correction")
     ax4.plot(cl_distribution_turn_with_correction[i], label=f"With stall correction")
     ax4.legend()
     ax4.set_title(r"Turn $\alpha$ = {}".format(aoas[i]) + f" - Yaw rate: {yaw_rate}")
     ax4.set_ylabel("CL")
+    ax4.set_xlabel("spanwise position")
 
 plt.show()
 

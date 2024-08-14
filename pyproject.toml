@@ -84,7 +84,9 @@ classifiers = [
 # https://packaging.python.org/discussions/install-requires-vs-requirements/
 dependencies = [
   "numpy",
-  "matplotlib>=3.7.1"
+  "matplotlib>=3.7.1",
+  "seaborn",
+  "scipy",
 ]
 
 # You can define additional groups of dependencies here (e.g., development dependencies).
