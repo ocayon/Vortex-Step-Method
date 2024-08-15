@@ -89,25 +89,47 @@ coord_struct = np.loadtxt("../data/coordinates/coords_v3_kite.csv", delimiter=",
 ## Convert the coordinates to the aero coordinates
 coord_aero = struct2aero_geometry(coord_struct) / 1000
 n_aero = len(coord_aero) // 2
-coord = refine_LEI_mesh(coord_aero, n_aero - 1, 5)
+N_splits = 2
+coord = refine_LEI_mesh(coord_aero, n_aero - 1, N_splits)
 coord = flip_created_coord_in_pairs_if_needed(coord)
 
 n_sections = len(coord) // 2
 n_panels = n_sections - 1
 # thickness of the leading edge tube
-LE_thicc = np.ones(n_sections) * 0.1
+# LE thickness at each section [m]
+t = [
+    0.118753,
+    0.151561,
+    0.178254,
+    0.19406,
+    0.202418,
+    0.202418,
+    0.19406,
+    0.178254,
+    0.151561,
+    0.118753,
+]
+# Create an array of indices for the original thickness distribution
+original_indices = np.arange(len(t))
 
-# camber of the leading edge airfoil
-camber = np.ones(n_sections) * 0.095
+# Create an array of indices for the interpolated thickness distribution
+interpolated_indices = np.linspace(0, len(t) - 1, n_sections)
+
+# Interpolate the thickness distribution
+LE_thickness_dimensional = np.interp(interpolated_indices, original_indices, t)
 
 # Create wing geometry
 wing = Wing(n_panels, "unchanged")
 for idx, idx2 in enumerate(range(0, len(coord), 2)):
-    logging.debug(f"coord[{idx2}] = {coord[idx2]}")
+
+    logging.debug(f"idx: {idx} | coord[{idx2}] = {coord[idx2]}")
+    coord_length = np.linalg.norm(coord[idx2] - coord[idx2 + 1])
+    LE_thickness = LE_thickness_dimensional[idx] / coord_length
+    camber = 0.095
     wing.add_section(
         coord[idx2],
         coord[idx2 + 1],
-        ["lei_airfoil_breukels", [LE_thicc[idx], camber[idx]]],
+        ["lei_airfoil_breukels", [LE_thickness, camber]],
     )
 wing_aero = WingAerodynamics([wing])
 
@@ -122,8 +144,8 @@ VSM_with_stall_correction = Solver(
 
 # aoas = np.arange(0, 21, 1)
 # aoas = [10, 15, 16, 20, 25]
-aoas = [14, 16, 18, 20]
-aoas = [16, 17]
+# aoas = [14, 16, 18, 20]
+aoas = [5, 10, 16, 18, 20]
 cl_straight = np.zeros(len(aoas))
 cl_straight_with_correction = np.zeros(len(aoas))
 cd_straight = np.zeros(len(aoas))
@@ -170,29 +192,28 @@ for i, aoa in enumerate(aoas):
 
 # %% plotting the results
 
-# plt.figure()
-# plt.plot(aoas)
+plt.figure()
 
-# # # Plot the CL and CD alpha plots
-# fig, axs = plt.subplots(3, figsize=(10, 15))
-# axs[0].plot(aoas, cl_straight, label="$C_L$ straight")
-# axs[0].plot(aoas, cl_straight_with_correction, label="$C_L$ straight with correction")
-# axs[0].legend()
-# axs[0].set_ylabel("CL")
-# axs[0].set_xlabel("AOA [deg]")
+# # Plot the CL and CD alpha plots
+fig, axs = plt.subplots(3, figsize=(10, 15))
+axs[0].plot(aoas, cl_straight, label="$C_L$ straight")
+axs[0].plot(aoas, cl_straight_with_correction, label="$C_L$ straight with correction")
+axs[0].legend()
+axs[0].set_ylabel("CL")
+axs[0].set_xlabel("AOA [deg]")
 
-# axs[1].plot(aoas, cd_straight, label="$C_D$ straight")
-# axs[1].plot(aoas, cd_straight_with_correction, label="$C_D$ straight with correction")
-# axs[1].legend()
-# axs[1].set_ylabel("CD")
-# axs[1].set_xlabel("AOA [deg]")
+axs[1].plot(aoas, cd_straight, label="$C_D$ straight")
+axs[1].plot(aoas, cd_straight_with_correction, label="$C_D$ straight with correction")
+axs[1].legend()
+axs[1].set_ylabel("CD")
+axs[1].set_xlabel("AOA [deg]")
 
-# axs[2].plot(aoas, cs_straight, label="$C_S$ straight")
-# axs[2].plot(aoas, cs_straight_with_correction, label="$C_S$ straight with correction")
-# axs[2].legend()
-# axs[2].set_ylabel("CS")
-# axs[2].set_xlabel("AOA [deg]")
-# plt.show()
+axs[2].plot(aoas, cs_straight, label="$C_S$ straight")
+axs[2].plot(aoas, cs_straight_with_correction, label="$C_S$ straight with correction")
+axs[2].legend()
+axs[2].set_ylabel("CS")
+axs[2].set_xlabel("AOA [deg]")
+fig.savefig("straight_cl_cd_cs_polars.pdf")
 
 # plot gamma distributions and cl distributions for each the aoas
 fig, axs = plt.subplots(len(aoas), 2, figsize=(15, 15))
@@ -213,7 +234,7 @@ for i, (ax1, ax2) in enumerate(axs):
     ax2.set_ylabel("CL")
     ax2.set_xlabel("spanwise position")
 
-plt.show()
+fig.savefig("straight_gamma_and_cl_distribution.pdf")
 
 
 # %% Doing it for the turning cases
