@@ -64,6 +64,18 @@ wing_aero.va = Uinf
 wing_aero_LLT = deepcopy(wing_aero)
 # Plotting the wing
 # wing_aero.plot()
+import VSM.plotting as plotting
+
+plotting.plot_geometry(
+    wing_aero,
+    is_save=True,
+    title="rectangular_wing_geometry",
+    data_type=".pdf",
+    save_path="./",
+    is_show=True,
+    view_elevation=15,
+    view_azimuth=-120,
+)
 
 ## Solve the aerodynamics
 # cl,cd,cs coefficients are flipped to "normal ref frame"
@@ -71,60 +83,26 @@ wing_aero_LLT = deepcopy(wing_aero)
 results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
 results_LLT, wing_aero_LLT = LLT.solve(wing_aero_LLT)
 
-###############
-# Plotting
-###############
+# plotting distributions
 
-
-fig, axs = plt.subplots(2, 2, figsize=(12, 10))
-fig.suptitle("Spanwise distributions", fontsize=16)
-
-# CL plot
-axs[0, 0].plot(results_VSM["cl_distribution"], label="VSM")
-axs[0, 0].plot(results_LLT["cl_distribution"], label="LLT")
-axs[0, 0].set_title(r"$C_L$ Distribution")
-axs[0, 0].set_xlabel(r"Spanwise Position $y/b$")
-axs[0, 0].set_ylabel(r"Lift Coefficient $C_L$")
-axs[0, 0].legend()
-
-# CD plot
-axs[0, 1].plot(results_VSM["cd_distribution"], label="VSM")
-axs[0, 1].plot(results_LLT["cd_distribution"], label="LLT")
-axs[0, 1].set_title(r"$C_D$ Distribution")
-axs[0, 1].set_xlabel(r"Spanwise Position $y/b$")
-axs[0, 1].set_ylabel(r"Drag Coefficient $C_D$")
-axs[0, 1].legend()
-
-# Gamma plot
-axs[1, 0].plot(results_VSM["gamma_distribution"], label="VSM")
-axs[1, 0].plot(results_LLT["gamma_distribution"], label="LLT")
-axs[1, 0].set_title(r"$\Gamma$ Distribution")
-axs[1, 0].set_xlabel(r"Spanwise Position $y/b$")
-axs[1, 0].set_ylabel(r"Circulation $\Gamma$")
-axs[1, 0].legend()
-
-# Alpha plot
-axs[1, 1].plot(
-    results_VSM["alpha_uncorrected"], label="Uncorrected (alpha at 3/4c, i.e. c.p.)"
+plotting.plot_distribution(
+    results_list=[results_VSM, results_LLT],
+    label_list=["VSM", "LLT"],
+    title="spanwise_distributions",
+    data_type=".pdf",
+    save_path="./",
+    is_save=True,
+    is_show=True,
 )
-axs[1, 1].plot(results_VSM["alpha_at_ac"], label="Corrected (alpha at 1/4c, i.e. a.c.)")
-axs[1, 1].plot(results_LLT["alpha_geometric"], label="Geometric")
-axs[1, 1].set_title(r"$\alpha$ Comparison (from VSM)")
-axs[1, 1].set_xlabel(r"Spanwise Position $y/b$")
-axs[1, 1].set_ylabel(r"Angle of Attack $\alpha$ (rad)")
-axs[1, 1].legend()
-
-plt.tight_layout()
-plt.show()
 
 
-# Check if the gamma distribution is symmetric
-def is_symmetric_1d(array, tol=1e-8):
-    return np.allclose(array, array[::-1], atol=tol)
+# # Check if the gamma distribution is symmetric
+# def is_symmetric_1d(array, tol=1e-8):
+#     return np.allclose(array, array[::-1], atol=tol)
 
 
-print(f"VSM is symmetric: {is_symmetric_1d(results_VSM['gamma_distribution'])}")
-print(f"LLT is symmetric: {is_symmetric_1d(results_LLT['gamma_distribution'])}")
+# print(f"VSM is symmetric: {is_symmetric_1d(results_VSM['gamma_distribution'])}")
+# print(f"LLT is symmetric: {is_symmetric_1d(results_LLT['gamma_distribution'])}")
 
 
 # TODOs
