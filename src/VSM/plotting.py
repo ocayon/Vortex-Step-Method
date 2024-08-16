@@ -8,6 +8,19 @@ from VSM.color_palette import set_plot_style, get_color
 
 
 def plot_line_segment(ax, segment, color, label, width: float = 3):
+    """Plot a line segment in 3D.
+
+    Args:
+        ax: matplotlib axis object
+        segment: list of two points defining the segment
+        color: color of the segment
+        label: label of the segment
+        width: width of the segment | default: 3
+
+    Returns:
+        None
+    """
+
     ax.plot(
         [segment[0][0], segment[1][0]],
         [segment[0][1], segment[1][1]],
@@ -29,6 +42,15 @@ def plot_line_segment(ax, segment, color, label, width: float = 3):
 
 
 def set_axes_equal(ax):
+    """
+    Set the axes of a 3D plot to be equal in scale.
+
+    Args:
+        ax: matplotlib axis object
+
+    Returns:
+        None
+    """
     x_limits = ax.get_xlim3d()
     y_limits = ax.get_ylim3d()
     z_limits = ax.get_zlim3d()
@@ -52,15 +74,27 @@ def plot_geometry(
     wing_aero,
     title="wing_geometry",
     data_type=".pdf",
-    save_path="./",
+    save_path=None,
     is_save=False,
     is_show=True,
-    view_elevation=30,
-    view_azimuth=30,
+    view_elevation=15,
+    view_azimuth=-120,
 ):
     """
     Plots the wing panels and filaments in 3D.
 
+    Args:
+        wing_aero: WingAerodynamics object
+        title: title of the plot
+        data_type: type of the data to be saved | default: ".pdf"
+        save_path: path to save the plot | default: None
+        is_save: boolean to save the plot | default: False
+        is_show: boolean to show the plot | default: True
+        view_elevation: elevation of the view | default: 15
+        view_azimuth: azimuth of the view | default: -120
+
+    Returns:
+        None
     """
 
     # Set the plot style
@@ -153,14 +187,15 @@ def plot_geometry(
     # Set the initial view
     ax.view_init(elev=view_elevation, azim=view_azimuth)
 
-    # Display the plot
     if is_show:
         plt.show()
 
-    # Save the plot
     if is_save:
-        plt.savefig(Path(save_path) / (title + data_type))
-        plt.close()
+        if save_path is None:
+            raise ValueError("save_path should be provided")
+        else:
+            plt.savefig(Path(save_path) / (title + data_type))
+            plt.close()
 
 
 def plot_distribution(
@@ -168,10 +203,26 @@ def plot_distribution(
     label_list,
     title="spanwise_distribution",
     data_type=".pdf",
-    save_path="./",
+    save_path=None,
     is_save=True,
     is_show=True,
 ):
+    """
+    Plots the spanwise distribution of the results.
+
+    Args:
+        results_list: list of results dictionaries
+        label_list: list of labels for the results
+        title: title of the plot
+        data_type: type of the data to be saved | default: ".pdf"
+        save_path: path to save the plot | default: None
+        is_save: boolean to save the plot | default: True
+        is_show: boolean to show the plot | default: True
+
+    Returns:
+        None
+    """
+
     if len(results_list) != len(label_list):
         raise ValueError(
             "The number of results and labels should be the same. Got {} results and {} labels".format(
@@ -240,5 +291,210 @@ def plot_distribution(
         plt.show()
 
     if is_save:
-        plt.savefig(Path(save_path) / (title + data_type))
-        plt.close()
+        if save_path is None:
+            raise ValueError("save_path should be provided")
+        else:
+            plt.savefig(Path(save_path) / (title + data_type))
+            plt.close()
+
+
+def generate_polar_data(
+    solver,
+    wing_aero,
+    angle_range,
+    angle_type="angle_of_attack",
+    angle_of_attack=0,
+    side_slip=0,
+    yaw_rate=0,
+    Umag=10,
+):
+    """
+    Generates the polar data for the given solver and wing_aero.
+
+    Args:
+        solver: solver object
+        wing_aero: wing_aero object
+        angle_range: range of angles to be considered
+        angle_type: type of the angle | default: "angle_of_attack"
+        angle_of_attack: angle of attack | default: 0
+        side_slip: side slip angle | default: 0
+        yaw_rate: yaw rate | default: 0
+        Umag: magnitude of the velocity | default: 10
+
+    Returns:
+        list: list of polar data, in the following order:
+            [angle_range, cl, cd, cs, gamma_distribution, cl_distribution, cd_distribution, cs_distribution]
+    """
+
+    cl = np.zeros(len(angle_range))
+    cd = np.zeros(len(angle_range))
+    cs = np.zeros(len(angle_range))
+    gamma_distribution = np.zeros((len(angle_range), len(wing_aero.panels)))
+    cl_distribution = np.zeros((len(angle_range), len(wing_aero.panels)))
+    cd_distribution = np.zeros((len(angle_range), len(wing_aero.panels)))
+    cs_distribution = np.zeros((len(angle_range), len(wing_aero.panels)))
+
+    for i, angle_i in enumerate(angle_range):
+        if angle_type == "angle_of_attack":
+            angle_of_attack = np.deg2rad(angle_i)
+        elif angle_type == "side_slip":
+            side_slip = np.deg2rad(angle_i)
+        else:
+            raise ValueError(
+                "angle_type should be either 'angle_of_attack' or 'side_slip'"
+            )
+
+        # Set the inflow conditions
+        wing_aero.va = (
+            np.array(
+                [
+                    np.cos(angle_of_attack) * np.cos(side_slip),
+                    np.sin(side_slip),
+                    np.sin(angle_of_attack),
+                ]
+            )
+            * Umag,
+            yaw_rate,
+        )
+        results, _ = solver.solve(wing_aero)
+        cl[i] = results["cl"]
+        cd[i] = results["cd"]
+        cs[i] = results["cs"]
+        gamma_distribution[i] = results["gamma_distribution"]
+        cl_distribution[i] = results["cl_distribution"]
+        cd_distribution[i] = results["cd_distribution"]
+        cs_distribution[i] = results["cs_distribution"]
+
+    return [
+        angle_range,
+        cl,
+        cd,
+        cs,
+        gamma_distribution,
+        cl_distribution,
+        cd_distribution,
+        cs_distribution,
+    ]
+
+
+def plot_polars(
+    solver_list,
+    wing_aero_list,
+    label_list,
+    literature_path_list=None,
+    angle_range=np.linspace(0, 20, 2),
+    angle_type="angle_of_attack",
+    angle_of_attack=0,
+    side_slip=0,
+    yaw_rate=0,
+    Umag=10,
+    title="polar",
+    data_type=".pdf",
+    save_path=None,
+    is_save=True,
+    is_show=True,
+):
+    """
+    Plot polar data CL, CD, CS, and CL-CD over a specified angle for the given solvers and wing_aeros.
+
+    Args:
+        solver_list: list of solver objects
+        wing_aero_list: list of wing_aero objects
+        label_list: list of labels for the results
+        literature_path_list: list of paths to literature data | default: None
+        angle_range: range of angles to be considered | default: np.linspace(0, 20, 2)
+        angle_type: type of the angle | default: "angle_of_attack"
+        angle_of_attack: angle of attack | default: 0
+        side_slip: side slip angle | default: 0
+        yaw_rate: yaw rate | default: 0
+        Umag: magnitude of the velocity | default: 10
+        title: title of the plot | default: "polar"
+        data_type: type of the data to be saved | default: ".pdf"
+        save_path: path to save the plot | default: None
+        is_save: boolean to save the plot | default: True
+        is_show: boolean to show the plot | default: True
+
+    Returns:
+        None
+    """
+
+    if (len(wing_aero_list) + len(literature_path_list)) != len(label_list):
+        raise ValueError(
+            "The number of results and labels should be the same. Got {} results and {} labels".format(
+                len(wing_aero_list), len(label_list)
+            )
+        )
+
+    # Set the plot style
+    set_plot_style()
+
+    # generating polar data
+    polar_data_list = []
+    for solver, wing_aero in zip(solver_list, wing_aero_list):
+        polar_data_list.append(
+            generate_polar_data(
+                solver=solver,
+                wing_aero=wing_aero,
+                angle_range=angle_range,
+                angle_type=angle_type,
+                angle_of_attack=angle_of_attack,
+                side_slip=side_slip,
+                yaw_rate=yaw_rate,
+                Umag=Umag,
+            )
+        )
+
+    # Grabbing additional data from literature
+    if literature_path_list is not None:
+        for literature_path in literature_path_list:
+            CL, CD, angle = np.loadtxt(
+                literature_path, delimiter=",", skiprows=1, unpack=True
+            )
+            polar_data_list.append([angle, CL, CD])
+
+    # Initializing plot
+    fig, axs = plt.subplots(2, 2, figsize=(10, 15))
+
+    # CL plot
+    for polar_data, label in zip(polar_data_list, label_list):
+        axs[0, 0].plot(polar_data[0], polar_data[1], label=label)
+    axs[0, 0].set_title(r"$C_L$ vs {}".format(angle_type))
+    axs[0, 0].set_xlabel(r"{}[deg]".format(angle_type))
+    axs[0, 0].set_ylabel(r"$C_L$")
+    axs[0, 0].legend()
+
+    # CD plot
+    for polar_data, label in zip(polar_data_list, label_list):
+        axs[0, 1].plot(polar_data[0], polar_data[2], label=label)
+    axs[0, 1].set_title(r"$C_D$ vs {}".format(angle_type))
+    axs[0, 1].set_xlabel(r"{}[deg]".format(angle_type))
+    axs[0, 1].set_ylabel(r"$C_D$")
+    axs[0, 1].legend()
+
+    # CS plot
+    for polar_data, label in zip(polar_data_list, label_list):
+        # build-in a check, since the literature polas might not have the cs coefficient
+        if len(polar_data) > 3:
+            axs[1, 0].plot(polar_data[0], polar_data[3], label=label)
+    axs[1, 0].set_title(r"$C_S$ vs {}".format(angle_type))
+    axs[1, 0].set_xlabel(r"{}[deg]".format(angle_type))
+    axs[1, 0].set_ylabel(r"$C_S$")
+    axs[1, 0].legend()
+
+    # CL-CD plot
+    for polar_data, label in zip(polar_data_list, label_list):
+        axs[1, 1].plot(polar_data[2], polar_data[1], label=label)
+    axs[1, 1].set_title(r"$C_L$ vs $C_D$ (over {} range)".format(angle_type))
+    axs[1, 1].set_xlabel(r"$C_D$")
+    axs[1, 1].set_ylabel(r"$C_L$")
+    axs[1, 1].legend()
+
+    if is_show:
+        plt.show()
+
+    if is_save:
+        if save_path is not None:
+            plt.savefig(Path(save_path) / (title + data_type))
+            plt.close()
+        else:
+            raise ValueError("save_path should be provided")
