@@ -83,8 +83,7 @@ def refine_LEI_mesh(coord, N_sect, N_split):
 
 
 # %% Read the coordinates from the CAD file
-coord_struct = np.loadtxt("../data/coordinates/coords_v3_kite.csv", delimiter=",")
-
+coord_struct = np.loadtxt("./data/CAD_extracted_coords_v3_kite.csv", delimiter=",")
 
 ## Convert the coordinates to the aero coordinates
 coord_aero = struct2aero_geometry(coord_struct) / 1000

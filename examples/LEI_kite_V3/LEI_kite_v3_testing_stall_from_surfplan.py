@@ -4,13 +4,12 @@ from VSM.WingAerodynamics import WingAerodynamics
 from VSM.Solver import Solver
 from VSM.color_palette import set_plot_style, get_color
 import logging
-import pickle
 import matplotlib.pyplot as plt
+import pickle
 
-set_plot_style()
 
 # Load from Pickle file
-with open("./data/CAD_extracted_input_rib_list.pkl", "rb") as file:
+with open("./data/surfplan_extracted_input_rib_list.pkl", "rb") as file:
     input_rib_list = pickle.load(file)
 
 # Create wing geometry
@@ -36,10 +35,11 @@ VSM_with_stall_correction = Solver(
     aerodynamic_model_type="VSM",
 )
 
-# aoas = np.arange(0, 21, 1)
+aoas = np.arange(0, 21, 1)
 # aoas = [10, 15, 16, 20, 25]
 # aoas = [14, 16, 18, 20]
-aoas = np.arange(10, 21, 1)
+# aoas = [16, 18]
+# aoas = np.arange(10, 21, 1)
 cl_straight = np.zeros(len(aoas))
 cl_straight_with_correction = np.zeros(len(aoas))
 cd_straight = np.zeros(len(aoas))
@@ -86,6 +86,9 @@ for i, aoa in enumerate(aoas):
 
 # %% plotting the results
 
+# setting style
+set_plot_style()
+
 # grabbing data from literature
 CL_CFD_lebesque, CD_CFD_lebesque, aoa_CFD_lebesque = np.loadtxt(
     "./data/V3_CL_CD_RANS_CFD_lebesque_2020_Rey_1e6.csv",
@@ -131,7 +134,7 @@ axs[1].legend()
 axs[1].set_ylabel("CD")
 axs[1].set_xlabel("AOA [deg]")
 
-fig.savefig("./results/CAD_straight_cl_cd_polars.pdf")
+fig.savefig("./results/surfplan_straight_cl_cd_polars.pdf")
 
 # plot gamma distributions and cl distributions for each the aoas
 fig, axs = plt.subplots(len(aoas), 2, figsize=(15, 15))
@@ -152,9 +155,9 @@ for i, (ax1, ax2) in enumerate(axs):
     ax2.set_ylabel("CL")
     ax2.set_xlabel("spanwise position")
 
-fig.savefig("./results/CAD_straight_gamma_and_cl_distribution.pdf")
+fig.savefig("./results/surfplan_straight_gamma_and_cl_distribution.pdf")
 
-
+# plt.show()
 # %% Doing it for the turning cases
 
 
