@@ -1,17 +1,23 @@
+import numpy as np
+import logging
+import os
+from pathlib import Path
+from copy import deepcopy
 from VSM.WingAerodynamics import WingAerodynamics
 from VSM.WingGeometry import Wing
 from VSM.Solver import Solver
-import numpy as np
-import matplotlib.pyplot as plt
-import logging
-from VSM.color_palette import set_plot_style
-from copy import deepcopy
-
-set_plot_style()
+import VSM.plotting as plotting
 
 
+# Find the root directory of the repository
+root_dir = os.path.abspath(os.path.dirname(__file__))
+while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
+    root_dir = os.path.abspath(os.path.join(root_dir, ".."))
+    if root_dir == "/":
+        raise FileNotFoundError("Could not find the root directory of the repository.")
+
+# setting the log level
 logging.basicConfig(level=logging.INFO)
-
 
 # Body EastNorthUp (ENU) Reference Frame (aligned with Earth direction)
 # x: along the chord / parallel to flow direction
@@ -62,60 +68,67 @@ Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
 # Define inflow conditions
 wing_aero.va = Uinf
 wing_aero_LLT = deepcopy(wing_aero)
-# Plotting the wing
-# wing_aero.plot()
 
-## Solve the aerodynamics
+# ### Plotting the wing
+save_path = Path(root_dir) / "examples" / "rectangular_wing" / "results"
+plotting.plot_geometry(
+    wing_aero,
+    title="rectangular_wing_geometry",
+    data_type=".pdf",
+    save_path=save_path,
+    is_save=True,
+    is_show=True,
+)
+
+### Solve the aerodynamics
 # cl,cd,cs coefficients are flipped to "normal ref frame"
 # x (+) downstream, y(+) left and z-up reference frame
 results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
 results_LLT, wing_aero_LLT = LLT.solve(wing_aero_LLT)
 
-###############
-# Plotting
-###############
-
-
-fig, axs = plt.subplots(2, 2, figsize=(12, 10))
-fig.suptitle("Spanwise distributions", fontsize=16)
-
-# CL plot
-axs[0, 0].plot(results_VSM["cl_distribution"], label="VSM")
-axs[0, 0].plot(results_LLT["cl_distribution"], label="LLT")
-axs[0, 0].set_title(r"$C_L$ Distribution")
-axs[0, 0].set_xlabel(r"Spanwise Position $y/b$")
-axs[0, 0].set_ylabel(r"Lift Coefficient $C_L$")
-axs[0, 0].legend()
-
-# CD plot
-axs[0, 1].plot(results_VSM["cd_distribution"], label="VSM")
-axs[0, 1].plot(results_LLT["cd_distribution"], label="LLT")
-axs[0, 1].set_title(r"$C_D$ Distribution")
-axs[0, 1].set_xlabel(r"Spanwise Position $y/b$")
-axs[0, 1].set_ylabel(r"Drag Coefficient $C_D$")
-axs[0, 1].legend()
-
-# Gamma plot
-axs[1, 0].plot(results_VSM["gamma_distribution"], label="VSM")
-axs[1, 0].plot(results_LLT["gamma_distribution"], label="LLT")
-axs[1, 0].set_title(r"$\Gamma$ Distribution")
-axs[1, 0].set_xlabel(r"Spanwise Position $y/b$")
-axs[1, 0].set_ylabel(r"Circulation $\Gamma$")
-axs[1, 0].legend()
-
-# Alpha plot
-axs[1, 1].plot(
-    results_VSM["alpha_uncorrected"], label="Uncorrected (alpha at 3/4c, i.e. c.p.)"
+### plotting distributions
+plotting.plot_distribution(
+    results_list=[results_VSM, results_LLT],
+    label_list=["VSM", "LLT"],
+    title="spanwise_distributions",
+    data_type=".pdf",
+    save_path=save_path,
+    is_save=True,
+    is_show=True,
 )
-axs[1, 1].plot(results_VSM["alpha_at_ac"], label="Corrected (alpha at 1/4c, i.e. a.c.)")
-axs[1, 1].plot(results_LLT["alpha_geometric"], label="Geometric")
-axs[1, 1].set_title(r"$\alpha$ Comparison (from VSM)")
-axs[1, 1].set_xlabel(r"Spanwise Position $y/b$")
-axs[1, 1].set_ylabel(r"Angle of Attack $\alpha$ (rad)")
-axs[1, 1].legend()
 
-plt.tight_layout()
-plt.show()
+### plotting polar
+path_cfd_lebesque = (
+    Path(root_dir)
+    / "examples"
+    / "LEI_kite_V3"
+    / "data"
+    / "V3_CL_CD_RANS_CFD_lebesque_2020_Rey_1e6.csv"
+)
+path_wind_tunnel_poland = (
+    Path(root_dir)
+    / "examples"
+    / "LEI_kite_V3"
+    / "data"
+    / "V3_CL_CD_WindTunnel_Poland_2024_Rey_56e4.csv"
+)
+plotting.plot_polars(
+    solver_list=[LLT, VSM],
+    wing_aero_list=[wing_aero, wing_aero],
+    label_list=["LLT", "VSM", "CFD_Lebesque", "WindTunnel_Poland"],
+    literature_path_list=[path_cfd_lebesque, path_wind_tunnel_poland],
+    angle_range=np.linspace(0, 20, 4),
+    angle_type="angle_of_attack",
+    angle_of_attack=0,
+    side_slip=0,
+    yaw_rate=0,
+    Umag=10,
+    title="rectangular_wing_polars",
+    data_type=".pdf",
+    save_path=save_path,
+    is_save=True,
+    is_show=True,
+)
 
 
 # Check if the gamma distribution is symmetric
