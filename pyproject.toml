@@ -106,6 +106,10 @@ dev = [
 "Homepage" = "https://github.com/awegroup"
 "Source" = "https://github.com/awegroup/Vortex-Step-Method"
 
+# To grab all the files from the src folders of installed packages, not only the .py files
+[tool.setuptools.packages.find]
+where = ["src"]
+
 # List of relevant URLs for your project. These are displayed on the left sidebar of your PyPI page.
 # This can include links to the homepage, source code, changelog, funding, etc.
 
