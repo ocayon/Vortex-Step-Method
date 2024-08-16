@@ -41,7 +41,7 @@ class Solver:
         aerodynamic_model_type: str = "VSM",
         density: float = 1.225,
         max_iterations: int = 1000,
-        allowed_error: float = 1e-5,
+        allowed_error: float = 0.01,  # 1e-5,
         tol_reference_error: float = 0.001,
         relaxation_factor: float = 0.02,
         artificial_damping: dict = {"k2": 0.1, "k4": 0.0},
@@ -170,27 +170,18 @@ class Solver:
                 # logging.info("Umagw: %f", Umagw)
                 # logging.info("chord: %f", chord_array[icp])
 
-            # Dealing with stalled cases
-            stall = False
-            for ia, alpha_i in enumerate(alpha):
-                if self.aerodynamic_model_type == "LLT" or (
-                    self.artificial_damping["k2"] == 0
-                    and self.artificial_damping["k4"] == 0
-                ):
-                    stall = False
-                    break
-                elif alpha_i > stall_angle_list[ia]:
-                    stall = True
-                    logging.debug(
-                        "Stall detected, alpha[i]: %f, it: %d, panel_number: %d"
-                        % (np.rad2deg(alpha_i), i, ia)
-                    )
-                    break
-            if not stall:
-                damp = 0
+            # Calculating damping factor for stalled cases
+            # damp, is_with_damp = self.calculate_artificial_damping(
+            #     gamma, alpha, stall_angle_list
+            # )
+            if self.artificial_damping["k2"] != 0:
+                damp, is_with_damp = self.smooth_circulation(
+                    circulation=gamma, smoothness_factor=0.1, damping_factor=0.5
+                )
+                logging.info("damp: %s", damp)
             else:
-                logging.debug(f"applying artificial damping for stall correction")
-                damp = self.calculate_artificial_damping(gamma)
+                damp = 0
+                is_with_damp = False
             gamma_new = (
                 (1 - relaxation_factor) * gamma + relaxation_factor * gamma_new + damp
             )
@@ -201,7 +192,12 @@ class Solver:
             error = np.amax(np.abs(gamma_new - gamma))
             normalized_error = error / reference_error
 
-            # logging.info("Iteration: %d, normalized_error: %f", _, normalized_error)
+            logging.info(
+                "Iteration: %d, normalized_error: %f, is_with_damp: %s",
+                i,
+                normalized_error,
+                is_with_damp,
+            )
             # logging.info("Iteration: %d, reference_error: %f", _, reference_error)
             # logging.info("Iteration: %d", i)
             # logging.info("gamma: %s", gamma)
@@ -228,7 +224,25 @@ class Solver:
 
         return gamma_new
 
-    def calculate_artificial_damping(self, gamma):
+    def calculate_artificial_damping(self, gamma, alpha, stall_angle_list):
+
+        # Determine if there is a stalled case
+        is_stalled = False
+        for ia, alpha_i in enumerate(alpha):
+            if self.aerodynamic_model_type == "LLT" or (
+                self.artificial_damping["k2"] == 0
+                and self.artificial_damping["k4"] == 0
+            ):
+                is_stalled = False
+                break
+            elif alpha_i > stall_angle_list[ia]:
+                is_stalled = True
+                break
+        if not is_stalled:
+            damp = 0
+            return damp, is_stalled
+
+        # If there is a stalled case, calculate the artificial damping
         n_gamma = len(gamma)
         damp = np.zeros(n_gamma)
         for ig, gamma_ig in enumerate(gamma):
@@ -271,4 +285,60 @@ class Solver:
                 self.artificial_damping["k2"] * dif2
                 - self.artificial_damping["k4"] * dif4
             )
-        return damp
+        return damp, is_stalled
+
+    def smooth_circulation(self, circulation, smoothness_factor, damping_factor):
+        """
+        Check if a circulation curve is smooth and apply damping if necessary.
+
+        Args:
+        circulation (np.array): Circulation strength array of shape (n_points, 1)
+        smoothness_factor (float): Factor to determine the smoothness threshold
+        damping_factor (float): Factor to control the strength of smoothing (0 to 1)
+
+        Returns:
+        np.array: Smoothed circulation array
+        bool: Whether damping was applied
+        """
+
+        # Calculate the mean circulation, excluding first and last points
+        circulation_mean = np.mean(circulation[1:-1])
+
+        # Calculate the smoothness threshold based on the mean and factor
+        smoothness_threshold = smoothness_factor * circulation_mean
+
+        # Calculate the difference between adjacent points, excluding first and last
+        differences = np.diff(circulation[1:-1], axis=0)
+        logging.info("circulation_mean: %s, diff: %s", circulation_mean, differences)
+
+        # Check if the curve is smooth based on the maximum difference
+        is_smooth = np.max(np.abs(differences)) <= smoothness_threshold
+
+        if is_smooth:
+            return np.zeros(len(circulation)), False
+
+        # Apply damping to smooth the curve
+        smoothed = np.copy(circulation)
+        for i in range(1, len(circulation) - 1):
+            left = circulation[i - 1]
+            center = circulation[i]
+            right = circulation[i + 1]
+
+            # Calculate the average of neighboring points
+            avg = (left + right) / 2
+
+            # Apply damping
+            smoothed[i] = center + damping_factor * (avg - center)
+
+        # Ensure the total circulation remains unchanged
+        total_original = np.sum(circulation)
+        total_smoothed = np.sum(smoothed)
+        smoothed *= total_original / total_smoothed
+
+        damp = smoothed - circulation
+        return damp, True
+
+
+# Example usage:
+# circulation = np.array([[10], [20], [15], [25], [20]])
+# smoothed_circulation, was_smooth = smooth_circulation(circulation, smoothness_threshold=5)
