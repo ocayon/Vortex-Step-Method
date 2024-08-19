@@ -1,13 +1,17 @@
 import numpy as np
-from VSM.WingGeometry import Wing, flip_created_coord_in_pairs_if_needed
-from VSM.WingAerodynamics import WingAerodynamics
-from VSM.Solver import Solver
-from VSM.color_palette import set_plot_style, get_color
+
 import logging
 import pickle
-import matplotlib.pyplot as plt
+import os
+from pathlib import Path
+from VSM.WingGeometry import Wing, flip_created_coord_in_pairs_if_needed
 
-set_plot_style()
+# Find the root directory of the repository
+root_dir = os.path.abspath(os.path.dirname(__file__))
+while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
+    root_dir = os.path.abspath(os.path.join(root_dir, ".."))
+    if root_dir == "/":
+        raise FileNotFoundError("Could not find the root directory of the repository.")
 
 
 # TODO: Convert into a Kite class
@@ -85,7 +89,14 @@ def refine_LEI_mesh(coord, N_sect, N_split):
 
 
 # %% Read the coordinates from the CAD file
-coord_struct = np.loadtxt("./data/CAD_extracted_coords_v3_kite.csv", delimiter=",")
+CAD_path = (
+    Path(root_dir)
+    / "data"
+    / "TUD_V3_LEI_KITE"
+    / "geometry"
+    / "CAD_extracted_coords_v3_kite.csv"
+)
+coord_struct = np.loadtxt(CAD_path, delimiter=",")
 
 ## Convert the coordinates to the aero coordinates
 coord_aero = struct2aero_geometry(coord_struct) / 1000
@@ -132,5 +143,6 @@ for idx, idx2 in enumerate(range(0, len(coord), 2)):
     airfoil_input = ["lei_airfoil_breukels", [LE_thickness, camber]]
     rib_input_list.append([LE, TE, airfoil_input])
 
-with open("./data/CAD_extracted_input_rib_list.pkl", "wb") as file:
+save_path = Path(root_dir) / "processed_data" / "CAD_extracted_input_rib_list.pkl"
+with open(save_path, "wb") as file:
     pickle.dump(rib_input_list, file)
