@@ -199,6 +199,7 @@ def plot_geometry(
 
 
 def plot_distribution(
+    y_coordinates_list,
     results_list,
     label_list,
     title="spanwise_distribution",
@@ -235,54 +236,74 @@ def plot_distribution(
 
     # Initializing plot
     fig, axs = plt.subplots(3, 2, figsize=(12, 10))
-    fig.suptitle("Spanwise distributions", fontsize=16)
+    fig.suptitle(title, fontsize=16)
 
     # CL plot
-    for result_i, label_i in zip(results_list, label_list):
-        axs[0, 0].plot(result_i["cl_distribution"], label=label_i)
+    for y_coordinates_i, result_i, label_i in zip(
+        y_coordinates_list, results_list, label_list
+    ):
+        axs[0, 0].plot(y_coordinates_i, result_i["cl_distribution"], label=label_i)
     axs[0, 0].set_title(r"$C_L$ Distribution")
     axs[0, 0].set_xlabel(r"Spanwise Position $y/b$")
     axs[0, 0].set_ylabel(r"Lift Coefficient $C_L$")
     axs[0, 0].legend()
 
     # CD plot
-    for result_i, label_i in zip(results_list, label_list):
-        axs[0, 1].plot(result_i["cd_distribution"], label=label_i)
+    for y_coordinates_i, result_i, label_i in zip(
+        y_coordinates_list, results_list, label_list
+    ):
+        axs[0, 1].plot(y_coordinates_i, result_i["cd_distribution"], label=label_i)
     axs[0, 1].set_title(r"$C_D$ Distribution")
     axs[0, 1].set_xlabel(r"Spanwise Position $y/b$")
     axs[0, 1].set_ylabel(r"Drag Coefficient $C_D$")
     axs[0, 1].legend()
 
     # Gamma plot
-    for result_i, label_i in zip(results_list, label_list):
-        axs[1, 0].plot(result_i["gamma_distribution"], label=label_i)
+    for y_coordinates_i, result_i, label_i in zip(
+        y_coordinates_list, results_list, label_list
+    ):
+        axs[1, 0].plot(y_coordinates_i, result_i["gamma_distribution"], label=label_i)
     axs[1, 0].set_title(r"$\Gamma$ Distribution")
     axs[1, 0].set_xlabel(r"Spanwise Position $y/b$")
     axs[1, 0].set_ylabel(r"Circulation $\Gamma$")
     axs[1, 0].legend()
 
-    # Calculated Alpha plot
-    for result_i, label_i in zip(results_list, label_list):
-        axs[1, 1].plot(result_i["alpha_at_ac"], label=label_i)
-    axs[1, 1].set_title(r"$\alpha$ Comparison (from VSM)")
+    # Calculated/Corrected Alpha plot
+    for y_coordinates_i, result_i, label_i in zip(
+        y_coordinates_list, results_list, label_list
+    ):
+        axs[1, 1].plot(
+            y_coordinates_i, np.rad2deg(result_i["alpha_at_ac"]), label=label_i
+        )
+    axs[1, 1].set_title(r"$\alpha$ result (corrected to aerodynamic center)")
     axs[1, 1].set_xlabel(r"Spanwise Position $y/b$")
-    axs[1, 1].set_ylabel(r"Angle of Attack $\alpha$ (rad)")
+    axs[1, 1].set_ylabel(r"Angle of Attack $\alpha$ (deg)")
     axs[1, 1].legend()
 
-    # Total Force Plot
-    for result_i, label_i in zip(results_list, label_list):
-        axs[2, 0].plot(result_i["Ftotal_distribution"], label=label_i)
-    axs[2, 0].set_title(r"Total Force Distribution")
+    # Geometric Alpha plot
+    for y_coordinates_i, result_i, label_i in zip(
+        y_coordinates_list, results_list, label_list
+    ):
+        axs[2, 0].plot(
+            y_coordinates_i, np.rad2deg(result_i["alpha_geometric"]), label=label_i
+        )
+    axs[2, 0].set_title(r"$\alpha$ Geometric")
     axs[2, 0].set_xlabel(r"Spanwise Position $y/b$")
-    axs[2, 0].set_ylabel(r"Total Force (N)")
+    axs[2, 0].set_ylabel(r"Angle of Attack $\alpha$ (deg)")
     axs[2, 0].legend()
 
-    # Geometric Alpha plot
-    for result_i, label_i in zip(results_list, label_list):
-        axs[2, 1].plot(result_i["alpha_geometric"], label=label_i)
-    axs[2, 1].set_title(r"$\alpha$ Geometric")
+    # Uncorrected Alpha plot
+    for y_coordinates_i, result_i, label_i in zip(
+        y_coordinates_list, results_list, label_list
+    ):
+        axs[2, 1].plot(
+            y_coordinates_i,
+            np.rad2deg(result_i["alpha_uncorrected"]),
+            label=label_i,
+        )
+    axs[2, 1].set_title(r"$\alpha$ Uncorrected (if VSM, at the control point)")
     axs[2, 1].set_xlabel(r"Spanwise Position $y/b$")
-    axs[2, 1].set_ylabel(r"Angle of Attack $\alpha$ (rad)")
+    axs[2, 1].set_ylabel(r"Angle of Attack $\alpha$ (deg)")
     axs[2, 1].legend()
 
     plt.tight_layout()

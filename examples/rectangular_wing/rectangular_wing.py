@@ -70,7 +70,7 @@ wing_aero.va = Uinf
 wing_aero_LLT = deepcopy(wing_aero)
 
 # ### Plotting the wing
-save_path = Path(root_dir) / "examples" / "rectangular_wing" / "results"
+save_path = Path(root_dir) / "results" / "rectangular_wing"
 plotting.plot_geometry(
     wing_aero,
     title="rectangular_wing_geometry",
@@ -86,6 +86,7 @@ plotting.plot_geometry(
 results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
 results_LLT, wing_aero_LLT = LLT.solve(wing_aero_LLT)
 
+
 ### plotting distributions
 plotting.plot_distribution(
     results_list=[results_VSM, results_LLT],
@@ -98,25 +99,11 @@ plotting.plot_distribution(
 )
 
 ### plotting polar
-path_cfd_lebesque = (
-    Path(root_dir)
-    / "examples"
-    / "LEI_kite_V3"
-    / "data"
-    / "V3_CL_CD_RANS_CFD_lebesque_2020_Rey_1e6.csv"
-)
-path_wind_tunnel_poland = (
-    Path(root_dir)
-    / "examples"
-    / "LEI_kite_V3"
-    / "data"
-    / "V3_CL_CD_WindTunnel_Poland_2024_Rey_56e4.csv"
-)
 plotting.plot_polars(
     solver_list=[LLT, VSM],
     wing_aero_list=[wing_aero, wing_aero],
-    label_list=["LLT", "VSM", "CFD_Lebesque", "WindTunnel_Poland"],
-    literature_path_list=[path_cfd_lebesque, path_wind_tunnel_poland],
+    label_list=["LLT", "VSM"],
+    literature_path_list=[],
     angle_range=np.linspace(0, 20, 4),
     angle_type="angle_of_attack",
     angle_of_attack=0,
