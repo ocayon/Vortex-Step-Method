@@ -1,16 +1,29 @@
 import numpy as np
+import logging
+import pickle
+import matplotlib.pyplot as plt
+import os
+from pathlib import Path
 from VSM.WingGeometry import Wing, flip_created_coord_in_pairs_if_needed
 from VSM.WingAerodynamics import WingAerodynamics
 from VSM.Solver import Solver
 from VSM.color_palette import set_plot_style, get_color
-import logging
-import pickle
-import matplotlib.pyplot as plt
 
-set_plot_style()
+# Find the root directory of the repository
+root_dir = os.path.abspath(os.path.dirname(__file__))
+while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
+    root_dir = os.path.abspath(os.path.join(root_dir, ".."))
+    if root_dir == "/":
+        raise FileNotFoundError("Could not find the root directory of the repository.")
 
 # Load from Pickle file
-with open("./data/CAD_extracted_input_rib_list.pkl", "rb") as file:
+CAD_path = (
+    Path(root_dir)
+    / "processed_data"
+    / "TUD_V3_LEI_KITE"
+    / "CAD_extracted_input_rib_list.pkl"
+)
+with open(CAD_path, "rb") as file:
     input_rib_list = pickle.load(file)
 
 # Create wing geometry

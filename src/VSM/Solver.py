@@ -44,6 +44,7 @@ class Solver:
         allowed_error: float = 0.01,  # 1e-5,
         tol_reference_error: float = 0.001,
         relaxation_factor: float = 0.02,
+        is_with_artificial_damping: bool = False,
         artificial_damping: dict = {"k2": 0.1, "k4": 0.0},
         type_initial_gamma_distribution: str = "elliptic",
         core_radius_fraction: float = 1e-20,
@@ -61,6 +62,7 @@ class Solver:
         self.allowed_error = allowed_error
         self.tol_reference_error = tol_reference_error
         self.relaxation_factor = relaxation_factor
+        self.is_with_artificial_damping = is_with_artificial_damping
         self.artificial_damping = artificial_damping
         self.type_initial_gamma_distribution = type_initial_gamma_distribution
         self.core_radius_fraction = core_radius_fraction
@@ -174,14 +176,14 @@ class Solver:
             # damp, is_with_damp = self.calculate_artificial_damping(
             #     gamma, alpha, stall_angle_list
             # )
-            if self.artificial_damping["k2"] != 0:
-                damp, is_with_damp = self.smooth_circulation(
+            if self.is_with_artificial_damping:
+                damp, is_damping_applied = self.smooth_circulation(
                     circulation=gamma, smoothness_factor=0.1, damping_factor=0.5
                 )
                 logging.info("damp: %s", damp)
             else:
                 damp = 0
-                is_with_damp = False
+                is_damping_applied = False
             gamma_new = (
                 (1 - relaxation_factor) * gamma + relaxation_factor * gamma_new + damp
             )
@@ -193,10 +195,10 @@ class Solver:
             normalized_error = error / reference_error
 
             logging.info(
-                "Iteration: %d, normalized_error: %f, is_with_damp: %s",
+                "Iteration: %d, normalized_error: %f, is_damping_applied: %s",
                 i,
                 normalized_error,
-                is_with_damp,
+                is_damping_applied,
             )
             # logging.info("Iteration: %d, reference_error: %f", _, reference_error)
             # logging.info("Iteration: %d", i)
