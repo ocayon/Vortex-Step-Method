@@ -432,7 +432,7 @@ class WingAerodynamics:
         return np.array(stall_angle_list)
 
     def calculate_results(
-        self, gamma_new, density, aerodynamic_model_type, core_radius_fraction
+        self, gamma_new, density, aerodynamic_model_type, core_radius_fraction, mu
     ):
 
         # Calculate the aerodynamic forces acting on the wing
@@ -618,6 +618,9 @@ class WingAerodynamics:
                 for panel_i in self.panels
             ]
         )
+        # Calculating Reynolds Number
+        max_chord = max(np.array([panel.chord for panel in self.panels]))
+        reynolds_number = density * va_mag * max_chord / mu
 
         ### Storing results in a dictionary
         results_dict = {}
@@ -650,6 +653,7 @@ class WingAerodynamics:
         results_dict.update([("projected_area", projected_area)])
         results_dict.update([("wing_span", wing_span)])
         results_dict.update([("aspect_ratio_projected", aspect_ratio_projected)])
+        results_dict.update([("Rey", reynolds_number)])
 
         ### Logging
         logging.debug(f"cl:{results_dict['cl']}")

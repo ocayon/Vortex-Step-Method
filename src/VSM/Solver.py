@@ -40,14 +40,15 @@ class Solver:
         ### Below are all settings, with a default value, that can but don't have to be changed
         aerodynamic_model_type: str = "VSM",
         density: float = 1.225,
-        max_iterations: int = 1000,
-        allowed_error: float = 0.01,  # 1e-5,
+        max_iterations: int = 3000,
+        allowed_error: float = 1e-5,  # 1e-5,
         tol_reference_error: float = 0.001,
-        relaxation_factor: float = 0.02,
+        relaxation_factor: float = 0.01,
         is_with_artificial_damping: bool = False,
         artificial_damping: dict = {"k2": 0.1, "k4": 0.0},
         type_initial_gamma_distribution: str = "elliptic",
         core_radius_fraction: float = 1e-20,
+        mu: float = 1.81e-5,
         # TODO: ideally stall_angle_values inputs is given here, rather than hardcoded in the function
         ## TODO: would be nice to having these defined here instead of inside the panel class?
         # aerodynamic_center_location: float = 0.25,
@@ -66,6 +67,7 @@ class Solver:
         self.artificial_damping = artificial_damping
         self.type_initial_gamma_distribution = type_initial_gamma_distribution
         self.core_radius_fraction = core_radius_fraction
+        self.mu = mu
 
     def solve(self, wing_aero, gamma_distribution=None):
 
@@ -81,6 +83,7 @@ class Solver:
             self.density,
             self.aerodynamic_model_type,
             self.core_radius_fraction,
+            self.mu,
         )
 
         return results, wing_aero
@@ -180,7 +183,7 @@ class Solver:
                 damp, is_damping_applied = self.smooth_circulation(
                     circulation=gamma, smoothness_factor=0.1, damping_factor=0.5
                 )
-                logging.info("damp: %s", damp)
+                logging.debug("damp: %s", damp)
             else:
                 damp = 0
                 is_damping_applied = False

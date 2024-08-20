@@ -112,6 +112,7 @@ def plot_geometry(
     # Create a 3D plot
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
+    ax.set_title(title)
 
     # Plot each panel
     for i, panel in enumerate(panels):
@@ -354,6 +355,7 @@ def generate_polar_data(
     cl_distribution = np.zeros((len(angle_range), len(wing_aero.panels)))
     cd_distribution = np.zeros((len(angle_range), len(wing_aero.panels)))
     cs_distribution = np.zeros((len(angle_range), len(wing_aero.panels)))
+    reynolds_number = np.zeros(len(angle_range))
 
     for i, angle_i in enumerate(angle_range):
         if angle_type == "angle_of_attack":
@@ -385,8 +387,9 @@ def generate_polar_data(
         cl_distribution[i] = results["cl_distribution"]
         cd_distribution[i] = results["cd_distribution"]
         cs_distribution[i] = results["cs_distribution"]
+        reynolds_number[i] = results["Rey"]
 
-    return [
+    polar_data = [
         angle_range,
         cl,
         cd,
@@ -395,7 +398,11 @@ def generate_polar_data(
         cl_distribution,
         cd_distribution,
         cs_distribution,
+        reynolds_number,
     ]
+    reynolds_number = results["Rey"]
+
+    return polar_data, reynolds_number
 
 
 def plot_polars(
@@ -451,19 +458,20 @@ def plot_polars(
 
     # generating polar data
     polar_data_list = []
-    for solver, wing_aero in zip(solver_list, wing_aero_list):
-        polar_data_list.append(
-            generate_polar_data(
-                solver=solver,
-                wing_aero=wing_aero,
-                angle_range=angle_range,
-                angle_type=angle_type,
-                angle_of_attack=angle_of_attack,
-                side_slip=side_slip,
-                yaw_rate=yaw_rate,
-                Umag=Umag,
-            )
+    for i, (solver, wing_aero) in enumerate(zip(solver_list, wing_aero_list)):
+        polar_data, reynolds_number = generate_polar_data(
+            solver=solver,
+            wing_aero=wing_aero,
+            angle_range=angle_range,
+            angle_type=angle_type,
+            angle_of_attack=angle_of_attack,
+            side_slip=side_slip,
+            yaw_rate=yaw_rate,
+            Umag=Umag,
         )
+        polar_data_list.append(polar_data)
+        # Appending Reynolds numbers to the labels of the solvers
+        label_list[i] += f" Re = {1e-5*reynolds_number:.0f}e5"
 
     # Grabbing additional data from literature
     if literature_path_list is not None:
@@ -476,35 +484,96 @@ def plot_polars(
     # Initializing plot
     fig, axs = plt.subplots(2, 2, figsize=(10, 15))
 
+    n_solvers = len(solver_list)
     # CL plot
-    for polar_data, label in zip(polar_data_list, label_list):
-        axs[0, 0].plot(polar_data[0], polar_data[1], label=label)
+    for i, (polar_data, label) in enumerate(zip(polar_data_list, label_list)):
+        if i < n_solvers:
+            linestyle = "-"
+            marker = "*"
+            markersize = 7
+        else:
+            linestyle = "-"
+            marker = "."
+            markersize = 5
+        axs[0, 0].plot(
+            polar_data[0],
+            polar_data[1],
+            label=label,
+            linestyle=linestyle,
+            marker=marker,
+            markersize=markersize,
+        )
     axs[0, 0].set_title(r"$C_L$ vs {}".format(angle_type))
     axs[0, 0].set_xlabel(r"{}[deg]".format(angle_type))
     axs[0, 0].set_ylabel(r"$C_L$")
     axs[0, 0].legend()
 
     # CD plot
-    for polar_data, label in zip(polar_data_list, label_list):
-        axs[0, 1].plot(polar_data[0], polar_data[2], label=label)
+    for i, (polar_data, label) in enumerate(zip(polar_data_list, label_list)):
+        if i < n_solvers:
+            linestyle = "-"
+            marker = "*"
+            markersize = 7
+        else:
+            linestyle = "-"
+            marker = "."
+            markersize = 5
+        axs[0, 1].plot(
+            polar_data[0],
+            polar_data[2],
+            label=label,
+            linestyle=linestyle,
+            marker=marker,
+            markersize=markersize,
+        )
     axs[0, 1].set_title(r"$C_D$ vs {}".format(angle_type))
     axs[0, 1].set_xlabel(r"{}[deg]".format(angle_type))
     axs[0, 1].set_ylabel(r"$C_D$")
     axs[0, 1].legend()
 
     # CS plot
-    for polar_data, label in zip(polar_data_list, label_list):
-        # build-in a check, since the literature polas might not have the cs coefficient
+    for i, (polar_data, label) in enumerate(zip(polar_data_list, label_list)):
+        # Build-in a check, since the literature polars might not have the CS coefficient
         if len(polar_data) > 3:
-            axs[1, 0].plot(polar_data[0], polar_data[3], label=label)
+            if i < n_solvers:
+                linestyle = "-"
+                marker = "*"
+                markersize = 7
+            else:
+                linestyle = "-"
+                marker = "."
+                markersize = 5
+            axs[1, 0].plot(
+                polar_data[0],
+                polar_data[3],
+                label=label,
+                linestyle=linestyle,
+                marker=marker,
+                markersize=markersize,
+            )
     axs[1, 0].set_title(r"$C_S$ vs {}".format(angle_type))
     axs[1, 0].set_xlabel(r"{}[deg]".format(angle_type))
     axs[1, 0].set_ylabel(r"$C_S$")
     axs[1, 0].legend()
 
     # CL-CD plot
-    for polar_data, label in zip(polar_data_list, label_list):
-        axs[1, 1].plot(polar_data[2], polar_data[1], label=label)
+    for i, (polar_data, label) in enumerate(zip(polar_data_list, label_list)):
+        if i < n_solvers:
+            linestyle = "-"
+            marker = "*"
+            markersize = 7
+        else:
+            linestyle = "-"
+            marker = "."
+            markersize = 5
+        axs[1, 1].plot(
+            polar_data[1],
+            polar_data[2],
+            label=label,
+            linestyle=linestyle,
+            marker=marker,
+            markersize=markersize,
+        )
     axs[1, 1].set_title(r"$C_L$ vs $C_D$ (over {} range)".format(angle_type))
     axs[1, 1].set_xlabel(r"$C_D$")
     axs[1, 1].set_ylabel(r"$C_L$")

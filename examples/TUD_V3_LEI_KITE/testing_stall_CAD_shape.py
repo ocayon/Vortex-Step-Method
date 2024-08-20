@@ -119,17 +119,17 @@ path_cfd_lebesque = (
     / "data"
     / "TUD_V3_LEI_KITE"
     / "literature_results"
-    / "V3_CL_CD_RANS_CFD_lebesque_2020_Rey_1e6.csv"
+    / "V3_CL_CD_RANS_Lebesque_2024_Rey_300e4.csv"
 )
 path_wind_tunnel_poland = (
     Path(root_dir)
     / "data"
     / "TUD_V3_LEI_KITE"
     / "literature_results"
-    / "V3_CL_CD_WindTunnel_Poland_2024_Rey_56e4.csv"
+    / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )
 plot_polars(
-    solver_list=[VSM, VSM_with_stall_correction, VSM, VSM_with_stall_correction],
+    solver_list=[VSM, VSM_with_stall_correction],
     wing_aero_list=[
         CAD_wing_aero,
         CAD_wing_aero,
@@ -137,8 +137,8 @@ plot_polars(
     label_list=[
         "VSM from CAD",
         "VSM from CAD (with correction)",
-        "CFD_Lebesque",
-        "WindTunnel_Poland",
+        "CFD_Lebesque Rey 30e5",
+        "WindTunnel_Poland Rey 5.6e5",
     ],
     literature_path_list=[path_cfd_lebesque, path_wind_tunnel_poland],
     angle_range=np.linspace(0, 22, 11),
