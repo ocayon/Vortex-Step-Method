@@ -597,7 +597,7 @@ if __name__ == "__main__":
         / "data"
         / "TUD_V3_LEI_KITE"
         / "geometry"
-        / "Geometry_modified_kcu.csv"
+        / "CAD_extracted_coords_v3_kite.csv"
     )
     CAD = np.loadtxt(CAD_path, delimiter=",")
 

@@ -49,16 +49,23 @@ CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 # Populate the wing geometry
 for i, CAD_rib_i in enumerate(CAD_input_rib_list):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-    # logging.info(f"LE: {CAD_rib_i[0]} VS NEW: {CAD_input_rib_list_adjusted[i][0]}")
-    # logging.info(f"TE: {CAD_rib_i[1]} VS NEW: {CAD_input_rib_list_adjusted[i][1]}")
-    # logging.info(
-    #     f"airfoil_input: {CAD_rib_i[2]} VS NEW: {CAD_input_rib_list_adjusted[i][2]}"
+    # index = int(i / 2)
+    # logging.debug(f"LE: {CAD_rib_i[0]} VS NEW: {CAD_input_rib_list_adjusted[index][0]}")
+    # logging.debug(f"TE: {CAD_rib_i[1]} VS NEW: {CAD_input_rib_list_adjusted[index][1]}")
+    # logging.debug(
+    #     f"airfoil_input: {CAD_rib_i[2]} VS NEW: {CAD_input_rib_list_adjusted[index][2]}"
     # )
-    print(i)
+
+n_panels = 18
+spanwise_panel_distribution = "split_provided"
+CAD_wing_new = Wing(n_panels, spanwise_panel_distribution)
+for i, CAD_rib_i in enumerate(CAD_input_rib_list_adjusted):
+    CAD_wing_new.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
 
 
 # Create wing aerodynamics objects
 CAD_wing_aero = WingAerodynamics([CAD_wing])
+CAD_wing_aero_new = WingAerodynamics([CAD_wing_new])
 
 # Solvers
 VSM = Solver(
@@ -151,14 +158,14 @@ path_wind_tunnel_poland = (
     / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )
 plot_polars(
-    solver_list=[VSM_with_stall_correction],
+    solver_list=[VSM_with_stall_correction, VSM_with_stall_correction],
     wing_aero_list=[
-        # CAD_wing_aero,
         CAD_wing_aero,
+        CAD_wing_aero_new,
     ],
     label_list=[
-        # "VSM from CAD",
-        "VSM from CAD (with correction)",
+        "VSM from CAD (with correction) | from OLD cad extraction",
+        "VSM from CAD (with correction) | from NEW cad extraction",
         "CFD_Lebesque Rey 30e5",
         "WindTunnel_Poland Rey 5.6e5",
     ],
