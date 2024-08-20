@@ -455,21 +455,17 @@ class WingAerodynamics:
         cl_prescribed_va_list = []
         cd_prescribed_va_list = []
         cs_prescribed_va_list = []
-        lift_prescribed_va_list = []
-        drag_prescribed_va_list = []
-        side_prescribed_va_list = []
-        ftotal_prescribed_va_list = []
-        fx_global_list = []
-        fy_global_list = []
-        fz_global_list = []
+        f_global_3D_list = []
+        fx_global_3D_list = []
+        fy_global_3D_list = []
+        fz_global_3D_list = []
         area_all_panels = 0
-        lift_wing = 0
-        drag_wing = 0
-        side_wing = 0
-        ftotal_prescribed_va = 0
-        fx_global = 0
-        fy_global = 0
-        fz_global = 0
+        lift_wing_3D_sum = 0
+        drag_wing_3D_sum = 0
+        side_wing_3D_sum = 0
+        fx_global_3D_sum = 0
+        fy_global_3D_sum = 0
+        fz_global_3D_sum = 0
 
         spanwise_direction = self.wings[0].spanwise_direction
         va_mag = np.linalg.norm(self._va)
@@ -527,6 +523,7 @@ class WingAerodynamics:
             # panel force VECTOR TANGENTIAL to CALCULATED induced velocity
             drag_induced_va = drag_induced_va_mag * dir_drag_induced_va
             ftotal_induced_va = lift_induced_va + drag_induced_va
+            logging.debug(f"ftotal_induced_va: {ftotal_induced_va}")
 
             ### Converting forces to prescribed wing va
             dir_lift_prescribed_va = np.cross(va, spanwise_direction)
@@ -543,10 +540,6 @@ class WingAerodynamics:
                 drag_induced_va, spanwise_direction
             )
 
-            ftotal_prescribed_va = (
-                lift_prescribed_va + drag_prescribed_va + side_prescribed_va
-            )
-
             # TODO: you can check: ftotal_prescribed_va = ftotal_induced_va
             # if not np.allclose(ftotal_prescribed_va, ftotal_induced_va):
             #     raise ValueError(
@@ -555,21 +548,9 @@ class WingAerodynamics:
             # The above conversion is merely one of references frames
 
             ### Converting forces to the global reference frame
-            fx_global = np.dot(ftotal_prescribed_va, np.array([1, 0, 0]))
-            fy_global = np.dot(ftotal_prescribed_va, np.array([0, 1, 0]))
-            fz_global = np.dot(ftotal_prescribed_va, np.array([0, 0, 1]))
-
-            ### Storing results that are useful
-            lift_prescribed_va_list.append(lift_prescribed_va)
-            drag_prescribed_va_list.append(drag_prescribed_va)
-            side_prescribed_va_list.append(side_prescribed_va)
-            cl_prescribed_va_list.append(lift_prescribed_va / (q_inf * panel_chord))
-            cd_prescribed_va_list.append(drag_prescribed_va / (q_inf * panel_chord))
-            cs_prescribed_va_list.append(side_prescribed_va / (q_inf * panel_chord))
-            ftotal_prescribed_va_list.append(ftotal_prescribed_va)
-            fx_global_list.append(fx_global)
-            fy_global_list.append(fy_global)
-            fz_global_list.append(fz_global)
+            fx_global_2D = np.dot(ftotal_induced_va, np.array([1, 0, 0]))
+            fy_global_2D = np.dot(ftotal_induced_va, np.array([0, 1, 0]))
+            fz_global_2D = np.dot(ftotal_induced_va, np.array([0, 0, 1]))
 
             ### Logging
             logging.debug("----calculate_results_new----- icp: %d", i)
@@ -588,14 +569,32 @@ class WingAerodynamics:
             logging.debug(f"Fmag_1: {drag_prescribed_va}")
             logging.debug(f"Fmag_2: {side_prescribed_va}")
 
-            # 3D
-            lift_wing += lift_prescribed_va * panel_width
-            drag_wing += drag_prescribed_va * panel_width
-            side_wing += side_prescribed_va * panel_width
-            ftotal_prescribed_va += ftotal_prescribed_va * panel_width
-            fx_global += fx_global * panel_width
-            fy_global += fy_global * panel_width
-            fz_global += fz_global * panel_width
+            # 3D, by multiplying with the panel width
+            lift_wing_3D = lift_prescribed_va * panel_width
+            drag_wing_3D = drag_prescribed_va * panel_width
+            side_wing_3D = side_prescribed_va * panel_width
+            fx_global_3D = fx_global_2D * panel_width
+            fy_global_3D = fy_global_2D * panel_width
+            fz_global_3D = fz_global_2D * panel_width
+
+            # summing it up for totals
+            lift_wing_3D_sum += lift_wing_3D
+            drag_wing_3D_sum += drag_wing_3D
+            side_wing_3D_sum += side_wing_3D
+            fx_global_3D_sum += fx_global_3D
+            fy_global_3D_sum += fy_global_3D
+            fz_global_3D_sum += fz_global_3D
+
+            # Storing results that are useful
+            cl_prescribed_va_list.append(lift_prescribed_va / (q_inf * panel_chord))
+            cd_prescribed_va_list.append(drag_prescribed_va / (q_inf * panel_chord))
+            cs_prescribed_va_list.append(side_prescribed_va / (q_inf * panel_chord))
+            fx_global_3D_list.append(fx_global_3D)
+            fy_global_3D_list.append(fy_global_3D)
+            fz_global_3D_list.append(fz_global_3D)
+            f_global_3D_list.append(
+                np.array([fx_global_3D, fy_global_3D, fz_global_3D])
+            )
 
         # Calculating projected_area, wing_span, aspect_ratio
         projected_area = 0
@@ -625,26 +624,25 @@ class WingAerodynamics:
         ### Storing results in a dictionary
         results_dict = {}
         # Global wing aerodynamics
-        results_dict.update([("Fx", fx_global)])
-        results_dict.update([("Fy", fy_global)])
-        results_dict.update([("Fz", fz_global)])
-        results_dict.update([("lift", lift_wing)])
-        results_dict.update([("drag", drag_wing)])
-        results_dict.update([("side", side_wing)])
-        results_dict.update([("cl", lift_wing / (q_inf * projected_area))])
-        results_dict.update([("cd", drag_wing / (q_inf * projected_area))])
-        results_dict.update([("cs", side_wing / (q_inf * projected_area))])
+        results_dict.update([("Fx", fx_global_3D_sum)])
+        results_dict.update([("Fy", fy_global_3D_sum)])
+        results_dict.update([("Fz", fz_global_3D_sum)])
+        results_dict.update([("lift", lift_wing_3D_sum)])
+        results_dict.update([("drag", drag_wing_3D_sum)])
+        results_dict.update([("side", side_wing_3D_sum)])
+        results_dict.update([("cl", lift_wing_3D_sum / (q_inf * projected_area))])
+        results_dict.update([("cd", drag_wing_3D_sum / (q_inf * projected_area))])
+        results_dict.update([("cs", side_wing_3D_sum / (q_inf * projected_area))])
         # Local panel aerodynamics
         results_dict.update([("cl_distribution", cl_prescribed_va_list)])
         results_dict.update([("cd_distribution", cd_prescribed_va_list)])
         results_dict.update([("cs_distribution", cs_prescribed_va_list)])
-
-        results_dict.update([("Ftotal_distribution", ftotal_prescribed_va_list)])
+        results_dict.update([("F_distribution", f_global_3D_list)])
 
         # Additional info
-        results_dict.update([("cfz", fz_global / (q_inf * projected_area))])
-        results_dict.update([("cfx", fx_global / (q_inf * projected_area))])
-        results_dict.update([("cfy", fy_global / (q_inf * projected_area))])
+        results_dict.update([("cfx", fx_global_3D_list / (q_inf * projected_area))])
+        results_dict.update([("cfy", fy_global_3D_list / (q_inf * projected_area))])
+        results_dict.update([("cfz", fz_global_3D_list / (q_inf * projected_area))])
         results_dict.update([("alpha_at_ac", alpha_corrected)])
         results_dict.update([("alpha_uncorrected", alpha_uncorrected)])
         results_dict.update([("alpha_geometric", alpha_geometric)])
@@ -659,9 +657,9 @@ class WingAerodynamics:
         logging.debug(f"cl:{results_dict['cl']}")
         logging.debug(f"cd:{results_dict['cd']}")
         logging.debug(f"cs:{results_dict['cs']}")
-        logging.debug(f"lift:{lift_wing}")
-        logging.debug(f"drag:{drag_wing}")
-        logging.debug(f"side:{side_wing}")
+        logging.debug(f"lift:{lift_wing_3D_sum}")
+        logging.debug(f"drag:{drag_wing_3D_sum}")
+        logging.debug(f"side:{side_wing_3D_sum}")
         logging.debug(f"area: {area_all_panels}")
         logging.debug(f"Projected Area: {projected_area}")
         logging.debug(f"Aspect Ratio Projected: {aspect_ratio_projected}")

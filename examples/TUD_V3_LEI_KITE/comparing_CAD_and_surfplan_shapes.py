@@ -56,6 +56,10 @@ CAD_wing_aero = WingAerodynamics([CAD_wing])
 VSM = Solver(
     aerodynamic_model_type="VSM",
 )
+VSM_stall = Solver(
+    aerodynamic_model_type="VSM",
+    is_with_artificial_damping=True,
+)
 
 save_folder = Path(root_dir) / "results" / "TUD_V3_LEI_KITE"
 
@@ -185,14 +189,18 @@ path_wind_tunnel_poland_56e4 = (
     / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )
 plot_polars(
-    solver_list=[VSM, VSM],
+    solver_list=[VSM, VSM, VSM_stall, VSM_stall],
     wing_aero_list=[
+        surfplan_wing_aero,
+        CAD_wing_aero,
         surfplan_wing_aero,
         CAD_wing_aero,
     ],
     label_list=[
         f"Surfplan",
         f"CAD",
+        f"Surfplan with stall correction",
+        f"CAD with stall correction",
         f"RANS CFD Lebesque Rey = 10e5 (2020)",
         f"RANS CFD Lebesque Rey = 30e5 (2020)",
         f"Wind Tunnel Poland Rey = 5.6e5 (2024)",

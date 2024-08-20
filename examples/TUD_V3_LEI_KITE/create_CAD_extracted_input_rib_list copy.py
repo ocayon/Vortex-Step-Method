@@ -76,7 +76,6 @@ def struct2aero_geometry(coord_struc):
 
 def create_geometry_LEI(coordinates, Uinf, N, ring_geo, model):
 
-    print(f"N inside create_geometry: {N}")
     filaments = []
     controlpoints = []
     rings = []
@@ -422,7 +421,8 @@ def LEI_airf_coeff(t, k, alpha):
     return Cl, Cd, Cm
 
 
-def airf_data_from_uri_thesis(N_split):
+def airf_data_from_uri_thesis_untouched(CAD, N_split):
+
     #   Model and program specifics
     ring_geo = "5fil"
     model = "VSM"
@@ -438,20 +438,9 @@ def airf_data_from_uri_thesis(N_split):
         np.array([np.cos(aoa) * np.cos(sideslip), np.sin(sideslip), np.sin(aoa)]) * Umag
     )
 
-    # CAD = uri_thesis_functions.get_CAD_matching_uri
-    CAD_path = (
-        Path(root_dir)
-        / "data"
-        / "TUD_V3_LEI_KITE"
-        / "geometry"
-        / "CAD_extracted_coords_v3_kite.csv"
-    )
-    CAD = np.loadtxt(CAD_path, delimiter=",")
-    # CAD = np.loadtxt("Geometry_modified_kcu.csv", delimiter=",")
     coord = struct2aero_geometry(CAD) / 1000
     Atot = 19.753
     N = int(len(coord) / 2)
-    print(f"N:{N}")
 
     controlpoints, rings, wingpanels, ringvec, coord_L = create_geometry_LEI(
         coord, Uinf, N, ring_geo, model
@@ -481,54 +470,37 @@ def airf_data_from_uri_thesis(N_split):
     ]
     # t = [0.118753,0.17,0.18,0.19406,0.202418,0.202418,0.19406,0.178254,0.151561,0.118753]
 
+    # N_split = 16
     # Ballooning angle
     ball_angle = [1, 10, 15, 18, 20, 18, 15, 10, 1]
     # Refine mesh, include ballooning
-    print(f"coord before refining:{coord}")
-    if N_split > 1:
-        coord = refine_LEI_mesh_ballooning(wingpanels, ball_angle, N_split)
-    print(f"coord aft refining: {coord}")
-    print(f"len(coord):{len(coord)}")
+    coord = refine_LEI_mesh_ballooning(wingpanels, ball_angle, N_split)
     # Define system of vorticity
-    print(f"N:{N}")
-    if N_split > 1:
-        n_refine = int((N - 1) * (N_split - 1) + 1)
-    else:
-        n_refine = int(N - 1) + 1
     controlpoints, rings, wingpanels, ringvec, coord_L = create_geometry_LEI(
-        coord, Uinf, n_refine, ring_geo, model
+        coord, Uinf, int((N - 1) * (N_split - 1) + 1), ring_geo, model
     )
     N = int(len(coord) / 2)  # Number of section after refining the mesh
 
     Gamma0 = np.zeros(len(controlpoints))
 
     aoas = np.arange(-20, 21, 1)
-    thicc = t
-    camb = k
-    # thicc = []
-    # camb = []
-    # for i in range(len(t) - 1):
-    #     print(f"inside t -loop, i: {i}")
-    #     temp_t = np.linspace(t[i], t[i + 1], N_split)
-    #     temp_k = np.linspace(k[i], k[i + 1], N_split)
-    #     temp1 = []
-    #     temp2 = []
-    #     for a in range(len(temp_t) - 1):
-    #         temp1.append((temp_t[a] + temp_t[a + 1]) / 2)
-    #         temp2.append((temp_k[a] + temp_k[a + 1]) / 2)
-    #     # thicc = np.append(thicc, temp1)
-    #     # camb = np.append(camb, temp2)
-    #     thicc.append(thicc)
-    #     camb.append(camb)
 
-    # print(f"len(controlpoints):{len(controlpoints)}")
-    # print(f"len(camber): {len(camb)}")
+    thicc = np.array([])
+    camb = np.array([])
+    for i in range(9):
+        temp_t = np.linspace(t[i], t[i + 1], N_split)
+        temp_k = np.linspace(k[i], k[i + 1], N_split)
+        temp1 = []
+        temp2 = []
+        for a in range(len(temp_t) - 1):
+            temp1.append((temp_t[a] + temp_t[a + 1]) / 2)
+            temp2.append((temp_k[a] + temp_k[a + 1]) / 2)
+        thicc = np.append(thicc, temp1)
+        camb = np.append(camb, temp2)
 
-    LE_thickness_dimensionless = []
-    camber_dimensionless = []
     data_airf_br = np.empty((len(aoas), 4, N - 1))
     t_c = np.empty(N - 1)
-    for i in range(len(thicc) - 1):
+    for i in range(N - 1):
         for j in range(len(aoas)):
             chord = controlpoints[i]["chord"]
             t_c[i] = thicc[i] / chord
@@ -540,138 +512,106 @@ def airf_data_from_uri_thesis(N_split):
             data_airf_br[j, 2, i] = Cd
             data_airf_br[j, 3, i] = Cm
 
-            LE_thickness_dimensionless.append(t_c[i])
-            camber_dimensionless.append(camb[i])
-
-    return coord, data_airf_br, LE_thickness_dimensionless, camber_dimensionless
+    return coord, thicc, camb
 
 
-# # TODO: Convert into a Kite class
-# def Ry(theta):
-#     return np.matrix(
-#         [
-#             [np.cos(theta), 0, np.sin(theta)],
-#             [0, 1, 0],
-#             [-np.sin(theta), 0, np.cos(theta)],
-#         ]
-#     )
+def airf_data_from_uri_thesis_adjusted(CAD, N_split):
+
+    coord = struct2aero_geometry(CAD) / 1000
+
+    # Camber for each section
+    # k = [0.018, 0.028, 0.038, 0.048, 0.057, 0.057, 0.048, 0.038, 0.028, 0.018]
+    k = [0.02, 0.03, 0.04, 0.05, 0.06, 0.06, 0.05, 0.04, 0.03, 0.02]
+    # k = 0.09*np.ones(10)
+    # Thickness in each section
+    t = [
+        0.118753,
+        0.151561,
+        0.178254,
+        0.19406,
+        0.202418,
+        0.202418,
+        0.19406,
+        0.178254,
+        0.151561,
+        0.118753,
+    ]
+    # t = [0.118753,0.17,0.18,0.19406,0.202418,0.202418,0.19406,0.178254,0.151561,0.118753]
+
+    if N_split > 1:
+        N = int(len(coord) / 2)
+
+        #   Model and program specifics
+        ring_geo = "5fil"
+        model = "VSM"
+        # Wind speed mag and direction
+        Umag = 22
+        aoa = 12 * np.pi / 180
+        sideslip = 0 / 180 * np.pi
+        Uinf = (
+            np.array([np.cos(aoa) * np.cos(sideslip), np.sin(sideslip), np.sin(aoa)])
+            * Umag
+        )
+        controlpoints, rings, wingpanels, ringvec, coord_L = create_geometry_LEI(
+            coord, Uinf, N, ring_geo, model
+        )
+        # Ballooning angle
+        ball_angle = [1, 10, 15, 18, 20, 18, 15, 10, 1]
+        # Refine mesh, include ballooning
+        coord = refine_LEI_mesh_ballooning(wingpanels, ball_angle, N_split)
+
+    return coord, t, k
 
 
-# def refine_LEI_mesh(coord, N_sect, N_split):
-#     refined_coord = []
+def create_and_save_rib_list(
+    coord, LE_thickness, camber_dimensionless, file_name, root_dir
+):
 
-#     for i_sec in range(N_sect):
-#         temp_coord = np.empty((int(N_split * 2), 3))
-#         for i_spl in range(N_split):
-#             temp_coord[2 * i_spl] = (
-#                 coord[2 * i_sec, :] * (N_split - i_spl) / N_split
-#                 + coord[2 * (i_sec + 1), :] * (i_spl) / N_split
-#             )
-#             temp_coord[2 * i_spl + 1] = (
-#                 coord[2 * i_sec + 1, :] * (N_split - i_spl) / N_split
-#                 + coord[2 * (i_sec + 1) + 1, :] * (i_spl) / N_split
-#             )
-#         if i_sec == 0:
-#             refined_coord = temp_coord
-#         else:
-#             refined_coord = np.append(refined_coord, temp_coord, axis=0)
+    # Create wing geometry
+    input_rib_list = []
+    for idx, idx2 in enumerate(range(0, len(coord) - 2, 2)):
 
-#     refined_coord = np.append(
-#         refined_coord, [coord[2 * N_sect, :], coord[2 * N_sect + 1, :]], axis=0
-#     )
+        logging.info(f"idx: {idx} | coord[{idx2}] = {coord[idx2]}")
 
-#     return refined_coord
+        ## Create the rib input list_le_te
+        coord_length = np.linalg.norm(coord[idx2] - coord[idx2 + 1])
+        LE = coord[idx2]
+        TE = coord[idx2 + 1]
+        camber_i = camber_dimensionless[idx]
+        LE_thickness_i = LE_thickness[idx] / coord_length
+        airfoil_input = ["lei_airfoil_breukels", [LE_thickness_i, camber_i]]
+        input_rib_list.append([LE, TE, airfoil_input])
 
-
-# # %% Read the coordinates from the CAD file
-# CAD_path = (
-#     Path(root_dir)
-#     / "data"
-#     / "TUD_V3_LEI_KITE"
-#     / "geometry"
-#     / "CAD_extracted_coords_v3_kite.csv"
-# )
-# coord_struct = np.loadtxt(CAD_path, delimiter=",")
-
-# ## Convert the coordinates to the aero coordinates
-# coord_aero = struct2aero_geometry(coord_struct) / 1000
-# n_aero = len(coord_aero) // 2
-# N_splits = 2
-# coord = refine_LEI_mesh(coord_aero, n_aero - 1, N_splits)
-# coord = flip_created_coord_in_pairs_if_needed(coord)
-
-# n_sections = len(coord) // 2
-# n_panels = n_sections - 1
-# # thickness of the leading edge tube
-# # LE thickness at each section [m]
-# t = [
-#     0.118753,
-#     0.151561,
-#     0.178254,
-#     0.19406,
-#     0.202418,
-#     0.202418,
-#     0.19406,
-#     0.178254,
-#     0.151561,
-#     0.118753,
-# ]
-# camber = 0.095
-
-# # Create an array of indices for the original thickness distribution
-# original_indices = np.arange(len(t))
-
-# # Create an array of indices for the interpolated thickness distribution
-# interpolated_indices = np.linspace(0, len(t) - 1, n_sections)
-
-# # Interpolate the thickness distribution
-# LE_thickness_dimensional = np.interp(interpolated_indices, original_indices, t)
-
-N_split = 1
-
-coord, data_airf_br, LE_thickness_dimensionless, camber_dimensionless = (
-    airf_data_from_uri_thesis(N_split)
-)
-
-# Create wing geometry
-input_rib_list_polar_data = []
-input_rib_list_lei_airfoil_breukels = []
-for idx, idx2 in enumerate(range(0, len(coord), 2)):
-
-    logging.debug(f"idx: {idx} | coord[{idx2}] = {coord[idx2]}")
-
-    ## Create the rib input list_le_te
-    # coord_length = np.linalg.norm(coord[idx2] - coord[idx2 + 1])
-    # LE_thickness = LE_thickness_dimensional[idx] / coord_length
-    LE = coord[idx2]
-    TE = coord[idx2 + 1]
-    camber_i = camber_dimensionless[idx]
-    LE_thickness_i = LE_thickness_dimensionless[idx]
-    airfoil_input = ["lei_airfoil_breukels", [LE_thickness_i, camber_i]]
-    input_rib_list_lei_airfoil_breukels.append([LE, TE, airfoil_input])
-
-    ## Create the rib input list_data_airf
-    # print(np.shape(data_airf_br))
-    if idx < len(data_airf_br):
-        polar_data_breukels = data_airf_br[idx, :, :]
-    airfoil_input = ["polar_data", polar_data_breukels]
-    input_rib_list_polar_data.append([LE, TE, airfoil_input])
+    save_path = (
+        Path(root_dir) / "processed_data" / "TUD_V3_LEI_KITE" / f"{file_name}.pkl"
+    )
+    with open(save_path, "wb") as file:
+        pickle.dump(input_rib_list, file)
 
 
-save_path = (
-    Path(root_dir)
-    / "processed_data"
-    / "TUD_V3_LEI_KITE"
-    / f"CAD_extracted_input_rib_list_lei_airfoil_breukels_n_split_{N_split}.pkl"
-)
-with open(save_path, "wb") as file:
-    pickle.dump(input_rib_list_lei_airfoil_breukels, file)
+if __name__ == "__main__":
 
-save_path = (
-    Path(root_dir)
-    / "processed_data"
-    / "TUD_V3_LEI_KITE"
-    / f"CAD_extracted_input_rib_list_polar_data_n_split_{N_split}.pkl"
-)
-with open(save_path, "wb") as file:
-    pickle.dump(input_rib_list_polar_data, file)
+    # Getting the geometry of the points
+    CAD_path = (
+        Path(root_dir)
+        / "data"
+        / "TUD_V3_LEI_KITE"
+        / "geometry"
+        / "Geometry_modified_kcu.csv"
+    )
+    CAD = np.loadtxt(CAD_path, delimiter=",")
+
+    # Getting the original, thesis defined geometry
+    coord, thicc, camb = airf_data_from_uri_thesis_untouched(CAD, 8)
+    coord = flip_created_coord_in_pairs_if_needed(coord)
+
+    create_and_save_rib_list(
+        coord, thicc, camb, "CAD_rib_input_list_untouched_thesis_n_split_8", root_dir
+    )
+
+    # Getting just the V3 input shape
+    coord, thicc, camb = airf_data_from_uri_thesis_adjusted(CAD, 1)
+    coord = flip_created_coord_in_pairs_if_needed(coord)
+    create_and_save_rib_list(
+        coord, thicc, camb, "CAD_rib_input_list_adjusted_thesis_n_split_1", root_dir
+    )

@@ -15,6 +15,7 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
     root_dir = os.path.abspath(os.path.join(root_dir, ".."))
     if root_dir == "/":
         raise FileNotFoundError("Could not find the root directory of the repository.")
+save_folder = Path(root_dir) / "results" / "TUD_V3_LEI_KITE"
 
 # Load from Pickle file
 CAD_path = (
@@ -26,6 +27,20 @@ CAD_path = (
 with open(CAD_path, "rb") as file:
     CAD_input_rib_list = pickle.load(file)
 
+print(
+    f"shape(CAD_input_rib_list): ({len(CAD_input_rib_list)},{len(CAD_input_rib_list[0])})"
+)
+# Load from Pickle file
+CAD_path = (
+    Path(root_dir)
+    / "processed_data"
+    / "TUD_V3_LEI_KITE"
+    / "CAD_rib_input_list_adjusted_thesis_n_split_1.pkl"
+)
+with open(CAD_path, "rb") as file:
+    CAD_input_rib_list_adjusted = pickle.load(file)
+
+
 # Create wing geometry
 n_panels = 20
 spanwise_panel_distribution = "unchanged"
@@ -34,6 +49,13 @@ CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 # Populate the wing geometry
 for i, CAD_rib_i in enumerate(CAD_input_rib_list):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
+    # logging.info(f"LE: {CAD_rib_i[0]} VS NEW: {CAD_input_rib_list_adjusted[i][0]}")
+    # logging.info(f"TE: {CAD_rib_i[1]} VS NEW: {CAD_input_rib_list_adjusted[i][1]}")
+    # logging.info(
+    #     f"airfoil_input: {CAD_rib_i[2]} VS NEW: {CAD_input_rib_list_adjusted[i][2]}"
+    # )
+    print(i)
+
 
 # Create wing aerodynamics objects
 CAD_wing_aero = WingAerodynamics([CAD_wing])
@@ -47,69 +69,69 @@ VSM_with_stall_correction = Solver(
     is_with_artificial_damping=True,
 )
 
-### plotting distributions
-save_folder = Path(root_dir) / "results" / "TUD_V3_LEI_KITE"
-CAD_y_coordinates = [panels.aerodynamic_center[1] for panels in CAD_wing_aero.panels]
-angle_of_attack_range = np.linspace(0, 20, 2)
+# ### plotting distributions
 
-for angle_of_attack in angle_of_attack_range:
-    aoa_rad = np.deg2rad(angle_of_attack)
+# CAD_y_coordinates = [panels.aerodynamic_center[1] for panels in CAD_wing_aero.panels]
+# angle_of_attack_range = np.linspace(0, 20, 2)
 
-    ## straight case
-    side_slip = 0
-    yaw_rate = 0
-    Umag = 15
-    CAD_wing_aero.va = (
-        np.array(
-            [
-                np.cos(aoa_rad) * np.cos(side_slip),
-                np.sin(side_slip),
-                np.sin(aoa_rad),
-            ]
-        )
-        * Umag,
-        yaw_rate,
-    )
-    results, _ = VSM.solve(CAD_wing_aero)
-    results_with_stall_correction, _ = VSM_with_stall_correction.solve(CAD_wing_aero)
-    plot_distribution(
-        y_coordinates_list=[CAD_y_coordinates, CAD_y_coordinates],
-        results_list=[results, results_with_stall_correction],
-        label_list=["VSM", "VSM with stall correction"],
-        title=f"CAD_spanwise_distributions_alpha_{angle_of_attack:.1f}_beta_{side_slip:.1f}_yaw_{yaw_rate:.1f}_Umag_{Umag:.1f}",
-        data_type=".pdf",
-        save_path=Path(save_folder) / "spanwise_distributions",
-        is_save=True,
-        is_show=True,
-    )
+# for angle_of_attack in angle_of_attack_range:
+#     aoa_rad = np.deg2rad(angle_of_attack)
 
-    # ## turn case
-    # side_slip = 0
-    # yaw_rate = 1.5
-    # Umag = 15
-    # CAD_wing_aero.va = (
-    #     np.array(
-    #         [
-    #             np.cos(aoa_rad) * np.cos(side_slip),
-    #             np.sin(side_slip),
-    #             np.sin(aoa_rad),
-    #         ]
-    #     )
-    #     * Umag,
-    #     yaw_rate,
-    # )
-    # results, _ = VSM.solve(CAD_wing_aero)
-    # results_with_stall_correction, _ = VSM_with_stall_correction.solve(CAD_wing_aero)
-    # plot_distribution(
-    #     y_coordinates=CAD_y_coordinates,
-    #     results_list=[results, results_with_stall_correction],
-    #     label_list=["VSM", "VSM with stall correction"],
-    #     title=f"CAD_spanwise_distributions_alpha_{angle_of_attack:.1f}_beta_{side_slip:.1f}_yaw_{yaw_rate:.1f}_Umag_{Umag:.1f}",
-    #     data_type=".pdf",
-    #     save_path=Path(save_folder) / "spanwise_distributions",
-    #     is_save=True,
-    #     is_show=True,
-    # )
+#     ## straight case
+#     side_slip = 0
+#     yaw_rate = 0
+#     Umag = 15
+#     CAD_wing_aero.va = (
+#         np.array(
+#             [
+#                 np.cos(aoa_rad) * np.cos(side_slip),
+#                 np.sin(side_slip),
+#                 np.sin(aoa_rad),
+#             ]
+#         )
+#         * Umag,
+#         yaw_rate,
+#     )
+#     results, _ = VSM.solve(CAD_wing_aero)
+#     results_with_stall_correction, _ = VSM_with_stall_correction.solve(CAD_wing_aero)
+#     plot_distribution(
+#         y_coordinates_list=[CAD_y_coordinates, CAD_y_coordinates],
+#         results_list=[results, results_with_stall_correction],
+#         label_list=["VSM", "VSM with stall correction"],
+#         title=f"CAD_spanwise_distributions_alpha_{angle_of_attack:.1f}_beta_{side_slip:.1f}_yaw_{yaw_rate:.1f}_Umag_{Umag:.1f}",
+#         data_type=".pdf",
+#         save_path=Path(save_folder) / "spanwise_distributions",
+#         is_save=True,
+#         is_show=True,
+#     )
+
+# ## turn case
+# side_slip = 0
+# yaw_rate = 1.5
+# Umag = 15
+# CAD_wing_aero.va = (
+#     np.array(
+#         [
+#             np.cos(aoa_rad) * np.cos(side_slip),
+#             np.sin(side_slip),
+#             np.sin(aoa_rad),
+#         ]
+#     )
+#     * Umag,
+#     yaw_rate,
+# )
+# results, _ = VSM.solve(CAD_wing_aero)
+# results_with_stall_correction, _ = VSM_with_stall_correction.solve(CAD_wing_aero)
+# plot_distribution(
+#     y_coordinates=CAD_y_coordinates,
+#     results_list=[results, results_with_stall_correction],
+#     label_list=["VSM", "VSM with stall correction"],
+#     title=f"CAD_spanwise_distributions_alpha_{angle_of_attack:.1f}_beta_{side_slip:.1f}_yaw_{yaw_rate:.1f}_Umag_{Umag:.1f}",
+#     data_type=".pdf",
+#     save_path=Path(save_folder) / "spanwise_distributions",
+#     is_save=True,
+#     is_show=True,
+# )
 
 
 ### plotting polar
@@ -129,19 +151,19 @@ path_wind_tunnel_poland = (
     / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )
 plot_polars(
-    solver_list=[VSM, VSM_with_stall_correction],
+    solver_list=[VSM_with_stall_correction],
     wing_aero_list=[
-        CAD_wing_aero,
+        # CAD_wing_aero,
         CAD_wing_aero,
     ],
     label_list=[
-        "VSM from CAD",
+        # "VSM from CAD",
         "VSM from CAD (with correction)",
         "CFD_Lebesque Rey 30e5",
         "WindTunnel_Poland Rey 5.6e5",
     ],
     literature_path_list=[path_cfd_lebesque, path_wind_tunnel_poland],
-    angle_range=np.linspace(0, 22, 11),
+    angle_range=np.linspace(0, 22, 4),
     angle_type="angle_of_attack",
     angle_of_attack=0,
     side_slip=0,

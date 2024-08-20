@@ -236,15 +236,19 @@ def plot_distribution(
     set_plot_style()
 
     # Initializing plot
-    fig, axs = plt.subplots(3, 2, figsize=(12, 10))
+    fig, axs = plt.subplots(3, 3, figsize=(16, 10))
     fig.suptitle(title, fontsize=16)
 
     # CL plot
     for y_coordinates_i, result_i, label_i in zip(
         y_coordinates_list, results_list, label_list
     ):
-        axs[0, 0].plot(y_coordinates_i, result_i["cl_distribution"], label=label_i)
-    axs[0, 0].set_title(r"$C_L$ Distribution")
+        axs[0, 0].plot(
+            y_coordinates_i,
+            result_i["cl_distribution"],
+            label=label_i + rf" $C_L$: {result_i['cl']:.2f}",
+        )
+    axs[0, 0].set_title(rf"$C_L$ Distribution")
     axs[0, 0].set_xlabel(r"Spanwise Position $y/b$")
     axs[0, 0].set_ylabel(r"Lift Coefficient $C_L$")
     axs[0, 0].legend()
@@ -253,7 +257,11 @@ def plot_distribution(
     for y_coordinates_i, result_i, label_i in zip(
         y_coordinates_list, results_list, label_list
     ):
-        axs[0, 1].plot(y_coordinates_i, result_i["cd_distribution"], label=label_i)
+        axs[0, 1].plot(
+            y_coordinates_i,
+            result_i["cd_distribution"],
+            label=label_i + rf" $C_D$: {result_i['cd']:.2f}",
+        )
     axs[0, 1].set_title(r"$C_D$ Distribution")
     axs[0, 1].set_xlabel(r"Spanwise Position $y/b$")
     axs[0, 1].set_ylabel(r"Drag Coefficient $C_D$")
@@ -263,10 +271,22 @@ def plot_distribution(
     for y_coordinates_i, result_i, label_i in zip(
         y_coordinates_list, results_list, label_list
     ):
-        axs[1, 0].plot(y_coordinates_i, result_i["gamma_distribution"], label=label_i)
-    axs[1, 0].set_title(r"$\Gamma$ Distribution")
+        axs[0, 2].plot(y_coordinates_i, result_i["gamma_distribution"], label=label_i)
+    axs[0, 2].set_title(r"$\Gamma$ Distribution")
+    axs[0, 2].set_xlabel(r"Spanwise Position $y/b$")
+    axs[0, 2].set_ylabel(r"Circulation $\Gamma$")
+    axs[0, 2].legend()
+
+    # Geometric Alpha plot
+    for y_coordinates_i, result_i, label_i in zip(
+        y_coordinates_list, results_list, label_list
+    ):
+        axs[1, 0].plot(
+            y_coordinates_i, np.rad2deg(result_i["alpha_geometric"]), label=label_i
+        )
+    axs[1, 0].set_title(r"$\alpha$ Geometric")
     axs[1, 0].set_xlabel(r"Spanwise Position $y/b$")
-    axs[1, 0].set_ylabel(r"Circulation $\Gamma$")
+    axs[1, 0].set_ylabel(r"Angle of Attack $\alpha$ (deg)")
     axs[1, 0].legend()
 
     # Calculated/Corrected Alpha plot
@@ -281,31 +301,60 @@ def plot_distribution(
     axs[1, 1].set_ylabel(r"Angle of Attack $\alpha$ (deg)")
     axs[1, 1].legend()
 
-    # Geometric Alpha plot
+    # Uncorrected Alpha plot
+    for y_coordinates_i, result_i, label_i in zip(
+        y_coordinates_list, results_list, label_list
+    ):
+        axs[1, 2].plot(
+            y_coordinates_i,
+            np.rad2deg(result_i["alpha_uncorrected"]),
+            label=label_i,
+        )
+    axs[1, 2].set_title(r"$\alpha$ Uncorrected (if VSM, at the control point)")
+    axs[1, 2].set_xlabel(r"Spanwise Position $y/b$")
+    axs[1, 2].set_ylabel(r"Angle of Attack $\alpha$ (deg)")
+    axs[1, 2].legend()
+
     for y_coordinates_i, result_i, label_i in zip(
         y_coordinates_list, results_list, label_list
     ):
         axs[2, 0].plot(
-            y_coordinates_i, np.rad2deg(result_i["alpha_geometric"]), label=label_i
+            y_coordinates_i,
+            [force[0] for force in result_i["F_distribution"]],
+            label=label_i + rf" $\sum{{F_x}}$: {result_i['Fx']:.2f}N",
         )
-    axs[2, 0].set_title(r"$\alpha$ Geometric")
+    axs[2, 0].set_title(f"Force in x direction")
     axs[2, 0].set_xlabel(r"Spanwise Position $y/b$")
-    axs[2, 0].set_ylabel(r"Angle of Attack $\alpha$ (deg)")
+    axs[2, 0].set_ylabel(r"$F_x$")
     axs[2, 0].legend()
 
-    # Uncorrected Alpha plot
+    # Force in y
     for y_coordinates_i, result_i, label_i in zip(
         y_coordinates_list, results_list, label_list
     ):
         axs[2, 1].plot(
             y_coordinates_i,
-            np.rad2deg(result_i["alpha_uncorrected"]),
-            label=label_i,
+            [force[1] for force in result_i["F_distribution"]],
+            label=label_i + rf" $\sum{{F_y}}$: {result_i['Fy']:.2f}N",
         )
-    axs[2, 1].set_title(r"$\alpha$ Uncorrected (if VSM, at the control point)")
+    axs[2, 1].set_title(f"Force in y direction")
     axs[2, 1].set_xlabel(r"Spanwise Position $y/b$")
-    axs[2, 1].set_ylabel(r"Angle of Attack $\alpha$ (deg)")
+    axs[2, 1].set_ylabel(r"$F_y$")
     axs[2, 1].legend()
+
+    # Force in z
+    for y_coordinates_i, result_i, label_i in zip(
+        y_coordinates_list, results_list, label_list
+    ):
+        axs[2, 2].plot(
+            y_coordinates_i,
+            [force[2] for force in result_i["F_distribution"]],
+            label=label_i + rf" $\sum{{F_z}}$: {result_i['Fz']:.2f}N",
+        )
+    axs[2, 2].set_title(f"Force in z direction")
+    axs[2, 2].set_xlabel(r"Spanwise Position $y/b$")
+    axs[2, 2].set_ylabel(r"$F_z$")
+    axs[2, 2].legend()
 
     plt.tight_layout()
 
@@ -503,6 +552,9 @@ def plot_polars(
             marker=marker,
             markersize=markersize,
         )
+        # if CL is greater than 10, limit the yrange
+        if max(polar_data[1]) > 10:
+            axs[0, 0].set_ylim([-0.5, 2])
     axs[0, 0].set_title(r"$C_L$ vs {}".format(angle_type))
     axs[0, 0].set_xlabel(r"{}[deg]".format(angle_type))
     axs[0, 0].set_ylabel(r"$C_L$")
@@ -526,6 +578,9 @@ def plot_polars(
             marker=marker,
             markersize=markersize,
         )
+        # if CD is greater than 10, limit the range
+        if max(polar_data[2]) > 10:
+            axs[0, 1].set_ylim([-0.2, 0.5])
     axs[0, 1].set_title(r"$C_D$ vs {}".format(angle_type))
     axs[0, 1].set_xlabel(r"{}[deg]".format(angle_type))
     axs[0, 1].set_ylabel(r"$C_D$")
@@ -574,6 +629,9 @@ def plot_polars(
             marker=marker,
             markersize=markersize,
         )
+        if max(polar_data[1]) > 10 or max(polar_data[2]) > 10:
+            axs[1, 1].set_ylim([-0.5, 2])
+            axs[1, 1].set_xlim([-0.2, 0.5])
     axs[1, 1].set_title(r"$C_L$ vs $C_D$ (over {} range)".format(angle_type))
     axs[1, 1].set_xlabel(r"$C_D$")
     axs[1, 1].set_ylabel(r"$C_L$")

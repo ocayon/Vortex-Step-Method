@@ -40,7 +40,7 @@ class Solver:
         ### Below are all settings, with a default value, that can but don't have to be changed
         aerodynamic_model_type: str = "VSM",
         density: float = 1.225,
-        max_iterations: int = 3000,
+        max_iterations: int = 1500,
         allowed_error: float = 1e-5,  # 1e-5,
         tol_reference_error: float = 0.001,
         relaxation_factor: float = 0.01,
@@ -124,7 +124,7 @@ class Solver:
 
         # TODO: for now use ZERO, remove this to speed things up
         gamma_new = np.zeros(len(gamma_new))
-        # logging.info("Initial gamma_new: %s", gamma_new)
+        logging.debug("Initial gamma_new: %s", gamma_new)
 
         converged = False
         for i in range(self.max_iterations):
@@ -197,16 +197,12 @@ class Solver:
             error = np.amax(np.abs(gamma_new - gamma))
             normalized_error = error / reference_error
 
-            logging.info(
+            logging.debug(
                 "Iteration: %d, normalized_error: %f, is_damping_applied: %s",
                 i,
                 normalized_error,
                 is_damping_applied,
             )
-            # logging.info("Iteration: %d, reference_error: %f", _, reference_error)
-            # logging.info("Iteration: %d", i)
-            # logging.info("gamma: %s", gamma)
-            # logging.info("gamma_new: %s", gamma_new)
 
             # relative error
             if normalized_error < self.allowed_error:
@@ -314,7 +310,7 @@ class Solver:
 
         # Calculate the difference between adjacent points, excluding first and last
         differences = np.diff(circulation[1:-1], axis=0)
-        logging.info("circulation_mean: %s, diff: %s", circulation_mean, differences)
+        logging.debug("circulation_mean: %s, diff: %s", circulation_mean, differences)
 
         # Check if the curve is smooth based on the maximum difference
         is_smooth = np.max(np.abs(differences)) <= smoothness_threshold
