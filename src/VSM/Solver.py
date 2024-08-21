@@ -104,7 +104,7 @@ class Solver:
         z_airf_array = np.array([panel.z_airf for panel in panels])
         va_array = np.array([panel.va for panel in panels])
         chord_array = np.array([panel.chord for panel in panels])
-        alpha = np.zeros(len(panels))
+        alpha_array = np.zeros(len(panels))
         gamma = np.zeros(len(panels))
         stall_angle_list = wing_aero.stall_angle_list
         logging.debug(f"stall_angle_list: {np.rad2deg(stall_angle_list)}")
@@ -126,11 +126,18 @@ class Solver:
         gamma_new = np.zeros(len(gamma_new))
         logging.debug("Initial gamma_new: %s", gamma_new)
 
+        # Initialize x_airf, z_airf, va
+        x_airf_array = np.array([panel.x_airf for panel in panels])
+        y_airf_array = np.array([panel.y_airf for panel in panels])
+        z_airf_array = np.array([panel.z_airf for panel in panels])
+        va_array = np.array([panel.va for panel in panels])
+
         converged = False
         for i in range(self.max_iterations):
 
             gamma = np.array(gamma_new)
 
+            # initialize induced velocities
             induced_velocities_x = np.matmul(AIC_x, gamma)
             induced_velocities_y = np.matmul(AIC_y, gamma)
             induced_velocities_z = np.matmul(AIC_z, gamma)
@@ -143,20 +150,28 @@ class Solver:
                 # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
                 induced_velocity = induced_velocity_all[icp]
 
-                # This is double checked
-                alpha[icp], relative_velocity = (
-                    panel.calculate_relative_alpha_and_relative_velocity(
-                        induced_velocity
-                    )
+                # # This is double checked
+                # alpha[icp], relative_velocity = (
+                #     panel.calculate_relative_alpha_and_relative_velocity(
+                #         induced_velocity
+                #     )
+                # )
+                # function inside solver class
+                relative_velocity = va_array[icp] + induced_velocity
+                v_normal = np.dot(x_airf_array[icp], relative_velocity)
+                v_tangential = np.dot(y_airf_array[icp], relative_velocity)
+                alpha_array[icp] = np.arctan(v_normal / v_tangential)
+
+                relative_velocity_crossz = np.cross(
+                    relative_velocity, z_airf_array[icp]
                 )
-                relative_velocity_crossz = np.cross(relative_velocity, panel.z_airf)
                 Umag = np.linalg.norm(relative_velocity_crossz)
-                Uinfcrossz = np.cross(panel.va, panel.z_airf)
+                Uinfcrossz = np.cross(va_array[icp], z_airf_array[icp])
                 Umagw = np.linalg.norm(Uinfcrossz)
 
                 # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
                 # Lookup cl for this specific alpha
-                cl = panel.calculate_cl(alpha[icp])
+                cl = panel.calculate_cl(alpha_array[icp])
 
                 # Find the new gamma using Kutta-Joukouski law
                 gamma_new[icp] = 0.5 * Umag**2 / Umagw * cl * chord_array[icp]

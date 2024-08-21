@@ -219,6 +219,7 @@ class Panel:
             relative_velocity (np.array): Relative velocity of the panel
         """
         # Calculate relative velocity and angle of attack
+        # Constant throughout the iterations: self.va, self.x_airf, self.y_airf
         relative_velocity = self.va + induced_velocity
         v_normal = np.dot(self.x_airf, relative_velocity)
         v_tangential = np.dot(self.y_airf, relative_velocity)
