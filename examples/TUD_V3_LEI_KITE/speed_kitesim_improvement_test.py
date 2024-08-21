@@ -41,6 +41,7 @@ def run_speed_test():
     VSM_with_stall_correction = Solver(
         aerodynamic_model_type="VSM",
         is_with_artificial_damping=True,
+        relaxation_factor=0.01,
     )
 
     # Defining va
@@ -85,13 +86,17 @@ def run_speed_test():
 
 
 if __name__ == "__main__":
-    from line_profiler import LineProfiler
+    # from line_profiler import LineProfiler
     import cProfile
 
-    # run_speed_test()
-    cProfile.run("run_speed_test()", sort="tottime")
+    run_speed_test()
+    # cProfile.run("run_speed_test()", sort="ncalls")
     # lp = LineProfiler()
-    # lp_wrapper = lp(run_speed_test)
+    # VSM_with_stall_correction = Solver(
+    #     aerodynamic_model_type="VSM",
+    #     is_with_artificial_damping=True,
+    # )
+    # lp_wrapper = lp(VSM_with_stall_correction.calculate_gamma_new_iteratively())
     # lp_wrapper()
     # lp.print_stats()
 
