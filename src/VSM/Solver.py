@@ -131,22 +131,17 @@ class Solver:
 
             gamma = np.array(gamma_new)
 
+            induced_velocities_x = np.matmul(AIC_x, gamma)
+            induced_velocities_y = np.matmul(AIC_y, gamma)
+            induced_velocities_z = np.matmul(AIC_z, gamma)
+            induced_velocity_all = np.array(
+                [induced_velocities_x, induced_velocities_y, induced_velocities_z]
+            ).T
+
             for icp, panel in enumerate(panels):
-                # Initialize induced velocity to 0
-                u = 0
-                v = 0
-                w = 0
-                # Compute induced velocities with previous gamma distribution
-                for jring, gamma_jring in enumerate(gamma):
-                    u = u + AIC_x[icp][jring] * gamma_jring
-                    # x-component of velocity
-                    v = v + AIC_y[icp][jring] * gamma_jring
-                    # y-component of velocity
-                    w = w + AIC_z[icp][jring] * gamma_jring
-                    # z-component of velocity
 
                 # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
-                induced_velocity = np.array([u, v, w])
+                induced_velocity = induced_velocity_all[icp]
 
                 # This is double checked
                 alpha[icp], relative_velocity = (
