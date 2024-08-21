@@ -61,36 +61,48 @@ def run_speed_test():
         yaw_rate,
     )
 
-    logging.info("Starting the simulation")
+    # logging.info("Starting the simulation")
 
-    time_start = time.time()
+    # time_start = time.time()
     # Populate the wing geometry
     for i, CAD_rib_i in enumerate(CAD_input_rib_list):
         CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-    print(f"Time : {time.time() - time_start:.2f} s")
+    # print(f"Time : {time.time() - time_start:.2f} s")
 
     # Create wing aerodynamics objects
     CAD_wing_aero = WingAerodynamics([CAD_wing])
-    print(f"Time : {time.time() - time_start:.2f} s")
+    # print(f"Time : {time.time() - time_start:.2f} s")
 
     # Setting va
     CAD_wing_aero.va = va_definition
-    print(f"Time : {time.time() - time_start:.2f} s")
+    # print(f"Time : {time.time() - time_start:.2f} s")
 
     # Solving
     results, CAD_wing_aero = VSM_with_stall_correction.solve(CAD_wing_aero)
 
-    time_end = time.time()
-
-    print(f"Time taken for the simulation: {time_end - time_start:.2f}  seconds")
+    # time_end = time.time()
+    # print(f"Time taken for the simulation: {time_end - time_start:.2f}  seconds")
 
 
 if __name__ == "__main__":
     # from line_profiler import LineProfiler
     import cProfile
+    from numba import jit
+    import time as time
 
-    # run_speed_test()
-    cProfile.run("run_speed_test()", sort="tottime")
+    # @jit
+    # def test_numba():
+    #     return 3 + 4
+
+    # test_numba_output = test_numba()
+    # print(f"test_numba_output: {test_numba_output}")
+    print("Starting the speed test")
+    time_before = time.time()
+    for i in range(1):
+        run_speed_test()
+    print(f"Time taken: {time.time() - time_before:.2f} s")
+
+    # cProfile.run("run_speed_test()", sort="tottime")
     # lp = LineProfiler()
     # VSM_with_stall_correction = Solver(
     #     aerodynamic_model_type="VSM",

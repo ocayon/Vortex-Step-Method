@@ -1,7 +1,6 @@
 import numpy as np
 import logging
-
-# from numba import jit
+from numba import jit
 
 # Maurits-tips :)
 # call the methods of child-classes, inhereted or composed of
@@ -10,6 +9,89 @@ import logging
 # only use the methods of level higher/lower, not grabbing methods from higher/lower
 # class solve_VSM(Solver)
 # class solve_LLM(Solver)
+
+
+# Numba functions for speedup
+# @jit(nopython=True)
+# def calculate_relative_velocity_array(va_array, induced_velocity_all):
+#     return va_array + induced_velocity_all
+
+
+# @jit(nopython=True)
+# def calculate_relative_velocity_crossz_array(relative_velocity_array, z_airf_array):
+#     return np.cross(relative_velocity_array, z_airf_array)
+
+
+# @jit(nopython=True)
+# def calculate_v_normal_array(x_airf_array, relative_velocity_array):
+#     return np.sum(x_airf_array * relative_velocity_array, axis=1)
+
+
+# @jit(nopython=True)
+# def calculate_alpha_array(v_normal_array, v_tangential_array):
+#     return np.arctan(v_normal_array / v_tangential_array)
+
+
+# @jit(nopython=True)
+# def calculate_Umag_array(relative_velocity_crossz_array):
+#     return np.sqrt(np.sum(relative_velocity_crossz_array**2, axis=1))
+
+
+# @jit(nopython=True)
+# def testing_matmul(AIC_x, gamma):
+#     a = np.matmul(AIC_x, gamma)
+#     return 1
+
+
+# @jit(nopython=True)
+# def calculate_u_mag_stuff(
+#     va_array,
+#     induced_velocity_all,
+#     x_airf_array,
+#     y_airf_array,
+#     z_airf_array,
+# ):
+#     relative_velocity_array = va_array + induced_velocity_all
+#     v_normal_array = np.sum(x_airf_array * relative_velocity_array, axis=1)
+#     v_tangential_array = np.sum(y_airf_array * relative_velocity_array, axis=1)
+#     alpha_array = np.arctan(v_normal_array / v_tangential_array)
+
+#     relative_velocity_crossz_array = np.cross(relative_velocity_array, z_airf_array)
+
+#     # Umag_array = np.linalg.norm(relative_velocity_crossz_array, axis=1)
+#     Umag_array = np.sqrt(np.sum(relative_velocity_crossz_array**2, axis=1))
+#     Uinfcrossz_array = np.cross(va_array, z_airf_array)
+#     # Umagw_array = np.linalg.norm(Uinfcrossz_array, axis=1)
+#     Umagw_array = np.sqrt(np.sum(Uinfcrossz_array**2, axis=1))
+
+#     return Umag_array, Umagw_array, alpha_array
+
+
+# @jit(nopython=False)
+def calculate_loop_stuff(
+    induced_velocity_all,
+    va_array,
+    x_airf_array,
+    y_airf_array,
+    z_airf_array,
+    gamma,
+    AIC_x,
+):
+    a = np.matmul(AIC_x, gamma)
+    # induced_velocity_all = np.array(
+    #     [
+    #         np.matmul(AIC_x, gamma),
+    #         np.matmul(AIC_y, gamma),
+    #         np.matmul(AIC_z, gamma),
+    #     ]
+    # ).T
+    relative_velocity_array = va_array + induced_velocity_all
+    relative_velocity_crossz_array = np.cross(relative_velocity_array, z_airf_array)
+    Uinfcrossz_array = np.cross(va_array, z_airf_array)
+    v_normal_array = np.sum(x_airf_array * relative_velocity_array, axis=1)
+    v_tangential_array = np.sum(y_airf_array * relative_velocity_array, axis=1)
+    alpha_array = np.arctan(v_normal_array / v_tangential_array)
+    return relative_velocity_crossz_array, Uinfcrossz_array, alpha_array
 
 
 # make abstract class
@@ -90,7 +172,252 @@ class Solver:
 
         return results, wing_aero
 
+    # def calculate_gamma_new_iteratively(self, wing_aero, gamma_distribution):
+    #     AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
+    #         self.aerodynamic_model_type, self.core_radius_fraction
+    #     )
+
+    #     logging.debug(f"AIC_x: {AIC_x}")
+    #     logging.debug(f"AIC_y: {AIC_y}")
+    #     logging.debug(f"AIC_z: {AIC_z}")
+
+    #     # TODO: CPU optimization: instantiate non-changing (geometric dependent) attributes here
+    #     # TODO: Further optimization: is to populate only in the loop, not create new arrays
+    #     panels = wing_aero.panels
+    #     n_panels = wing_aero.n_panels
+    #     z_airf_array = np.array([panel.z_airf for panel in panels])
+    #     va_array = np.array([panel.va for panel in panels])
+    #     chord_array = np.array([panel.chord for panel in panels])
+    #     alpha_array = np.zeros(len(panels))
+    #     gamma = np.zeros(len(panels))
+    #     stall_angle_list = wing_aero.stall_angle_list
+    #     relaxation_factor = self.relaxation_factor
+    #     logging.debug(f"stall_angle_list: {np.rad2deg(stall_angle_list)}")
+
+    #     # TODO: Improve upon this dynamic relaxation factor
+    #     # Adjust relaxation factor based on the number of panels
+    #     # relaxation_factor = self.relaxation_factor * 20 / n_panels
+
+    #     # initialize gamma distribution inside
+    #     if (
+    #         gamma_distribution is None
+    #         and self.type_initial_gamma_distribution == "elliptic"
+    #     ):
+    #         gamma_new = wing_aero.calculate_circulation_distribution_elliptical_wing()
+    #     elif len(gamma_distribution) == n_panels:
+    #         gamma_new = gamma_distribution
+
+    #     # TODO: for now use ZERO, remove this to speed things up
+    #     gamma_new = np.zeros(len(gamma_new))
+    #     logging.debug("Initial gamma_new: %s", gamma_new)
+
+    #     # Initialize x_airf, z_airf, va
+    #     x_airf_array = np.array([panel.x_airf for panel in panels])
+    #     y_airf_array = np.array([panel.y_airf for panel in panels])
+    #     z_airf_array = np.array([panel.z_airf for panel in panels])
+    #     va_array = np.array([panel.va for panel in panels])
+    #     error_previous = 1
+
+    #     converged = False
+    #     for i in range(self.max_iterations):
+
+    #         gamma = np.array(gamma_new)
+    #         # AIC_x_gamma = np.matmul(AIC_x, gamma)
+    #         # AIC_y_gamma = np.matmul(AIC_y, gamma)
+    #         # AIC_z_gamma = np.matmul(AIC_z, gamma)
+    #         induced_velocity_all = np.array(
+    #             [
+    #                 np.matmul(AIC_x, gamma),
+    #                 np.matmul(AIC_y, gamma),
+    #                 np.matmul(AIC_z, gamma),
+    #             ]
+    #         ).T
+
+    #         ### within here
+    #         # relative_velocity_array = va_array + induced_velocity_all
+    #         # relative_velocity_crossz_array = np.cross(
+    #         #     relative_velocity_array, z_airf_array
+    #         # )
+    #         # Uinfcrossz_array = np.cross(va_array, z_airf_array)
+    #         # v_normal_array = np.sum(x_airf_array * relative_velocity_array, axis=1)
+    #         # v_tangential_array = np.sum(y_airf_array * relative_velocity_array, axis=1)
+    #         # alpha_array = np.arctan(v_normal_array / v_tangential_array)
+
+    #         ### from function
+    #         relative_velocity_crossz_array, Uinfcrossz_array, alpha_array = (
+    #             calculate_loop_stuff(
+    #                 induced_velocity_all,
+    #                 va_array,
+    #                 x_airf_array,
+    #                 y_airf_array,
+    #                 z_airf_array,
+    #                 gamma,
+    #                 AIC_x,
+    #             )
+    #         )
+    #         Umag_array = np.linalg.norm(relative_velocity_crossz_array, axis=1)
+    #         Umagw_array = np.linalg.norm(Uinfcrossz_array, axis=1)
+
+    #         # # initialize induced velocities
+    #         # induced_velocities_x = np.matmul(AIC_x, gamma)
+    #         # induced_velocities_y = np.matmul(AIC_y, gamma)
+    #         # induced_velocities_z = np.matmul(AIC_z, gamma)
+    #         # induced_velocity_all = np.array(
+    #         #     [induced_velocities_x, induced_velocities_y, induced_velocities_z]
+    #         # ).T
+    #         # Umag_array, Umagw_array, alpha_array = calculate_u_mag_stuff(
+    #         #     va_array,
+    #         #     induced_velocity_all,
+    #         #     x_airf_array,
+    #         #     y_airf_array,
+    #         #     z_airf_array,
+    #         # )
+    #         # def calculate_u_mag_stuff(
+    #         #     va_array,
+    #         #     induced_velocity_all,
+    #         #     x_airf_array,
+    #         #     y_airf_array,
+    #         #     z_airf_array,
+    #         # ):
+    #         #     # relative_velocity_array = va_array + induced_velocity_all
+    #         #     v_normal_array = np.sum(x_airf_array * relative_velocity_array, axis=1)
+    #         #     v_tangential_array = np.sum(
+    #         #         y_airf_array * relative_velocity_array, axis=1
+    #         #     )
+    #         #     alpha_array = np.arctan(v_normal_array / v_tangential_array)
+
+    #         #     relative_velocity_crossz_array = np.cross(
+    #         #         relative_velocity_array, z_airf_array
+    #         #     )
+    #         #     Umag_array = np.linalg.norm(relative_velocity_crossz_array, axis=1)
+    #         #     Uinfcrossz_array = np.cross(va_array, z_airf_array)
+    #         #     Umagw_array = np.linalg.norm(Uinfcrossz_array, axis=1)
+
+    #         #     return Umag_array, Umagw_array, alpha_array
+
+    #         cl_array = np.array(
+    #             [panel.calculate_cl(alpha) for panel, alpha in zip(panels, alpha_array)]
+    #         )
+    #         gamma_new = 0.5 * Umag_array**2 / Umagw_array * cl_array * chord_array
+
+    #         # logging.debug(f"induced_velocity_all: {np.shape(induced_velocity_all)}")
+    #         # logging.debug(
+    #         #     f"relative_velocity_array: {np.shape(relative_velocity_array)}"
+    #         # )
+    #         # logging.debug(f"v_normal_array: {np.shape(v_normal_array)}")
+    #         # logging.debug(f"v_tangential_array: {np.shape(v_tangential_array)}")
+    #         # logging.debug(f"x_airf_array: {np.shape(x_airf_array)}")
+    #         # logging.debug(f"y_airf_array: {np.shape(y_airf_array)}")
+    #         # logging.debug(f"z_airf_array: {np.shape(z_airf_array)}")
+    #         # logging.debug(f"alpha_array: {np.shape(alpha_array)}")
+
+    #         # for icp, panel in enumerate(panels):
+
+    #         #     # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
+    #         #     # induced_velocity = induced_velocity_all[icp]
+
+    #         #     # # This is double checked
+    #         #     # alpha[icp], relative_velocity = (
+    #         #     #     panel.calculate_relative_alpha_and_relative_velocity(
+    #         #     #         induced_velocity
+    #         #     #     )
+    #         #     # )
+    #         #     # function inside solver class
+    #         #     # relative_velocity = va_array[icp] + induced_velocity
+    #         #     # v_normal = np.dot(x_airf_array[icp], relative_velocity)
+    #         #     # v_tangential = np.dot(y_airf_array[icp], relative_velocity)
+    #         #     # alpha_array[icp] = np.arctan(v_normal / v_tangential)
+
+    #         #     # relative_velocity_crossz = np.cross(
+    #         #     #     relative_velocity_array[icp], z_airf_array[icp]
+    #         #     # )
+    #         #     # Umag = np.linalg.norm(relative_velocity_crossz)
+    #         #     # Uinfcrossz = np.cross(va_array[icp], z_airf_array[icp])
+    #         #     # Umagw = np.linalg.norm(Uinfcrossz)
+
+    #         #     # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
+    #         #     # Lookup cl for this specific alpha
+    #         #     cl = panel.calculate_cl(alpha_array[icp])
+
+    #         #     # Find the new gamma using Kutta-Joukouski law
+    #         #     gamma_new[icp] = (
+    #         #         0.5
+    #         #         * Umag_array[icp] ** 2
+    #         #         / Umagw_array[icp]
+    #         #         * cl
+    #         #         * chord_array[icp]
+    #         #     )
+
+    #         # logging.info("--------- icp: %d", icp)
+    #         # logging.info("induced_velocity: %s", induced_velocity)
+    #         # logging.info("alpha: %f", alpha)
+    #         # logging.info("relative_velocity: %s", relative_velocity)
+    #         # logging.info("cl: %f", cl)
+    #         # logging.info("Umag: %f", Umag)
+    #         # logging.info("Umagw: %f", Umagw)
+    #         # logging.info("chord: %f", chord_array[icp])
+
+    #         # Calculating damping factor for stalled cases
+    #         # damp, is_with_damp = self.calculate_artificial_damping(
+    #         #     gamma, alpha, stall_angle_list
+    #         # )
+    #         if self.is_with_artificial_damping:
+    #             damp, is_damping_applied = self.smooth_circulation(
+    #                 circulation=gamma, smoothness_factor=0.1, damping_factor=0.5
+    #             )
+    #             logging.debug("damp: %s", damp)
+    #         else:
+    #             damp = 0
+    #             is_damping_applied = False
+    #         gamma_new = (
+    #             (1 - relaxation_factor) * gamma + relaxation_factor * gamma_new + damp
+    #         )
+
+    #         # Checking Convergence
+    #         reference_error = np.amax(np.abs(gamma_new))
+    #         reference_error = max(reference_error, self.tol_reference_error)
+    #         error = np.amax(np.abs(gamma_new - gamma))
+    #         normalized_error = error / reference_error
+
+    #         # Dynamic Relaxation Factor
+    #         if i > 1 and i < 100:
+    #             relaxation_factor = relaxation_factor * (
+    #                 error_previous / normalized_error
+    #             )
+    #             print(f"relaxation_factor: {relaxation_factor}")
+    #         error_previous = normalized_error
+
+    #         logging.debug(
+    #             "Iteration: %d, normalized_error: %f, is_damping_applied: %s",
+    #             i,
+    #             normalized_error,
+    #             is_damping_applied,
+    #         )
+
+    #         # relative error
+    #         if normalized_error < self.allowed_error:
+    #             # if error smaller than limit, stop iteration cycle
+    #             converged = True
+    #             break
+
+    #     if converged:
+    #         logging.info("------------------------------------")
+    #         logging.info(
+    #             f"{self.aerodynamic_model_type} Converged after {i} iterations"
+    #         )
+    #         logging.info("------------------------------------")
+    #     elif not converged:
+    #         logging.info("------------------------------------")
+    #         logging.info(
+    #             f"{self.aerodynamic_model_type} Not converged after {str(self.max_iterations)} iterations"
+    #         )
+    #         logging.info("------------------------------------")
+
+    #     return gamma_new
+
     def calculate_gamma_new_iteratively(self, wing_aero, gamma_distribution):
+        from scipy.optimize import minimize
+
         AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
             self.aerodynamic_model_type, self.core_radius_fraction
         )
@@ -109,11 +436,12 @@ class Solver:
         alpha_array = np.zeros(len(panels))
         gamma = np.zeros(len(panels))
         stall_angle_list = wing_aero.stall_angle_list
+        relaxation_factor = self.relaxation_factor
         logging.debug(f"stall_angle_list: {np.rad2deg(stall_angle_list)}")
 
         # TODO: Improve upon this dynamic relaxation factor
         # Adjust relaxation factor based on the number of panels
-        relaxation_factor = self.relaxation_factor * 20 / n_panels
+        # relaxation_factor = self.relaxation_factor * 20 / n_panels
 
         # initialize gamma distribution inside
         if (
@@ -133,146 +461,159 @@ class Solver:
         y_airf_array = np.array([panel.y_airf for panel in panels])
         z_airf_array = np.array([panel.z_airf for panel in panels])
         va_array = np.array([panel.va for panel in panels])
+        error_previous = 1
 
         converged = False
         for i in range(self.max_iterations):
 
-            gamma = np.array(gamma_new)
+            # Define the objective function for minimization
+            def calculate_error(gamma_new, *params):
+                (
+                    AIC_x,
+                    AIC_y,
+                    AIC_z,
+                    va_array,
+                    x_airf_array,
+                    y_airf_array,
+                    z_airf_array,
+                    chord_array,
+                    panels,
+                    relaxation_factor,
+                    self,
+                ) = params
+                gamma = np.array(gamma_new)
 
-            # initialize induced velocities
-            induced_velocities_x = np.matmul(AIC_x, gamma)
-            induced_velocities_y = np.matmul(AIC_y, gamma)
-            induced_velocities_z = np.matmul(AIC_z, gamma)
-            induced_velocity_all = np.array(
-                [induced_velocities_x, induced_velocities_y, induced_velocities_z]
-            ).T
+                # Compute induced velocities
+                induced_velocity_all = np.array(
+                    [
+                        np.matmul(AIC_x, gamma),
+                        np.matmul(AIC_y, gamma),
+                        np.matmul(AIC_z, gamma),
+                    ]
+                ).T
 
-            def calculate_u_mag_stuff(
-                va_array,
-                induced_velocity_all,
-                x_airf_array,
-                y_airf_array,
-                z_airf_array,
-            ):
+                # Calculate velocities and alpha values
                 relative_velocity_array = va_array + induced_velocity_all
+                relative_velocity_crossz_array = np.cross(
+                    relative_velocity_array, z_airf_array
+                )
+                Uinfcrossz_array = np.cross(va_array, z_airf_array)
                 v_normal_array = np.sum(x_airf_array * relative_velocity_array, axis=1)
                 v_tangential_array = np.sum(
                     y_airf_array * relative_velocity_array, axis=1
                 )
                 alpha_array = np.arctan(v_normal_array / v_tangential_array)
 
-                relative_velocity_crossz_array = np.cross(
-                    relative_velocity_array, z_airf_array
-                )
                 Umag_array = np.linalg.norm(relative_velocity_crossz_array, axis=1)
-                Uinfcrossz_array = np.cross(va_array, z_airf_array)
                 Umagw_array = np.linalg.norm(Uinfcrossz_array, axis=1)
 
-                return Umag_array, Umagw_array, alpha_array
+                cl_array = np.array(
+                    [
+                        panel.calculate_cl(alpha)
+                        for panel, alpha in zip(panels, alpha_array)
+                    ]
+                )
+                gamma_new_calculated = (
+                    0.5 * Umag_array**2 / Umagw_array * cl_array * chord_array
+                )
 
-            Umag_array, Umagw_array, alpha_array = calculate_u_mag_stuff(
+                # Apply artificial damping if needed
+                if self.is_with_artificial_damping:
+                    damp, is_damping_applied = self.smooth_circulation(
+                        circulation=gamma, smoothness_factor=0.1, damping_factor=0.5
+                    )
+                else:
+                    damp = 0
+                    is_damping_applied = False
+
+                gamma_new_updated = (
+                    (1 - relaxation_factor) * gamma
+                    + relaxation_factor * gamma_new_calculated
+                    + damp
+                )
+
+                # Calculate the error
+                reference_error = np.amax(np.abs(gamma_new_updated))
+                reference_error = max(reference_error, self.tol_reference_error)
+                error = np.amax(np.abs(gamma_new_updated - gamma))
+
+                return error
+
+            # Example usage
+            def optimize_gamma(
+                AIC_x,
+                AIC_y,
+                AIC_z,
                 va_array,
-                induced_velocity_all,
                 x_airf_array,
                 y_airf_array,
                 z_airf_array,
-            )
-            cl_array = np.array(
-                [panel.calculate_cl(alpha) for panel, alpha in zip(panels, alpha_array)]
-            )
-            gamma_new = 0.5 * Umag_array**2 / Umagw_array * cl_array * chord_array
+                chord_array,
+                panels,
+                relaxation_factor,
+                self,
+            ):
+                # Initial guess
+                gamma_initial = np.zeros(
+                    AIC_x.shape[1]
+                )  # Assuming gamma is the same length as the number of columns in AIC matrices
 
-            # logging.debug(f"induced_velocity_all: {np.shape(induced_velocity_all)}")
-            # logging.debug(
-            #     f"relative_velocity_array: {np.shape(relative_velocity_array)}"
-            # )
-            # logging.debug(f"v_normal_array: {np.shape(v_normal_array)}")
-            # logging.debug(f"v_tangential_array: {np.shape(v_tangential_array)}")
-            # logging.debug(f"x_airf_array: {np.shape(x_airf_array)}")
-            # logging.debug(f"y_airf_array: {np.shape(y_airf_array)}")
-            # logging.debug(f"z_airf_array: {np.shape(z_airf_array)}")
-            # logging.debug(f"alpha_array: {np.shape(alpha_array)}")
-
-            # for icp, panel in enumerate(panels):
-
-            #     # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
-            #     # induced_velocity = induced_velocity_all[icp]
-
-            #     # # This is double checked
-            #     # alpha[icp], relative_velocity = (
-            #     #     panel.calculate_relative_alpha_and_relative_velocity(
-            #     #         induced_velocity
-            #     #     )
-            #     # )
-            #     # function inside solver class
-            #     # relative_velocity = va_array[icp] + induced_velocity
-            #     # v_normal = np.dot(x_airf_array[icp], relative_velocity)
-            #     # v_tangential = np.dot(y_airf_array[icp], relative_velocity)
-            #     # alpha_array[icp] = np.arctan(v_normal / v_tangential)
-
-            #     # relative_velocity_crossz = np.cross(
-            #     #     relative_velocity_array[icp], z_airf_array[icp]
-            #     # )
-            #     # Umag = np.linalg.norm(relative_velocity_crossz)
-            #     # Uinfcrossz = np.cross(va_array[icp], z_airf_array[icp])
-            #     # Umagw = np.linalg.norm(Uinfcrossz)
-
-            #     # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
-            #     # Lookup cl for this specific alpha
-            #     cl = panel.calculate_cl(alpha_array[icp])
-
-            #     # Find the new gamma using Kutta-Joukouski law
-            #     gamma_new[icp] = (
-            #         0.5
-            #         * Umag_array[icp] ** 2
-            #         / Umagw_array[icp]
-            #         * cl
-            #         * chord_array[icp]
-            #     )
-
-            # logging.info("--------- icp: %d", icp)
-            # logging.info("induced_velocity: %s", induced_velocity)
-            # logging.info("alpha: %f", alpha)
-            # logging.info("relative_velocity: %s", relative_velocity)
-            # logging.info("cl: %f", cl)
-            # logging.info("Umag: %f", Umag)
-            # logging.info("Umagw: %f", Umagw)
-            # logging.info("chord: %f", chord_array[icp])
-
-            # Calculating damping factor for stalled cases
-            # damp, is_with_damp = self.calculate_artificial_damping(
-            #     gamma, alpha, stall_angle_list
-            # )
-            if self.is_with_artificial_damping:
-                damp, is_damping_applied = self.smooth_circulation(
-                    circulation=gamma, smoothness_factor=0.1, damping_factor=0.5
+                # Define additional parameters to be passed to the objective function
+                params = (
+                    AIC_x,
+                    AIC_y,
+                    AIC_z,
+                    va_array,
+                    x_airf_array,
+                    y_airf_array,
+                    z_airf_array,
+                    chord_array,
+                    panels,
+                    relaxation_factor,
+                    self,
                 )
-                logging.debug("damp: %s", damp)
-            else:
-                damp = 0
-                is_damping_applied = False
-            gamma_new = (
-                (1 - relaxation_factor) * gamma + relaxation_factor * gamma_new + damp
+
+                # Perform the optimization
+                result = minimize(
+                    calculate_error, gamma_initial, args=params, method="BFGS"
+                )  # You can choose other methods
+
+                # Print or return the result
+                print("Optimal gamma:", result.x)
+                print("Converged:", result.success)
+                print("Number of iterations:", result.nit)
+                print("Final error:", result.fun)
+
+                return result.x
+
+                # normalized_error = error / reference_error
+
+                # # relative error
+                # if normalized_error < self.allowed_error:
+                #     # if error smaller than limit, stop iteration cycle
+                #     converged = True
+                #     break
+
+            error_from_optimizer = optimize_gamma(
+                AIC_x,
+                AIC_y,
+                AIC_z,
+                va_array,
+                x_airf_array,
+                y_airf_array,
+                z_airf_array,
+                chord_array,
+                panels,
+                relaxation_factor,
+                self,
             )
-
-            # Checking Convergence
-            reference_error = np.amax(np.abs(gamma_new))
-            reference_error = max(reference_error, self.tol_reference_error)
-            error = np.amax(np.abs(gamma_new - gamma))
-            normalized_error = error / reference_error
-
-            logging.debug(
-                "Iteration: %d, normalized_error: %f, is_damping_applied: %s",
-                i,
-                normalized_error,
-                is_damping_applied,
-            )
-
-            # relative error
-            if normalized_error < self.allowed_error:
-                # if error smaller than limit, stop iteration cycle
-                converged = True
-                break
+            print("Error from optimizer:", error_from_optimizer)
+            converged = True
+            break
+            # if np.amax(error_from_optimizer) < self.allowed_error:
+            #     # if error smaller than limit, stop iteration cycle
+            #     converged = True
+            #     break
 
         if converged:
             logging.info("------------------------------------")
