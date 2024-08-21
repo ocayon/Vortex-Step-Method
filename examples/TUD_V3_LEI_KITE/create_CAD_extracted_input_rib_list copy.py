@@ -445,6 +445,8 @@ def airf_data_from_uri_thesis_untouched(CAD, N_split):
     controlpoints, rings, wingpanels, ringvec, coord_L = create_geometry_LEI(
         coord, Uinf, N, ring_geo, model
     )
+    print(f"wingpanels shape {np.shape(wingpanels)}")
+
     # Correct angle of attack
     aoa0 = np.arctan(
         (wingpanels[4]["p3"][2] - wingpanels[4]["p2"][2])
@@ -503,6 +505,7 @@ def airf_data_from_uri_thesis_untouched(CAD, N_split):
     for i in range(N - 1):
         for j in range(len(aoas)):
             chord = controlpoints[i]["chord"]
+            logging.debug(f"chord: {chord}")
             t_c[i] = thicc[i] / chord
             alpha = aoas[j]
 
@@ -515,9 +518,173 @@ def airf_data_from_uri_thesis_untouched(CAD, N_split):
     return coord, thicc, camb
 
 
+def airf_data_from_uri_thesis_adjusted_v2(CAD, N_split):
+
+    #   Model and program specifics
+    ring_geo = "5fil"
+    model = "VSM"
+
+    # Convergence criteria
+    conv_crit = {"Niterations": 1500, "error": 1e-5, "Relax_factor": 0.01}
+
+    # Wind speed mag and direction
+    Umag = 22
+    aoa = 12 * np.pi / 180
+    sideslip = 0 / 180 * np.pi
+    Uinf = (
+        np.array([np.cos(aoa) * np.cos(sideslip), np.sin(sideslip), np.sin(aoa)]) * Umag
+    )
+
+    coord = struct2aero_geometry(CAD) / 1000
+    Atot = 19.753
+    N = int(len(coord) / 2)
+
+    controlpoints, rings, wingpanels, ringvec, coord_L = create_geometry_LEI(
+        coord, Uinf, N, ring_geo, model
+    )
+    print(f"initial wingpanels shape {np.shape(wingpanels)}")
+
+    # Correct angle of attack
+    aoa0 = np.arctan(
+        (wingpanels[4]["p3"][2] - wingpanels[4]["p2"][2])
+        / (wingpanels[4]["p3"][0] - wingpanels[4]["p2"][0])
+    )
+
+    # Camber for each section
+    k = [0.018, 0.028, 0.038, 0.048, 0.057, 0.057, 0.048, 0.038, 0.028, 0.018]
+    k = [0.02, 0.03, 0.04, 0.05, 0.06, 0.06, 0.05, 0.04, 0.03, 0.02]
+    # k = 0.09*np.ones(10)
+    # Thickness in each section
+    t = [
+        0.118753,
+        0.151561,
+        0.178254,
+        0.19406,
+        0.202418,
+        0.202418,
+        0.19406,
+        0.178254,
+        0.151561,
+        0.118753,
+    ]
+    # t = [0.118753,0.17,0.18,0.19406,0.202418,0.202418,0.19406,0.178254,0.151561,0.118753]
+
+    # N_split = 16
+    # Ballooning angle
+    ball_angle = [1, 10, 15, 18, 20, 18, 15, 10, 1]
+    # Refine mesh, include ballooning
+    coord = refine_LEI_mesh_ballooning(wingpanels, ball_angle, N_split)
+    # Define system of vorticity
+    controlpoints, rings, wingpanels, ringvec, coord_L = create_geometry_LEI(
+        coord, Uinf, int((N - 1) * (N_split - 1) + 1), ring_geo, model
+    )
+    N = int(len(coord) / 2)  # Number of section after refining the mesh
+
+    Gamma0 = np.zeros(len(controlpoints))
+
+    aoas = np.arange(-20, 21, 1)
+
+    thicc = np.array([])
+    camb = np.array([])
+    for i in range(9):
+        temp_t = np.linspace(t[i], t[i + 1], N_split)
+        temp_k = np.linspace(k[i], k[i + 1], N_split)
+        temp1 = []
+        temp2 = []
+        for a in range(len(temp_t) - 1):
+            temp1.append((temp_t[a] + temp_t[a + 1]) / 2)
+            temp2.append((temp_k[a] + temp_k[a + 1]) / 2)
+        thicc = np.append(thicc, temp1)
+        camb = np.append(camb, temp2)
+
+    # data_airf_br = np.empty((len(aoas), 4, N - 1))
+    # t_c = np.empty(N - 1)
+    # for i in range(N - 1):
+    #     for j in range(len(aoas)):
+    #         chord = controlpoints[i]["chord"]
+    #         logging.debug(f"chord: {chord}")
+    #         t_c[i] = thicc[i] / chord
+    #         alpha = aoas[j]
+
+    #         Cl, Cd, Cm = LEI_airf_coeff(t_c[i], camb[i], alpha)
+    #         data_airf_br[j, 0, i] = alpha
+    #         data_airf_br[j, 1, i] = Cl
+    #         data_airf_br[j, 2, i] = Cd
+    #         data_airf_br[j, 3, i] = Cm
+
+    # Adjusting t and k to the right length
+    t_10 = [t[i]]
+    k_10 = [k[i]]
+    for i in range(1, len(t) - 1):
+        t_10.append((t[i] + t[i + 1]) / 2)
+        k_10.append((k[i] + k[i + 1]) / 2)
+    t_10.append(t[-1])
+    k_10.append(k[-1])
+    thicc = np.array(t_10)
+    camb = np.array(k_10)
+
+    print(f"final coord shape {np.shape(coord)}")
+    print(f"final wingpanels shape {np.shape(wingpanels)}")
+    print(f"final shape thicc {np.shape(thicc)}")
+    print(f"final shape camb {np.shape(camb)}")
+
+    input_rib_list = []
+    for i, wingpanel in enumerate(wingpanels):
+        LE = wingpanel["p1"]
+        TE = wingpanel["p4"]
+        chord_length = np.linalg.norm(LE - TE)
+        chord = controlpoints[i]["chord"]
+        LE_thickness_i = thicc[i]
+        camber_i = camb[i]
+        airfoil_input = ["lei_airfoil_breukels", [LE_thickness_i, camber_i]]
+        input_rib_list.append([LE, TE, airfoil_input])
+        print(f"----i: {i}----")
+        print(f"LE: {LE}")
+        print(f"TE: {TE}")
+        print(f"airfoil_input: {airfoil_input}")
+        print(f"chord_length: {chord_length}")
+
+    # last rib
+    LE = wingpanels[i]["p2"]
+    TE = wingpanels[i]["p3"]
+    chord_length = np.linalg.norm(LE - TE)
+    LE_thickness_i = thicc[i + 1]
+    camber_i = camb[i + 1]
+    airfoil_input = ["lei_airfoil_breukels", [LE_thickness_i, camber_i]]
+    input_rib_list.append([LE, TE, airfoil_input])
+
+    print(f"shape input_rib_list: {len(input_rib_list), len(input_rib_list[0])}")
+    #     # Create wing geometry
+    # input_rib_list = []
+    # for idx, idx2 in enumerate(range(0, len(coord) - 2, 2)):
+
+    #     logging.info(f"idx: {idx} | coord[{idx2}] = {coord[idx2]}")
+
+    #     ## Create the rib input list_le_te
+    #     coord_length = np.linalg.norm(coord[idx2] - coord[idx2 + 1])
+    #     LE = coord[idx2]
+    #     TE = coord[idx2 + 1]
+    #     camber_i = camber_dimensionless[idx]
+    #     LE_thickness_i = LE_thickness[idx] / coord_length
+    #     airfoil_input = ["lei_airfoil_breukels", [LE_thickness_i, camber_i]]
+    #     input_rib_list.append([LE, TE, airfoil_input])
+
+    # save_path = (
+    #     Path(root_dir) / "processed_data" / "TUD_V3_LEI_KITE" / f"{file_name}.pkl"
+    # )
+    # logging.info(
+    #     f"file_name: {file_name} | shape: ({len(input_rib_list)},{len(input_rib_list[0])})"
+    # )
+    # with open(save_path, "wb") as file:
+    #     pickle.dump(input_rib_list, file)
+
+    return coord, thicc, camb
+
+
 def airf_data_from_uri_thesis_adjusted(CAD, N_split):
 
     coord = struct2aero_geometry(CAD) / 1000
+    logging.info(f"initial coord shape: {np.shape(coord)}")
 
     # Camber for each section
     # k = [0.018, 0.028, 0.038, 0.048, 0.057, 0.057, 0.048, 0.038, 0.028, 0.018]
@@ -560,6 +727,17 @@ def airf_data_from_uri_thesis_adjusted(CAD, N_split):
         # Refine mesh, include ballooning
         coord = refine_LEI_mesh_ballooning(wingpanels, ball_angle, N_split)
 
+        # interpolation of the airfoil data
+        t = np.interp(
+            np.linspace(0, len(t) - 1, len(t) * N_split + 1), np.arange(len(t)), t
+        )
+        k = np.interp(
+            np.linspace(0, len(k) - 1, len(k) * N_split + 1), np.arange(len(k)), k
+        )
+
+    logging.info(f"coord shape: {np.shape(coord)}")
+    logging.info(f"t shape: {np.shape(t)}")
+    logging.info(f"k shape: {np.shape(k)}")
     return coord, t, k
 
 
@@ -585,33 +763,65 @@ def create_and_save_rib_list(
     save_path = (
         Path(root_dir) / "processed_data" / "TUD_V3_LEI_KITE" / f"{file_name}.pkl"
     )
+    logging.info(
+        f"file_name: {file_name} | shape: ({len(input_rib_list)},{len(input_rib_list[0])})"
+    )
     with open(save_path, "wb") as file:
         pickle.dump(input_rib_list, file)
 
 
-if __name__ == "__main__":
+def get_kitesim_points():
+    coord_kitesim = np.array(
+        [
+            [0.86307674, -4.1565, 7.42381981],
+            [1.54503268, -4.1300398, 7.26136495],
+            [-0.01769469, -3.9841196, 8.49703339],
+            [1.71039665, -3.97159687, 8.49204017],
+            [-0.23864989, -3.14708537, 9.81674623],
+            [2.01066217, -3.12943185, 9.78719788],
+            [-0.38529401, -1.96770111, 10.60735655],
+            [2.118729, -1.95450565, 10.55854696],
+            [-0.45841928, -0.66695416, 10.94897378],
+            [2.16733995, -0.66340879, 10.88984164],
+            [-0.45841928, 0.66695416, 10.94897378],
+            [2.16733995, 0.66340879, 10.88984164],
+            [-0.38529401, 1.96770111, 10.60735655],
+            [2.118729, 1.95450565, 10.55854696],
+            [-0.23864989, 3.14708537, 9.81674623],
+            [2.01066217, 3.12943185, 9.78719788],
+            [-0.01769469, 3.9841196, 8.49703339],
+            [1.71039665, 3.97159687, 8.49204017],
+            [0.86307674, 4.1565, 7.42381981],
+            [1.54503268, 4.1300398, 7.26136495],
+        ]
+    )
+    logging.info(f"coord_kitesim shape: {coord_kitesim.shape}")
+    return coord_kitesim
 
+
+if __name__ == "__main__":
+    # get_kitesim_points()
     # Getting the geometry of the points
     CAD_path = (
         Path(root_dir)
         / "data"
         / "TUD_V3_LEI_KITE"
         / "geometry"
-        / "CAD_extracted_coords_v3_kite.csv"
+        / "Geometry_modified_kcu.csv"
+        # / "CAD_extracted_coords_v3_kite.csv"
     )
     CAD = np.loadtxt(CAD_path, delimiter=",")
 
     # Getting the original, thesis defined geometry
-    coord, thicc, camb = airf_data_from_uri_thesis_untouched(CAD, 8)
-    coord = flip_created_coord_in_pairs_if_needed(coord)
+    coord, thicc, camb = airf_data_from_uri_thesis_adjusted_v2(CAD, 3)
+    # coord = flip_created_coord_in_pairs_if_needed(coord)
+    # create_and_save_rib_list(
+    #     coord, thicc, camb, "CAD_rib_input_list_untouched_thesis_n_split_3", root_dir
+    # )
 
-    create_and_save_rib_list(
-        coord, thicc, camb, "CAD_rib_input_list_untouched_thesis_n_split_8", root_dir
-    )
-
-    # Getting just the V3 input shape
-    coord, thicc, camb = airf_data_from_uri_thesis_adjusted(CAD, 1)
-    coord = flip_created_coord_in_pairs_if_needed(coord)
-    create_and_save_rib_list(
-        coord, thicc, camb, "CAD_rib_input_list_adjusted_thesis_n_split_1", root_dir
-    )
+    # # Getting just the V3 input shape
+    # coord, thicc, camb = airf_data_from_uri_thesis_adjusted(CAD, 1)
+    # coord = flip_created_coord_in_pairs_if_needed(coord)
+    # create_and_save_rib_list(
+    #     coord, thicc, camb, "CAD_rib_input_list_adjusted_thesis_n_split_1", root_dir
+    # )

@@ -31,15 +31,18 @@ print(
     f"shape(CAD_input_rib_list): ({len(CAD_input_rib_list)},{len(CAD_input_rib_list[0])})"
 )
 # Load from Pickle file
-CAD_path = (
+CAD_path_adjusted = (
     Path(root_dir)
     / "processed_data"
     / "TUD_V3_LEI_KITE"
-    / "CAD_rib_input_list_adjusted_thesis_n_split_1.pkl"
+    / "CAD_rib_input_list_untouched_thesis_n_split_2.pkl"
 )
-with open(CAD_path, "rb") as file:
+with open(CAD_path_adjusted, "rb") as file:
     CAD_input_rib_list_adjusted = pickle.load(file)
 
+print(
+    f"shape(CAD_input_rib_list_adjusted): ({len(CAD_input_rib_list_adjusted)},{len(CAD_input_rib_list_adjusted[0])})"
+)
 
 # Create wing geometry
 n_panels = 20
@@ -49,15 +52,15 @@ CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 # Populate the wing geometry
 for i, CAD_rib_i in enumerate(CAD_input_rib_list):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-    # index = int(i / 2)
-    # logging.debug(f"LE: {CAD_rib_i[0]} VS NEW: {CAD_input_rib_list_adjusted[index][0]}")
-    # logging.debug(f"TE: {CAD_rib_i[1]} VS NEW: {CAD_input_rib_list_adjusted[index][1]}")
-    # logging.debug(
-    #     f"airfoil_input: {CAD_rib_i[2]} VS NEW: {CAD_input_rib_list_adjusted[index][2]}"
-    # )
+    index = i  # int(i / 2)
+    logging.info(f"LE: {CAD_rib_i[0]} VS NEW: {CAD_input_rib_list_adjusted[index][0]}")
+    logging.info(f"TE: {CAD_rib_i[1]} VS NEW: {CAD_input_rib_list_adjusted[index][1]}")
+    logging.info(
+        f"airfoil_input: {CAD_rib_i[2]} VS NEW: {CAD_input_rib_list_adjusted[index][2]}"
+    )
 
 n_panels = 18
-spanwise_panel_distribution = "split_provided"
+spanwise_panel_distribution = "unchanged"
 CAD_wing_new = Wing(n_panels, spanwise_panel_distribution)
 for i, CAD_rib_i in enumerate(CAD_input_rib_list_adjusted):
     CAD_wing_new.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])

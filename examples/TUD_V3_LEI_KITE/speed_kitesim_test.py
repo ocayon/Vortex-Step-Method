@@ -63,18 +63,19 @@ time_start = time.time()
 # Populate the wing geometry
 for i, CAD_rib_i in enumerate(CAD_input_rib_list):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
+print(f"Time : {time.time() - time_start:.2f} s")
+
 
 # Create wing aerodynamics objects
 CAD_wing_aero = WingAerodynamics([CAD_wing])
+print(f"Time : {time.time() - time_start:.2f} s")
 
 # Setting va
 CAD_wing_aero.va = va_definition
+print(f"Time : {time.time() - time_start:.2f} s")
 
 # Solving
 results, CAD_wing_aero = VSM_with_stall_correction.solve(CAD_wing_aero)
-
-# Reading out the results
-# force_aero = results["Ftotal_distribution"]
 
 time_end = time.time()
 
