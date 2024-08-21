@@ -11,7 +11,7 @@ from VSM.Solver import Solver
 from VSM.plotting import plot_distribution, plot_polars
 
 
-def run_speed_test():
+def run_speed_test(gamma):
     # Find the root directory of the repository
     root_dir = os.path.abspath(os.path.dirname(__file__))
     while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
@@ -41,7 +41,7 @@ def run_speed_test():
     VSM_with_stall_correction = Solver(
         aerodynamic_model_type="VSM",
         is_with_artificial_damping=True,
-        relaxation_factor=0.01,
+        relaxation_factor=0.04,
     )
 
     # Defining va
@@ -61,28 +61,28 @@ def run_speed_test():
         yaw_rate,
     )
 
-    # logging.info("Starting the simulation")
+    logging.info("Starting the simulation")
 
-    # time_start = time.time()
+    time_start = time.time()
     # Populate the wing geometry
     for i, CAD_rib_i in enumerate(CAD_input_rib_list):
         CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-    # print(f"Time : {time.time() - time_start:.2f} s")
+    print(f"Time : {time.time() - time_start:.2f} s")
 
     # Create wing aerodynamics objects
     CAD_wing_aero = WingAerodynamics([CAD_wing])
-    # print(f"Time : {time.time() - time_start:.2f} s")
+    print(f"Time : {time.time() - time_start:.2f} s")
 
     # Setting va
     CAD_wing_aero.va = va_definition
-    # print(f"Time : {time.time() - time_start:.2f} s")
+    print(f"Time : {time.time() - time_start:.2f} s")
 
     # Solving
-    results, CAD_wing_aero = VSM_with_stall_correction.solve(CAD_wing_aero)
+    results, CAD_wing_aero = VSM_with_stall_correction.solve(CAD_wing_aero,gamma_distribution=gamma)
 
-    # time_end = time.time()
-    # print(f"Time taken for the simulation: {time_end - time_start:.2f}  seconds")
-
+    time_end = time.time()
+    print(f"Time taken for the simulation: {time_end - time_start:.2f}  seconds")
+    return results["gamma_distribution"]
 
 if __name__ == "__main__":
     # from line_profiler import LineProfiler
@@ -96,15 +96,15 @@ if __name__ == "__main__":
 
     # test_numba_output = test_numba()
     # print(f"test_numba_output: {test_numba_output}")
+    gamma = None
+    print("Starting the speed test")
+    time_before = time.time()
+    for i in range(5):
+        time_before_this_loop = time.time()
+        gamma = run_speed_test(gamma)
+        print(f"Time taken: {time.time() - time_before_this_loop:.2f} s")
 
-    # print("Starting the speed test")
-    # time_before = time.time()
-    # for i in range(5):
-    #     time_before_this_loop = time.time()
-    #     run_speed_test()
-    #     print(f"Time taken: {time.time() - time_before_this_loop:.2f} s")
-
-    cProfile.run("run_speed_test()", sort="tottime")
+    # cProfile.run("run_speed_test()", sort="tottime")
     # lp = LineProfiler()
     # VSM_with_stall_correction = Solver(
     #     aerodynamic_model_type="VSM",

@@ -154,13 +154,17 @@ class Solver:
         self.mu = mu
 
     def solve(self, wing_aero, gamma_distribution=None):
+        import time as time
 
+        print("-----Starting the speed test")
+        time_before = time.time()
         if wing_aero.va is None:
             raise ValueError("Inflow conditions are not set")
-
+        
         # Calculate the new circulation distribution iteratively
         gamma_new = self.calculate_gamma_new_iteratively(wing_aero, gamma_distribution)
-
+        print(f"SOLVER Time taken: {time.time() - time_before:.2f} s")
+        time_before = time.time()
         # Calculating results (incl. updating angle of attack for VSM)
         results = wing_aero.calculate_results(
             gamma_new,
@@ -169,6 +173,7 @@ class Solver:
             self.core_radius_fraction,
             self.mu,
         )
+        print(f"RESULTS Time taken: {time.time() - time_before:.2f} s")
 
         return results, wing_aero
 
@@ -207,8 +212,7 @@ class Solver:
         elif len(gamma_distribution) == n_panels:
             gamma_new = gamma_distribution
 
-        # TODO: for now use ZERO, remove this to speed things up
-        gamma_new = np.zeros(len(gamma_new))
+
         logging.debug("Initial gamma_new: %s", gamma_new)
 
         # Initialize x_airf, z_airf, va
