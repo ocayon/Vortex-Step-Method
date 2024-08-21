@@ -89,8 +89,8 @@ if __name__ == "__main__":
     # from line_profiler import LineProfiler
     import cProfile
 
-    run_speed_test()
-    # cProfile.run("run_speed_test()", sort="ncalls")
+    # run_speed_test()
+    cProfile.run("run_speed_test()", sort="tottime")
     # lp = LineProfiler()
     # VSM_with_stall_correction = Solver(
     #     aerodynamic_model_type="VSM",
