@@ -145,10 +145,32 @@ class Solver:
                 [induced_velocities_x, induced_velocities_y, induced_velocities_z]
             ).T
 
+            relative_velocity_array = va_array + induced_velocity_all
+            v_normal_array = np.sum(x_airf_array * relative_velocity_array, axis=1)
+            v_tangential_array = np.sum(y_airf_array * relative_velocity_array, axis=1)
+            alpha_array = np.arctan(v_normal_array / v_tangential_array)
+            logging.info(f"induced_velocity_all: {np.shape(induced_velocity_all)}")
+            logging.info(
+                f"relative_velocity_array: {np.shape(relative_velocity_array)}"
+            )
+            logging.info(f"v_normal_array: {np.shape(v_normal_array)}")
+            logging.info(f"v_tangential_array: {np.shape(v_tangential_array)}")
+            logging.info(f"x_airf_array: {np.shape(x_airf_array)}")
+            logging.info(f"y_airf_array: {np.shape(y_airf_array)}")
+            logging.info(f"z_airf_array: {np.shape(z_airf_array)}")
+            logging.info(f"alpha_array: {np.shape(alpha_array)}")
+
+            relative_velocity_crossz_array = np.cross(
+                relative_velocity_array, z_airf_array
+            )
+            Umag_array = np.linalg.norm(relative_velocity_crossz_array, axis=1)
+            Uinfcrossz_array = np.cross(va_array, z_airf_array)
+            Umagw_array = np.linalg.norm(Uinfcrossz_array, axis=1)
+
             for icp, panel in enumerate(panels):
 
                 # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
-                induced_velocity = induced_velocity_all[icp]
+                # induced_velocity = induced_velocity_all[icp]
 
                 # # This is double checked
                 # alpha[icp], relative_velocity = (
@@ -157,24 +179,30 @@ class Solver:
                 #     )
                 # )
                 # function inside solver class
-                relative_velocity = va_array[icp] + induced_velocity
-                v_normal = np.dot(x_airf_array[icp], relative_velocity)
-                v_tangential = np.dot(y_airf_array[icp], relative_velocity)
-                alpha_array[icp] = np.arctan(v_normal / v_tangential)
+                # relative_velocity = va_array[icp] + induced_velocity
+                # v_normal = np.dot(x_airf_array[icp], relative_velocity)
+                # v_tangential = np.dot(y_airf_array[icp], relative_velocity)
+                # alpha_array[icp] = np.arctan(v_normal / v_tangential)
 
-                relative_velocity_crossz = np.cross(
-                    relative_velocity, z_airf_array[icp]
-                )
-                Umag = np.linalg.norm(relative_velocity_crossz)
-                Uinfcrossz = np.cross(va_array[icp], z_airf_array[icp])
-                Umagw = np.linalg.norm(Uinfcrossz)
+                # relative_velocity_crossz = np.cross(
+                #     relative_velocity_array[icp], z_airf_array[icp]
+                # )
+                # Umag = np.linalg.norm(relative_velocity_crossz)
+                # Uinfcrossz = np.cross(va_array[icp], z_airf_array[icp])
+                # Umagw = np.linalg.norm(Uinfcrossz)
 
                 # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
                 # Lookup cl for this specific alpha
                 cl = panel.calculate_cl(alpha_array[icp])
 
                 # Find the new gamma using Kutta-Joukouski law
-                gamma_new[icp] = 0.5 * Umag**2 / Umagw * cl * chord_array[icp]
+                gamma_new[icp] = (
+                    0.5
+                    * Umag_array[icp] ** 2
+                    / Umagw_array[icp]
+                    * cl
+                    * chord_array[icp]
+                )
 
                 # logging.info("--------- icp: %d", icp)
                 # logging.info("induced_velocity: %s", induced_velocity)

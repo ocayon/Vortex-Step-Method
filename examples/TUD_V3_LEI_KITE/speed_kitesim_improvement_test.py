@@ -88,6 +88,7 @@ if __name__ == "__main__":
     from line_profiler import LineProfiler
     import cProfile
 
+    # run_speed_test()
     cProfile.run("run_speed_test()", sort="tottime")
     # lp = LineProfiler()
     # lp_wrapper = lp(run_speed_test)
