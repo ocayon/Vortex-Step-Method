@@ -96,13 +96,15 @@ if __name__ == "__main__":
 
     # test_numba_output = test_numba()
     # print(f"test_numba_output: {test_numba_output}")
-    print("Starting the speed test")
-    time_before = time.time()
-    for i in range(1):
-        run_speed_test()
-    print(f"Time taken: {time.time() - time_before:.2f} s")
 
-    # cProfile.run("run_speed_test()", sort="tottime")
+    # print("Starting the speed test")
+    # time_before = time.time()
+    # for i in range(5):
+    #     time_before_this_loop = time.time()
+    #     run_speed_test()
+    #     print(f"Time taken: {time.time() - time_before_this_loop:.2f} s")
+
+    cProfile.run("run_speed_test()", sort="tottime")
     # lp = LineProfiler()
     # VSM_with_stall_correction = Solver(
     #     aerodynamic_model_type="VSM",

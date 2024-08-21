@@ -386,6 +386,10 @@ class WingAerodynamics:
         gamma_i_wing = gamma_0 * np.sqrt(1 - (2 * y / wing_span) ** 2)
         gamma_i = np.append(gamma_i, gamma_i_wing)
 
+        logging.debug(
+            f"inside calculate_circulation_distribution_elliptical_wing, gamma_i: {gamma_i}"
+        )
+
         return gamma_i
 
     def calculate_stall_angle_list(
