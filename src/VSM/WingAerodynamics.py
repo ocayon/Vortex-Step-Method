@@ -362,6 +362,55 @@ class WingAerodynamics:
                         AIC_z[icp, jring] -= U_2D[2]
         return AIC_x, AIC_y, AIC_z
 
+    # def calculate_AIC_matrices(self, model, core_radius_fraction):
+    #     """Calculates the AIC matrices for the given aerodynamic model."""
+    #     n_panels = self.n_panels
+
+    #     if model == "VSM":
+    #         evaluation_point = "control_point"
+    #         evaluation_point_on_bound = False
+    #     elif model == "LLT":
+    #         evaluation_point = "aerodynamic_center"
+    #         evaluation_point_on_bound = True
+    #     else:
+    #         raise ValueError("Invalid aerodynamic model type, should be VSM or LLT")
+
+    #     va_norm = np.linalg.norm(self.va)
+    #     va_unit = self.va / va_norm
+
+    #     # Initialize the AIC matrices
+    #     AIC_x = np.zeros((n_panels, n_panels))
+    #     AIC_y = np.zeros((n_panels, n_panels))
+    #     AIC_z = np.zeros((n_panels, n_panels))
+
+    #     # Compute the AIC matrices
+    #     for i, panel_icp in enumerate(self.panels):
+    #         evaluation_point_i = getattr(panel_icp, evaluation_point)
+    #         velocity_induced = (
+    #             panel_icp.calculate_velocity_induced_single_ring_semiinfinite(
+    #                 evaluation_point_i,
+    #                 evaluation_point_on_bound,
+    #                 va_norm,
+    #                 va_unit,
+    #                 gamma=1,
+    #                 core_radius_fraction=core_radius_fraction,
+    #             )
+    #         )
+    #         AIC_x[:, i] = velocity_induced[:, 0]
+    #         AIC_y[:, i] = velocity_induced[:, 1]
+    #         AIC_z[:, i] = velocity_induced[:, 2]
+
+    #     # Apply the correction term for the VSM model
+    #     if model == "VSM" and evaluation_point != "aerodynamic_center":
+    #         for i, panel_icp in enumerate(self.panels):
+    #             evaluation_point_i = getattr(panel_icp, evaluation_point)
+    #             U_2D = panel_icp.calculate_velocity_induced_bound_2D(evaluation_point_i)
+    #             AIC_x[i, i] -= U_2D[0]
+    #             AIC_y[i, i] -= U_2D[1]
+    #             AIC_z[i, i] -= U_2D[2]
+
+    #     return AIC_x, AIC_y, AIC_z
+
     # TODO: be aware that gamma_0 is NEGATIVE, to accompany the weird reference frame
     def calculate_circulation_distribution_elliptical_wing(self, gamma_0=1):
         """
