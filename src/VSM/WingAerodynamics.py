@@ -2,7 +2,7 @@ import numpy as np
 import logging
 from VSM.Panel import Panel
 import VSM.Wake as Wake
-from . import jit_cross, jit_norm
+from . import jit_cross, jit_norm, jit_dot
 
 
 # TODO: should change name to deal with multiple wings
@@ -594,13 +594,13 @@ class WingAerodynamics:
             dir_lift_prescribed_va = dir_lift_prescribed_va / jit_norm(
                 dir_lift_prescribed_va
             )
-            lift_prescribed_va = np.dot(
+            lift_prescribed_va = jit_dot(
                 lift_induced_va, dir_lift_prescribed_va
-            ) + np.dot(drag_induced_va, dir_lift_prescribed_va)
-            drag_prescribed_va = np.dot(lift_induced_va, va_unit) + np.dot(
+            ) + jit_dot(drag_induced_va, dir_lift_prescribed_va)
+            drag_prescribed_va = jit_dot(lift_induced_va, va_unit) + jit_dot(
                 drag_induced_va, va_unit
             )
-            side_prescribed_va = np.dot(lift_induced_va, spanwise_direction) + np.dot(
+            side_prescribed_va = jit_dot(lift_induced_va, spanwise_direction) + jit_dot(
                 drag_induced_va, spanwise_direction
             )
 
@@ -612,9 +612,9 @@ class WingAerodynamics:
             # The above conversion is merely one of references frames
 
             ### Converting forces to the global reference frame
-            fx_global_2D = np.dot(ftotal_induced_va, np.array([1, 0, 0]))
-            fy_global_2D = np.dot(ftotal_induced_va, np.array([0, 1, 0]))
-            fz_global_2D = np.dot(ftotal_induced_va, np.array([0, 0, 1]))
+            fx_global_2D = jit_dot(ftotal_induced_va, np.array([1, 0, 0]))
+            fy_global_2D = jit_dot(ftotal_induced_va, np.array([0, 1, 0]))
+            fz_global_2D = jit_dot(ftotal_induced_va, np.array([0, 0, 1]))
 
             ### Logging
             logging.debug("----calculate_results_new----- icp: %d", i)
@@ -672,7 +672,7 @@ class WingAerodynamics:
         alpha_geometric = np.array(
             [
                 np.rad2deg(
-                    np.arccos(np.dot(panel_i.y_airf, horizontal_direction))
+                    np.arccos(jit_dot(panel_i.y_airf, horizontal_direction))
                     / (jit_norm(panel_i.y_airf) * jit_norm(horizontal_direction))
                 )
                 for panel_i in self.panels
@@ -701,9 +701,15 @@ class WingAerodynamics:
         results_dict.update([("F_distribution", f_global_3D_list)])
 
         # Additional info
-        results_dict.update([("cfx", fx_global_3D_list / (q_inf * projected_area))])
-        results_dict.update([("cfy", fy_global_3D_list / (q_inf * projected_area))])
-        results_dict.update([("cfz", fz_global_3D_list / (q_inf * projected_area))])
+        results_dict.update(
+            [("cfx", np.array(fx_global_3D_list) / (q_inf * projected_area))]
+        )
+        results_dict.update(
+            [("cfy", np.array(fy_global_3D_list) / (q_inf * projected_area))]
+        )
+        results_dict.update(
+            [("cfz", np.array(fz_global_3D_list) / (q_inf * projected_area))]
+        )
         results_dict.update([("alpha_at_ac", alpha_corrected)])
         results_dict.update([("alpha_uncorrected", alpha_uncorrected)])
         results_dict.update([("alpha_geometric", alpha_geometric)])

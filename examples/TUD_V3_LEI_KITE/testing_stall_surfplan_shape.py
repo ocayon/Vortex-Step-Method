@@ -72,10 +72,8 @@ for angle_of_attack in angle_of_attack_range:
         * Umag,
         yaw_rate,
     )
-    results, _ = VSM.solve(surfplan_wing_aero)
-    results_with_stall_correction, _ = VSM_with_stall_correction.solve(
-        surfplan_wing_aero
-    )
+    results = VSM.solve(surfplan_wing_aero)
+    results_with_stall_correction = VSM_with_stall_correction.solve(surfplan_wing_aero)
     plot_distribution(
         y_coordinates_list=[surfplan_y_coordinates, surfplan_y_coordinates],
         results_list=[results, results_with_stall_correction],
@@ -123,14 +121,14 @@ path_cfd_lebesque = (
     / "data"
     / "TUD_V3_LEI_KITE"
     / "literature_results"
-    / "V3_CL_CD_RANS_CFD_lebesque_2020_Rey_1e6.csv"
+    / "V3_CL_CD_RANS_Lebesque_2024_Rey_100e4.csv"
 )
 path_wind_tunnel_poland = (
     Path(root_dir)
     / "data"
     / "TUD_V3_LEI_KITE"
     / "literature_results"
-    / "V3_CL_CD_WindTunnel_Poland_2024_Rey_56e4.csv"
+    / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )
 plot_polars(
     solver_list=[VSM, VSM_with_stall_correction, VSM, VSM_with_stall_correction],
@@ -141,8 +139,8 @@ plot_polars(
     label_list=[
         "VSM from surfplan",
         "VSM from surfplan (with correction)",
-        "CFD_Lebesque",
-        "WindTunnel_Poland",
+        "CFD_Lebesque (10e5)",
+        "WindTunnel_Poland (5.6e5)",
     ],
     literature_path_list=[path_cfd_lebesque, path_wind_tunnel_poland],
     angle_range=np.linspace(0, 22, 11),

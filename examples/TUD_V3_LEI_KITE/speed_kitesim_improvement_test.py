@@ -182,7 +182,6 @@ if __name__ == "__main__":
         gamma = run_speed_test(gamma)
         print(f"Time taken: {time.time() - time_before_this_loop:.2f} s")
         gamma = None
-
     # cProfile.run("run_speed_test_cprofile()", sort="tottime")
     # lp = LineProfiler()
     # VSM_with_stall_correction = Solver(

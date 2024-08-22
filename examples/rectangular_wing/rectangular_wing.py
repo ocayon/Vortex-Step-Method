@@ -83,8 +83,8 @@ plotting.plot_geometry(
 ### Solve the aerodynamics
 # cl,cd,cs coefficients are flipped to "normal ref frame"
 # x (+) downstream, y(+) left and z-up reference frame
-results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
-results_LLT, wing_aero_LLT = LLT.solve(wing_aero_LLT)
+results_VSM = VSM.solve(wing_aero)
+results_LLT = LLT.solve(wing_aero_LLT)
 
 # ### plotting distributions
 # plotting.plot_distribution(

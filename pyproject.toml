@@ -87,6 +87,7 @@ dependencies = [
   "matplotlib>=3.7.1",
   "seaborn",
   "scipy",
+  "numba",
 ]
 
 # You can define additional groups of dependencies here (e.g., development dependencies).

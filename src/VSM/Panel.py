@@ -1,7 +1,7 @@
 import numpy as np
 import logging
 from VSM.Filament import BoundFilament
-from . import jit_cross, jit_norm
+from . import jit_cross, jit_norm, jit_dot
 
 
 class Panel:
@@ -222,8 +222,8 @@ class Panel:
         # Calculate relative velocity and angle of attack
         # Constant throughout the iterations: self.va, self.x_airf, self.y_airf
         relative_velocity = self.va + induced_velocity
-        v_normal = np.dot(self.x_airf, relative_velocity)
-        v_tangential = np.dot(self.y_airf, relative_velocity)
+        v_normal = jit_dot(self.x_airf, relative_velocity)
+        v_tangential = jit_dot(self.y_airf, relative_velocity)
         alpha = np.arctan(v_normal / v_tangential)
         return alpha, relative_velocity
 

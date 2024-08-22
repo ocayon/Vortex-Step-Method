@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 import logging
-from . import jit_cross, jit_norm
+from . import jit_cross, jit_norm, jit_dot
 
 logging.basicConfig(level=logging.INFO)
 
@@ -93,7 +93,7 @@ class BoundFilament(Filament):
                 / (4 * np.pi)
                 * r1Xr2
                 / (jit_norm(r1Xr2) ** 2)
-                * np.dot(r0, r1 / jit_norm(r1) - r2 / jit_norm(r2))
+                * jit_dot(r0, r1 / jit_norm(r1) - r2 / jit_norm(r2))
             )
         # If point is on the filament
         elif jit_norm(r1Xr0) / jit_norm(r0) == 0:
@@ -107,10 +107,10 @@ class BoundFilament(Filament):
             )
             # The control point is placed on the edge of the radius core
             # proj stands for the vectors respect to the new controlpoint
-            r1_proj = np.dot(r1, r0) * r0 / (
+            r1_proj = jit_dot(r1, r0) * r0 / (
                 jit_norm(r0) ** 2
             ) + epsilon * r1Xr0 / jit_norm(r1Xr0)
-            r2_proj = np.dot(r2, r0) * r0 / (
+            r2_proj = jit_dot(r2, r0) * r0 / (
                 jit_norm(r0) ** 2
             ) + epsilon * r2Xr0 / jit_norm(r2Xr0)
             r1Xr2_proj = jit_cross(r1_proj, r2_proj)
@@ -119,7 +119,7 @@ class BoundFilament(Filament):
                 / (4 * np.pi)
                 * r1Xr2_proj
                 / (jit_norm(r1Xr2_proj) ** 2)
-                * np.dot(
+                * jit_dot(
                     r0,
                     r1_proj / jit_norm(r1_proj) - r2_proj / jit_norm(r2_proj),
                 )
@@ -155,7 +155,7 @@ class BoundFilament(Filament):
         alpha0 = 1.25643  # Oseen parameter
         nu = 1.48e-5  # Kinematic viscosity of air
         r_perp = (
-            np.dot(r1, r0) * r0 / (jit_norm(r0) ** 2)
+            jit_dot(r1, r0) * r0 / (jit_norm(r0) ** 2)
         )  # Vector from XV1 to XVP perpendicular to the core radius
         epsilon = np.sqrt(4 * alpha0 * nu * jit_norm(r_perp) / Uinf)  # Cut-off radius
 
@@ -173,7 +173,7 @@ class BoundFilament(Filament):
                 / (4 * np.pi)
                 * r1Xr2
                 / (jit_norm(r1Xr2) ** 2)
-                * np.dot(r0, r1 / jit_norm(r1) - r2 / jit_norm(r2))
+                * jit_dot(r0, r1 / jit_norm(r1) - r2 / jit_norm(r2))
             )
         # if point is on the filament
         elif jit_norm(r1Xr0) / jit_norm(r0) == 0:
@@ -182,10 +182,10 @@ class BoundFilament(Filament):
         else:
             # The control point is placed on the edge of the radius core
             # proj stands for the vectors respect to the new controlpoint
-            r1_proj = np.dot(r1, r0) * r0 / (
+            r1_proj = jit_dot(r1, r0) * r0 / (
                 jit_norm(r0) ** 2
             ) + epsilon * r1Xr0 / jit_norm(r1Xr0)
-            r2_proj = np.dot(r2, r0) * r0 / (
+            r2_proj = jit_dot(r2, r0) * r0 / (
                 jit_norm(r0) ** 2
             ) + epsilon * r2Xr0 / jit_norm(r2Xr0)
             r1Xr2_proj = jit_cross(r1_proj, r2_proj)
@@ -194,7 +194,7 @@ class BoundFilament(Filament):
                 / (4 * np.pi)
                 * r1Xr2_proj
                 / (jit_norm(r1Xr2_proj) ** 2)
-                * np.dot(
+                * jit_dot(
                     r0,
                     r1_proj / jit_norm(r1_proj) - r2_proj / jit_norm(r2_proj),
                 )
@@ -262,7 +262,7 @@ class SemiInfiniteFilament(Filament):
         alpha0 = 1.25643  # Oseen parameter
         nu = 1.48e-5  # Kinematic viscosity of air
         r_perp = (
-            np.dot(r1, Vf) * Vf
+            jit_dot(r1, Vf) * Vf
         )  # Vector from XV1 to XVP perpendicular to the core radius
         epsilon = np.sqrt(4 * alpha0 * nu * jit_norm(r_perp) / Uinf)  # Cut-off radius
 
@@ -274,7 +274,7 @@ class SemiInfiniteFilament(Filament):
                 / 4
                 / np.pi
                 / jit_norm(r1XVf) ** 2
-                * (1 + np.dot(r1, Vf) / jit_norm(r1))
+                * (1 + jit_dot(r1, Vf) / jit_norm(r1))
             )
             # determine the three velocity components
             return K * r1XVf
@@ -283,7 +283,7 @@ class SemiInfiniteFilament(Filament):
             return np.zeros(3)
         # else, if point within core
         else:
-            r1_proj = np.dot(r1, Vf) * Vf + epsilon * (
+            r1_proj = jit_dot(r1, Vf) * Vf + epsilon * (
                 r1 / jit_norm(r1) - Vf
             ) / jit_norm(r1 / jit_norm(r1) - Vf)
             r1XVf_proj = jit_cross(r1_proj, Vf)
@@ -292,7 +292,7 @@ class SemiInfiniteFilament(Filament):
                 / 4
                 / np.pi
                 / jit_norm(r1XVf_proj) ** 2
-                * (1 + np.dot(r1_proj, Vf) / jit_norm(r1_proj))
+                * (1 + jit_dot(r1_proj, Vf) / jit_norm(r1_proj))
             )
             # determine the three velocity components
             return K * r1XVf_proj

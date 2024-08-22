@@ -428,7 +428,7 @@ def generate_polar_data(
             * Umag,
             yaw_rate,
         )
-        results, _ = solver.solve(wing_aero)
+        results = solver.solve(wing_aero)
         cl[i] = results["cl"]
         cd[i] = results["cd"]
         cs[i] = results["cs"]
