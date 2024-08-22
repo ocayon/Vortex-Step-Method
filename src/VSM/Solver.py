@@ -540,7 +540,7 @@ class Solver:
         )
         print(f"RESULTS Time taken: {time.time() - time_before:.2f} s")
 
-        return results,wing_aero
+        return results
 
     def calculate_gamma_new_iteratively(self, wing_aero, gamma_distribution):
 

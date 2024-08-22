@@ -87,7 +87,7 @@ def test_calculate_results():
         aerodynamic_model_type=model, core_radius_fraction=core_radius_fraction
     )
     # Solve the aerodynamics
-    results_NEW, wing_aero = solver_object.solve(wing_aero)
+    results_NEW = solver_object.solve(wing_aero)
 
     # Check the type and structure of the output
     assert isinstance(results_NEW, dict), "calculate_results should return a dictionary"
