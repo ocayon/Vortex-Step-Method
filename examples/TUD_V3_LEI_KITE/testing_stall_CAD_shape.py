@@ -15,13 +15,13 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
     root_dir = os.path.abspath(os.path.join(root_dir, ".."))
     if root_dir == "/":
         raise FileNotFoundError("Could not find the root directory of the repository.")
-save_folder = Path(root_dir) / "results" / "TUD_V3_LEI_KITE"
+save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 
 # Load from Pickle file
 CAD_path = (
     Path(root_dir)
     / "processed_data"
-    / "TUD_V3_LEI_KITE"
+    / "TUDELFT_V3_LEI_KITE"
     / "CAD_extracted_input_rib_list.pkl"
 )
 with open(CAD_path, "rb") as file:
@@ -34,41 +34,69 @@ print(
 CAD_path_adjusted = (
     Path(root_dir)
     / "processed_data"
-    / "TUD_V3_LEI_KITE"
-    / "CAD_rib_input_list_untouched_thesis_n_split_2.pkl"
+    / "TUDELFT_V3_LEI_KITE"
+    / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber.pkl"
 )
 with open(CAD_path_adjusted, "rb") as file:
     CAD_input_rib_list_adjusted = pickle.load(file)
+
+
+n_panels = 18
+spanwise_panel_distribution = "split_provided"
+CAD_wing_new = Wing(n_panels, spanwise_panel_distribution)
+for i, CAD_rib_i in enumerate(CAD_input_rib_list_adjusted):
+    CAD_wing_new.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
 
 print(
     f"shape(CAD_input_rib_list_adjusted): ({len(CAD_input_rib_list_adjusted)},{len(CAD_input_rib_list_adjusted[0])})"
 )
 
 # Create wing geometry
-n_panels = 20
+n_panels = 18
 spanwise_panel_distribution = "unchanged"
 CAD_wing = Wing(n_panels, spanwise_panel_distribution)
+
+## Creating arrays
 
 # Populate the wing geometry
 for i, CAD_rib_i in enumerate(CAD_input_rib_list):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-    index = i  # int(i / 2)
+    index = int(i / 2)
+    # index = i
+    print(f"--------------Rib {i}")
     logging.info(f"LE: {CAD_rib_i[0]} VS NEW: {CAD_input_rib_list_adjusted[index][0]}")
     logging.info(f"TE: {CAD_rib_i[1]} VS NEW: {CAD_input_rib_list_adjusted[index][1]}")
     logging.info(
         f"airfoil_input: {CAD_rib_i[2]} VS NEW: {CAD_input_rib_list_adjusted[index][2]}"
     )
-
-n_panels = 18
-spanwise_panel_distribution = "unchanged"
-CAD_wing_new = Wing(n_panels, spanwise_panel_distribution)
-for i, CAD_rib_i in enumerate(CAD_input_rib_list_adjusted):
-    CAD_wing_new.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
+    print(
+        f"delta LE: {np.array(CAD_rib_i[0]) - np.array(CAD_input_rib_list_adjusted[index][0])}"
+    )
+    print(
+        f"delta TE: {np.array(CAD_rib_i[1]) - np.array(CAD_input_rib_list_adjusted[index][1])}"
+    )
+    print(
+        f"delta airfoil: {np.array(CAD_rib_i[2][1]) - np.array(CAD_input_rib_list_adjusted[index][2][1])}"
+    )
+    print(f"\n")
 
 
 # Create wing aerodynamics objects
 CAD_wing_aero = WingAerodynamics([CAD_wing])
 CAD_wing_aero_new = WingAerodynamics([CAD_wing_new])
+
+for i, (panel, panel_new) in enumerate(
+    zip(CAD_wing_aero.panels, CAD_wing_aero_new.panels)
+):
+    print(f"--------------Panel {i}")
+    print(f"LE: {panel.LE_point_1} VS NEW: {panel_new.LE_point_1}")
+    print(f"TE: {panel.TE_point_1} VS NEW: {panel_new.TE_point_1}")
+    print(f"chord: {panel.chord} VS NEW: {panel_new.chord}")
+    index = int(i / 2)
+    print(
+        f"delta airfoil: {np.array(CAD_input_rib_list[i][2][1]) - np.array(CAD_input_rib_list_adjusted[index][2][1])}"
+    )
+
 
 # Solvers
 VSM = Solver(
@@ -149,14 +177,14 @@ save_path = Path(root_dir) / "results" / "TUD_V3_LEI_KITE"
 path_cfd_lebesque = (
     Path(root_dir)
     / "data"
-    / "TUD_V3_LEI_KITE"
+    / "TUDELFT_V3_LEI_KITE"
     / "literature_results"
     / "V3_CL_CD_RANS_Lebesque_2024_Rey_300e4.csv"
 )
 path_wind_tunnel_poland = (
     Path(root_dir)
     / "data"
-    / "TUD_V3_LEI_KITE"
+    / "TUDELFT_V3_LEI_KITE"
     / "literature_results"
     / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )

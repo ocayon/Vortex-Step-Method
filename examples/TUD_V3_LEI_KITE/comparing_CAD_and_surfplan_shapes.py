@@ -20,7 +20,7 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
 surfplan_path = (
     Path(root_dir)
     / "processed_data"
-    / "TUD_V3_LEI_KITE"
+    / "TUDELFT_V3_LEI_KITE"
     / "surfplan_extracted_input_rib_list.pkl"
 )
 with open(surfplan_path, "rb") as file:
@@ -29,8 +29,8 @@ with open(surfplan_path, "rb") as file:
 CAD_path = (
     Path(root_dir)
     / "processed_data"
-    / "TUD_V3_LEI_KITE"
-    / "CAD_extracted_input_rib_list.pkl"
+    / "TUDELFT_V3_LEI_KITE"
+    / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber.pkl"
 )
 with open(CAD_path, "rb") as file:
     CAD_input_rib_list = pickle.load(file)
@@ -163,28 +163,28 @@ angle_of_attack_range = np.linspace(-5, 25, 15)
 path_cfd_lebesque_3e6 = (
     Path(root_dir)
     / "data"
-    / "TUD_V3_LEI_KITE"
+    / "TUDELFT_V3_LEI_KITE"
     / "literature_results"
     / "V3_CL_CD_RANS_CFD_lebesque_2020_Rey_3e6.csv"
 )
 path_cfd_lebesque_100e4 = (
     Path(root_dir)
     / "data"
-    / "TUD_V3_LEI_KITE"
+    / "TUDELFT_V3_LEI_KITE"
     / "literature_results"
     / "V3_CL_CD_RANS_Lebesque_2024_Rey_100e4.csv"
 )
 path_cfd_lebesque_300e4 = (
     Path(root_dir)
     / "data"
-    / "TUD_V3_LEI_KITE"
+    / "TUDELFT_V3_LEI_KITE"
     / "literature_results"
     / "V3_CL_CD_RANS_Lebesque_2024_Rey_300e4.csv"
 )
 path_wind_tunnel_poland_56e4 = (
     Path(root_dir)
     / "data"
-    / "TUD_V3_LEI_KITE"
+    / "TUDELFT_V3_LEI_KITE"
     / "literature_results"
     / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )

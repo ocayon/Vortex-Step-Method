@@ -88,7 +88,9 @@ dependencies = [
   "seaborn",
   "scipy",
   "numba",
+  "ipykernel",
 ]
+
 
 # You can define additional groups of dependencies here (e.g., development dependencies).
 # These can be installed using the "extras" feature of pip, like so:

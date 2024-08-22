@@ -197,6 +197,8 @@ def plot_geometry(
         else:
             plt.savefig(Path(save_path) / (title + data_type))
             plt.close()
+    else:
+        plt.close()
 
 
 def plot_distribution(
@@ -367,6 +369,8 @@ def plot_distribution(
         else:
             plt.savefig(Path(save_path) / (title + data_type))
             plt.close()
+    else:
+        plt.close()
 
 
 def generate_polar_data(
@@ -405,7 +409,8 @@ def generate_polar_data(
     cd_distribution = np.zeros((len(angle_range), len(wing_aero.panels)))
     cs_distribution = np.zeros((len(angle_range), len(wing_aero.panels)))
     reynolds_number = np.zeros(len(angle_range))
-
+    # initialize the gamma with None
+    gamma = None
     for i, angle_i in enumerate(angle_range):
         if angle_type == "angle_of_attack":
             angle_of_attack = np.deg2rad(angle_i)
@@ -428,7 +433,8 @@ def generate_polar_data(
             * Umag,
             yaw_rate,
         )
-        results = solver.solve(wing_aero)
+
+        results = solver.solve(wing_aero, gamma_distribution=gamma)
         cl[i] = results["cl"]
         cd[i] = results["cd"]
         cs[i] = results["cs"]
@@ -437,6 +443,7 @@ def generate_polar_data(
         cd_distribution[i] = results["cd_distribution"]
         cs_distribution[i] = results["cs_distribution"]
         reynolds_number[i] = results["Rey"]
+        gamma = gamma_distribution[i]
 
     polar_data = [
         angle_range,
@@ -646,3 +653,5 @@ def plot_polars(
             plt.close()
         else:
             raise ValueError("save_path should be provided")
+    else:
+        plt.close()

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from typing import List
 import logging
-from . import jit_norm, jit_dot
+from . import jit_norm
 
 logging.basicConfig(level=logging.INFO)
 
@@ -405,7 +405,7 @@ class Wing:
         )
 
         # Project all points onto the vector axis
-        projections = jit_dot(all_points, vector_axis)
+        projections = np.dot(all_points, vector_axis)
 
         # Calculate the span of the wing along the given vector axis
         span = np.max(projections) - np.min(projections)
@@ -428,7 +428,7 @@ class Wing:
 
         # Helper function to project a point onto the plane
         def project_onto_plane(point, normal):
-            return point - jit_dot(point, normal) * normal
+            return point - np.dot(point, normal) * normal
 
         projected_area = 0.0
         for i in range(len(self.sections) - 1):

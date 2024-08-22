@@ -25,8 +25,8 @@ def run_speed_test_cprofile():
     CAD_path = (
         Path(root_dir)
         / "processed_data"
-        / "TUD_V3_LEI_KITE"
-        / "CAD_extracted_input_rib_list.pkl"
+        / "TUDELFT_V3_LEI_KITE"
+        / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber.pkl"
     )
     with open(CAD_path, "rb") as file:
         CAD_input_rib_list = pickle.load(file)
@@ -100,8 +100,8 @@ def run_speed_test(gamma):
     CAD_path = (
         Path(root_dir)
         / "processed_data"
-        / "TUD_V3_LEI_KITE"
-        / "CAD_extracted_input_rib_list.pkl"
+        / "TUDELFT_V3_LEI_KITE"
+        / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber.pkl"
     )
     with open(CAD_path, "rb") as file:
         CAD_input_rib_list = pickle.load(file)

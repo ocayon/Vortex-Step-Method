@@ -20,7 +20,7 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
 surfplan_path = (
     Path(root_dir)
     / "processed_data"
-    / "TUD_V3_LEI_KITE"
+    / "TUDELFT_V3_LEI_KITE"
     / "surfplan_extracted_input_rib_list.pkl"
 )
 with open(surfplan_path, "rb") as file:
@@ -119,14 +119,14 @@ save_path = Path(root_dir) / "results" / "TUD_V3_LEI_KITE"
 path_cfd_lebesque = (
     Path(root_dir)
     / "data"
-    / "TUD_V3_LEI_KITE"
+    / "TUDELFT_V3_LEI_KITE"
     / "literature_results"
     / "V3_CL_CD_RANS_Lebesque_2024_Rey_100e4.csv"
 )
 path_wind_tunnel_poland = (
     Path(root_dir)
     / "data"
-    / "TUD_V3_LEI_KITE"
+    / "TUDELFT_V3_LEI_KITE"
     / "literature_results"
     / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )
