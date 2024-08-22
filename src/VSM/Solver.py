@@ -124,6 +124,76 @@ class Solver:
 
         logging.debug("Initial gamma_new: %s", gamma_new)
 
+        # Run the iterative loop
+        converged, gamma_new, alpha_array, Umag_array = self.gamma_loop(
+            gamma_new,
+            AIC_x,
+            AIC_y,
+            AIC_z,
+            va_array,
+            chord_array,
+            x_airf_array,
+            y_airf_array,
+            z_airf_array,
+            panels,
+            relaxation_factor,
+        )
+        # run again with half the relaxation factor if not converged
+        if not converged and relaxation_factor > 1e-3:
+            logging.info(
+                f"Not converged so running again with half the relaxation_factor = {relaxation_factor / 2}"
+            )
+            relaxation_factor = relaxation_factor / 2
+            converged, gamma_new, alpha_array, Umag_array = self.gamma_loop(
+                gamma_new,
+                AIC_x,
+                AIC_y,
+                AIC_z,
+                va_array,
+                chord_array,
+                x_airf_array,
+                y_airf_array,
+                z_airf_array,
+                panels,
+                relaxation_factor,
+            )
+
+        # Calculating results (incl. updating angle of attack for VSM)
+        results = wing_aero.calculate_results(
+            gamma_new,
+            self.density,
+            self.aerodynamic_model_type,
+            self.core_radius_fraction,
+            self.mu,
+            alpha_array,
+            Umag_array,
+            chord_array,
+            x_airf_array,
+            y_airf_array,
+            z_airf_array,
+            va_array,
+            va_norm_array,
+            va_unit_array,
+            panels,
+            self.is_only_f_and_gamma_output,
+        )
+
+        return results
+
+    def gamma_loop(
+        self,
+        gamma_new,
+        AIC_x,
+        AIC_y,
+        AIC_z,
+        va_array,
+        chord_array,
+        x_airf_array,
+        y_airf_array,
+        z_airf_array,
+        panels,
+        relaxation_factor,
+    ):
         # looping untill max_iterations
         converged = False
         for i in range(self.max_iterations):
@@ -195,41 +265,7 @@ class Solver:
                 # if error smaller than limit, stop iteration cycle
                 converged = True
                 break
-
-        if converged:
-            logging.info("------------------------------------")
-            logging.info(
-                f"{self.aerodynamic_model_type} Converged after {i} iterations"
-            )
-            logging.info("------------------------------------")
-        elif not converged:
-            logging.info("------------------------------------")
-            logging.info(
-                f"{self.aerodynamic_model_type} Not converged after {str(self.max_iterations)} iterations"
-            )
-            logging.info("------------------------------------")
-
-        # Calculating results (incl. updating angle of attack for VSM)
-        results = wing_aero.calculate_results(
-            gamma_new,
-            self.density,
-            self.aerodynamic_model_type,
-            self.core_radius_fraction,
-            self.mu,
-            alpha_array,
-            Umag_array,
-            chord_array,
-            x_airf_array,
-            y_airf_array,
-            z_airf_array,
-            va_array,
-            va_norm_array,
-            va_unit_array,
-            panels,
-            self.is_only_f_and_gamma_output,
-        )
-
-        return results
+        return converged, gamma_new, alpha_array, Umag_array
 
     def calculate_artificial_damping(self, gamma, alpha, stall_angle_list):
 
