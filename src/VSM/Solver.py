@@ -247,6 +247,8 @@ class Solver:
                 (1 - relaxation_factor) * gamma + relaxation_factor * gamma_new + damp
             )
 
+            # TODO: could add a dynamic relaxation factor here, although first tries failed, so not super easy
+
             # Checking Convergence
             reference_error = np.amax(np.abs(gamma_new))
             reference_error = max(reference_error, self.tol_reference_error)
