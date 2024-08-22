@@ -111,6 +111,8 @@ def test_v3():
         is_plotting=False,
     )
     # checking LTT old close to LLT new
+    for gamma_LLT_i, gamma_LLT_new_i in zip(gamma_LLT, gamma_LLT_new):
+        assert np.allclose(gamma_LLT_i, gamma_LLT_new_i, atol=1e-2)
     assert np.allclose(CL_LLT, CL_LLT_new, atol=1e-3)
     assert np.allclose(CD_LLT, CD_LLT_new, atol=1e-4)
 
@@ -154,6 +156,8 @@ def test_v3():
     assert np.allclose(CD_LLT, CD_LLT_new, atol=2e-3)
 
     # checking VSMs to be close to one another
+    for gamma_VSM_i, gamma_VSM_new_i in zip(gamma_VSM, gamma_VSM_new):
+        assert np.allclose(gamma_VSM_i, gamma_VSM_new_i, atol=1e-2)
     assert np.allclose(CL_VSM, CL_VSM_new, atol=2e-2)
     assert np.allclose(CD_VSM, CD_VSM_new, atol=2e-3)
 

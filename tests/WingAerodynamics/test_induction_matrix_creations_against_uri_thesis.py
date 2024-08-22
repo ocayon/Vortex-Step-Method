@@ -217,7 +217,11 @@ def test_induction_matrix_creation():
     )
 
     ### NEW ###
-    AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(model, core_radius_fraction)
+    va_norm_array = np.array([vec_norm(Uinf)] * len(coord))
+    va_unit_array = np.array([Uinf / vec_norm(Uinf)] * len(coord))
+    AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
+        model, core_radius_fraction, va_norm_array, va_unit_array
+    )
 
     print_matrix(MatrixU, "MatrixU")
     print_matrix(AIC_x, "AIC_x")
@@ -255,8 +259,9 @@ def test_induction_matrix_creation():
     ### NEW ###
 
     # wing_aero.va = Uinf
-    AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(model, core_radius_fraction)
-
+    AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
+        model, core_radius_fraction, va_norm_array, va_unit_array
+    )
     # Check if the matrices are the same
     assert np.allclose(MatrixU, AIC_x, atol=1e-8)
     assert np.allclose(MatrixV, -AIC_y, atol=1e-8)

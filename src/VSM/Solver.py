@@ -111,7 +111,7 @@ class Solver:
         artificial_damping (dict): = {"k2": 0.0, "k4": 0.0} | Artificial damping
         type_initial_gamma_distribution (str): = "elliptic" | Type of initial gamma distribution
         core_radius_fraction (float): = 1e-20 | Core radius fraction
-        stall_angle_calculation_values (list): = [9, 25, 1, 50, -10] | Stall angle calculation values, representing [begin, end, step, stall_angle_when_no_stall_is_detected, starting_cl_for_iteration]
+        is_only_f_distribution_output (bool): = False | True when speed is desired and only interest lies in distributed force
 
     Methods:
         solve: Solve the circulation distribution
@@ -133,6 +133,7 @@ class Solver:
         type_initial_gamma_distribution: str = "elliptic",
         core_radius_fraction: float = 1e-20,
         mu: float = 1.81e-5,
+        is_only_f_distribution_output: bool = False,
         # TODO: ideally stall_angle_values inputs is given here, rather than hardcoded in the function
         ## TODO: would be nice to having these defined here instead of inside the panel class?
         # aerodynamic_center_location: float = 0.25,
@@ -152,30 +153,394 @@ class Solver:
         self.type_initial_gamma_distribution = type_initial_gamma_distribution
         self.core_radius_fraction = core_radius_fraction
         self.mu = mu
+        self.is_only_f_distribution_output = is_only_f_distribution_output
+
+    # def solve(self, wing_aero, gamma_distribution=None):
+    #     import time as time
+
+    #     print("-----Starting the speed test")
+    #     time_before = time.time()
+    #     if wing_aero.va is None:
+    #         raise ValueError("Inflow conditions are not set")
+
+    #     # Calculate the new circulation distribution iteratively
+    #     gamma_new = self.calculate_gamma_new_iteratively(wing_aero, gamma_distribution)
+    #     print(f"SOLVER Time taken: {time.time() - time_before:.2f} s")
+    #     time_before = time.time()
+    #     # Calculating results (incl. updating angle of attack for VSM)
+    #     results = wing_aero.calculate_results(
+    #         gamma_new,
+    #         self.density,
+    #         self.aerodynamic_model_type,
+    #         self.core_radius_fraction,
+    #         self.mu,
+    #     )
+    #     print(f"RESULTS Time taken: {time.time() - time_before:.2f} s")
+
+    #     return results, wing_aero
+
+    # def calculate_gamma_new_iteratively(self, wing_aero, gamma_distribution):
+
+    #     import time as time
+
+    #     print("Initialising gamma calculation")
+    #     time_before = time.time()
+    #     AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
+    #         self.aerodynamic_model_type, self.core_radius_fraction
+    #     )
+    #     print(f"Time AIC calculation {time.time() - time_before:.2f} s")
+    #     logging.debug(f"AIC_x: {AIC_x}")
+    #     logging.debug(f"AIC_y: {AIC_y}")
+    #     logging.debug(f"AIC_z: {AIC_z}")
+
+    #     # Initialize variables here, outside the loop
+    #     panels = wing_aero.panels
+    #     n_panels = wing_aero.n_panels
+    #     alpha_array = np.zeros(n_panels)
+    #     relaxation_factor = self.relaxation_factor
+    #     x_airf_array, y_airf_array, z_airf_array, va_array, chord_array = (
+    #         np.zeros((n_panels, 3)),
+    #         np.zeros((n_panels, 3)),
+    #         np.zeros((n_panels, 3)),
+    #         np.zeros((n_panels, 3)),
+    #         np.zeros(n_panels),
+    #     )
+    #     for i, panel in enumerate(panels):
+    #         x_airf_array[i] = panel.x_airf
+    #         y_airf_array[i] = panel.y_airf
+    #         z_airf_array[i] = panel.z_airf
+    #         va_array[i] = panel.va
+    #         chord_array[i] = panel.chord
+
+    #     # initialize gamma distribution inside
+    #     if (
+    #         gamma_distribution is None
+    #         and self.type_initial_gamma_distribution == "elliptic"
+    #     ):
+    #         gamma_new = wing_aero.calculate_circulation_distribution_elliptical_wing()
+    #     elif len(gamma_distribution) == n_panels:
+    #         gamma_new = gamma_distribution
+
+    #     logging.debug("Initial gamma_new: %s", gamma_new)
+
+    #     # looping untill max_iterations
+    #     converged = False
+    #     for i in range(self.max_iterations):
+
+    #         gamma = np.array(gamma_new)
+    #         induced_velocity_all = np.array(
+    #             [
+    #                 np.matmul(AIC_x, gamma),
+    #                 np.matmul(AIC_y, gamma),
+    #                 np.matmul(AIC_z, gamma),
+    #             ]
+    #         ).T
+    #         relative_velocity_array = va_array + induced_velocity_all
+    #         relative_velocity_crossz_array = np.cross(
+    #             relative_velocity_array, z_airf_array
+    #         )
+    #         Uinfcrossz_array = np.cross(va_array, z_airf_array)
+    #         v_normal_array = np.sum(x_airf_array * relative_velocity_array, axis=1)
+    #         v_tangential_array = np.sum(y_airf_array * relative_velocity_array, axis=1)
+    #         alpha_array = np.arctan(v_normal_array / v_tangential_array)
+    #         Umag_array = np.linalg.norm(relative_velocity_crossz_array, axis=1)
+    #         Umagw_array = np.linalg.norm(Uinfcrossz_array, axis=1)
+    #         cl_array = np.array(
+    #             [panel.calculate_cl(alpha) for panel, alpha in zip(panels, alpha_array)]
+    #         )
+    #         gamma_new = 0.5 * Umag_array**2 / Umagw_array * cl_array * chord_array
+
+    #         # logging.debug(f"induced_velocity_all: {np.shape(induced_velocity_all)}")
+    #         # logging.debug(
+    #         #     f"relative_velocity_array: {np.shape(relative_velocity_array)}"
+    #         # )
+    #         # logging.debug(f"v_normal_array: {np.shape(v_normal_array)}")
+    #         # logging.debug(f"v_tangential_array: {np.shape(v_tangential_array)}")
+    #         # logging.debug(f"x_airf_array: {np.shape(x_airf_array)}")
+    #         # logging.debug(f"y_airf_array: {np.shape(y_airf_array)}")
+    #         # logging.debug(f"z_airf_array: {np.shape(z_airf_array)}")
+    #         # logging.debug(f"alpha_array: {np.shape(alpha_array)}")
+
+    #         # logging.debug("--------- icp: %d", icp)
+    #         # logging.debug("induced_velocity: %s", induced_velocity)
+    #         # logging.debug("alpha: %f", alpha)
+    #         # logging.debug("relative_velocity: %s", relative_velocity)
+    #         # logging.debug("cl: %f", cl)
+    #         # logging.debug("Umag: %f", Umag)
+    #         # logging.debug("Umagw: %f", Umagw)
+    #         # logging.debug("chord: %f", chord_array[icp])
+
+    #         # Calculating damping factor for stalled cases
+    #         # stall_angle_list = wing_aero.stall_angle_list
+    #         # damp, is_with_damp = self.calculate_artificial_damping(
+    #         #     gamma, alpha, stall_angle_list
+    #         # )
+    #         if self.is_with_artificial_damping:
+    #             damp, is_damping_applied = self.smooth_circulation(
+    #                 circulation=gamma, smoothness_factor=0.1, damping_factor=0.5
+    #             )
+    #             logging.debug("damp: %s", damp)
+    #         else:
+    #             damp = 0
+    #             is_damping_applied = False
+    #         gamma_new = (
+    #             (1 - relaxation_factor) * gamma + relaxation_factor * gamma_new + damp
+    #         )
+
+    #         # Checking Convergence
+    #         reference_error = np.amax(np.abs(gamma_new))
+    #         reference_error = max(reference_error, self.tol_reference_error)
+    #         error = np.amax(np.abs(gamma_new - gamma))
+    #         normalized_error = error / reference_error
+
+    #         logging.debug(
+    #             "Iteration: %d, normalized_error: %f, is_damping_applied: %s",
+    #             i,
+    #             normalized_error,
+    #             is_damping_applied,
+    #         )
+
+    #         # relative error
+    #         if normalized_error < self.allowed_error:
+    #             # if error smaller than limit, stop iteration cycle
+    #             converged = True
+    #             break
+
+    #     if converged:
+    #         logging.info("------------------------------------")
+    #         logging.info(
+    #             f"{self.aerodynamic_model_type} Converged after {i} iterations"
+    #         )
+    #         logging.info("------------------------------------")
+    #     elif not converged:
+    #         logging.info("------------------------------------")
+    #         logging.info(
+    #             f"{self.aerodynamic_model_type} Not converged after {str(self.max_iterations)} iterations"
+    #         )
+    #         logging.info("------------------------------------")
+
+    #     return gamma_new
+
+    # def solve(self, wing_aero, gamma_distribution=None):
+    #     import time as time
+
+    #     print("-----Starting the speed test")
+    #     time_before = time.time()
+    #     if wing_aero.va is None:
+    #         raise ValueError("Inflow conditions are not set")
+
+    #     # Calculate the new circulation distribution iteratively
+    #     (
+    #         gamma_new,
+    #         alpha_array,
+    #         Umag_array,
+    #         chord_array,
+    #         x_airf_array,
+    #         y_airf_array,
+    #         z_airf_array,
+    #         va_array,
+    #         panels,
+    #     ) = self.calculate_gamma_new_iteratively(wing_aero, gamma_distribution)
+    #     print(f"SOLVER Time taken: {time.time() - time_before:.2f} s")
+    #     time_before = time.time()
+    #     # Calculating results (incl. updating angle of attack for VSM)
+    #     results = wing_aero.calculate_results(
+    #         gamma_new,
+    #         self.density,
+    #         self.aerodynamic_model_type,
+    #         self.core_radius_fraction,
+    #         self.mu,
+    #         alpha_array,
+    #         Umag_array,
+    #         chord_array,
+    #         x_airf_array,
+    #         y_airf_array,
+    #         z_airf_array,
+    #         va_array,
+    #         panels,
+    #     )
+    #     print(f"RESULTS Time taken: {time.time() - time_before:.2f} s")
+
+    #     return results, wing_aero
 
     def solve(self, wing_aero, gamma_distribution=None):
         import time as time
 
-        print("-----Starting the speed test")
-        time_before = time.time()
         if wing_aero.va is None:
             raise ValueError("Inflow conditions are not set")
 
+        # Initialize variables here, outside the loop
+        panels = wing_aero.panels
+        n_panels = wing_aero.n_panels
+        alpha_array = np.zeros(n_panels)
+        relaxation_factor = self.relaxation_factor
+        (
+            x_airf_array,
+            y_airf_array,
+            z_airf_array,
+            va_array,
+            chord_array,
+        ) = (
+            np.zeros((n_panels, 3)),
+            np.zeros((n_panels, 3)),
+            np.zeros((n_panels, 3)),
+            np.zeros((n_panels, 3)),
+            np.zeros(n_panels),
+        )
+        for i, panel in enumerate(panels):
+            x_airf_array[i] = panel.x_airf
+            y_airf_array[i] = panel.y_airf
+            z_airf_array[i] = panel.z_airf
+            va_array[i] = panel.va
+            chord_array[i] = panel.chord
+
+        va_norm_array = np.linalg.norm(va_array, axis=1)
+        va_unit_array = va_array / va_norm_array[:, None]
+
         # Calculate the new circulation distribution iteratively
-        gamma_new = self.calculate_gamma_new_iteratively(wing_aero, gamma_distribution)
-        print(f"SOLVER Time taken: {time.time() - time_before:.2f} s")
         time_before = time.time()
+        AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
+            self.aerodynamic_model_type,
+            self.core_radius_fraction,
+            va_norm_array,
+            va_unit_array,
+        )
+        print(f"Time AIC calculation {time.time() - time_before:.2f} s")
+        logging.debug(f"AIC_x: {AIC_x}")
+        logging.debug(f"AIC_y: {AIC_y}")
+        logging.debug(f"AIC_z: {AIC_z}")
+
+        # initialize gamma distribution inside
+        if (
+            gamma_distribution is None
+            and self.type_initial_gamma_distribution == "elliptic"
+        ):
+            gamma_new = wing_aero.calculate_circulation_distribution_elliptical_wing()
+        elif len(gamma_distribution) == n_panels:
+            gamma_new = gamma_distribution
+
+        logging.debug("Initial gamma_new: %s", gamma_new)
+
+        # looping untill max_iterations
+        converged = False
+        for i in range(self.max_iterations):
+
+            gamma = np.array(gamma_new)
+            induced_velocity_all = np.array(
+                [
+                    np.matmul(AIC_x, gamma),
+                    np.matmul(AIC_y, gamma),
+                    np.matmul(AIC_z, gamma),
+                ]
+            ).T
+            relative_velocity_array = va_array + induced_velocity_all
+            relative_velocity_crossz_array = np.cross(
+                relative_velocity_array, z_airf_array
+            )
+            Uinfcrossz_array = np.cross(va_array, z_airf_array)
+            v_normal_array = np.sum(x_airf_array * relative_velocity_array, axis=1)
+            v_tangential_array = np.sum(y_airf_array * relative_velocity_array, axis=1)
+            alpha_array = np.arctan(v_normal_array / v_tangential_array)
+            Umag_array = np.linalg.norm(relative_velocity_crossz_array, axis=1)
+            Umagw_array = np.linalg.norm(Uinfcrossz_array, axis=1)
+            cl_array = np.array(
+                [panel.calculate_cl(alpha) for panel, alpha in zip(panels, alpha_array)]
+            )
+            gamma_new = 0.5 * Umag_array**2 / Umagw_array * cl_array * chord_array
+
+            # logging.debug(f"induced_velocity_all: {np.shape(induced_velocity_all)}")
+            # logging.debug(
+            #     f"relative_velocity_array: {np.shape(relative_velocity_array)}"
+            # )
+            # logging.debug(f"v_normal_array: {np.shape(v_normal_array)}")
+            # logging.debug(f"v_tangential_array: {np.shape(v_tangential_array)}")
+            # logging.debug(f"x_airf_array: {np.shape(x_airf_array)}")
+            # logging.debug(f"y_airf_array: {np.shape(y_airf_array)}")
+            # logging.debug(f"z_airf_array: {np.shape(z_airf_array)}")
+            # logging.debug(f"alpha_array: {np.shape(alpha_array)}")
+
+            # logging.debug("--------- icp: %d", icp)
+            # logging.debug("induced_velocity: %s", induced_velocity)
+            # logging.debug("alpha: %f", alpha)
+            # logging.debug("relative_velocity: %s", relative_velocity)
+            # logging.debug("cl: %f", cl)
+            # logging.debug("Umag: %f", Umag)
+            # logging.debug("Umagw: %f", Umagw)
+            # logging.debug("chord: %f", chord_array[icp])
+
+            # Calculating damping factor for stalled cases
+            # stall_angle_list = wing_aero.stall_angle_list
+            # damp, is_with_damp = self.calculate_artificial_damping(
+            #     gamma, alpha, stall_angle_list
+            # )
+            if self.is_with_artificial_damping:
+                damp, is_damping_applied = self.smooth_circulation(
+                    circulation=gamma, smoothness_factor=0.1, damping_factor=0.5
+                )
+                logging.debug("damp: %s", damp)
+            else:
+                damp = 0
+                is_damping_applied = False
+            gamma_new = (
+                (1 - relaxation_factor) * gamma + relaxation_factor * gamma_new + damp
+            )
+
+            # Checking Convergence
+            reference_error = np.amax(np.abs(gamma_new))
+            reference_error = max(reference_error, self.tol_reference_error)
+            error = np.amax(np.abs(gamma_new - gamma))
+            normalized_error = error / reference_error
+
+            logging.debug(
+                "Iteration: %d, normalized_error: %f, is_damping_applied: %s",
+                i,
+                normalized_error,
+                is_damping_applied,
+            )
+
+            # relative error
+            if normalized_error < self.allowed_error:
+                # if error smaller than limit, stop iteration cycle
+                converged = True
+                break
+
+        if converged:
+            logging.info("------------------------------------")
+            logging.info(
+                f"{self.aerodynamic_model_type} Converged after {i} iterations"
+            )
+            logging.info("------------------------------------")
+        elif not converged:
+            logging.info("------------------------------------")
+            logging.info(
+                f"{self.aerodynamic_model_type} Not converged after {str(self.max_iterations)} iterations"
+            )
+            logging.info("------------------------------------")
+        print(f"SOLVER Time taken: {time.time() - time_before:.2f} s")
+
         # Calculating results (incl. updating angle of attack for VSM)
+        time_before = time.time()
         results = wing_aero.calculate_results(
             gamma_new,
             self.density,
             self.aerodynamic_model_type,
             self.core_radius_fraction,
             self.mu,
+            alpha_array,
+            Umag_array,
+            chord_array,
+            x_airf_array,
+            y_airf_array,
+            z_airf_array,
+            va_array,
+            va_norm_array,
+            va_unit_array,
+            panels,
+            self.is_only_f_distribution_output,
         )
         print(f"RESULTS Time taken: {time.time() - time_before:.2f} s")
 
-        return results, wing_aero
+        return results,wing_aero
 
     def calculate_gamma_new_iteratively(self, wing_aero, gamma_distribution):
 
@@ -317,87 +682,97 @@ class Solver:
             )
             logging.info("------------------------------------")
 
-        return gamma_new
-
-    def solve_kitesim(self, wing_aero, gamma_distribution=None):
-        import time as time
-
-        print("-----Starting the speed test")
-        time_before = time.time()
-
-        # Calculate the new circulation distribution iteratively
-        gamma_new = self.calculate_gamma_new_iteratively(wing_aero, gamma_distribution)
-        print(f"SOLVER Time taken: {time.time() - time_before:.2f} s")
-        time_before = time.time()
-        # Calculating results (incl. updating angle of attack for VSM)
-        results = wing_aero.calculate_results(
+        return (
             gamma_new,
-            self.density,
-            self.aerodynamic_model_type,
-            self.core_radius_fraction,
-            self.mu,
+            alpha_array,
+            Umag_array,
+            chord_array,
+            x_airf_array,
+            y_airf_array,
+            z_airf_array,
+            va_array,
+            panels,
         )
-        print(f"RESULTS Time taken: {time.time() - time_before:.2f} s")
 
-        return results, wing_aero
+    # def solve_kitesim(self, wing_aero, gamma_distribution=None):
+    #     import time as time
 
-    def getting_kitesim_output(
-        self,
-        wing_aero,
-        gamma_new,
-        density,
-        aerodynamic_model_type,
-        core_radius_fraction,
-        alpha_array,
-        Umag_array,
-        chord_array,
-        x_airf_array,
-        y_airf_array,
-        z_airf_array,
-        panels,
-    ):
-        cl_array, cd_array, cm_array = (
-            np.zeros(len(panels)),
-            np.zeros(len(panels)),
-            np.zeros(len(panels)),
-        )
-        panel_width_array = np.zeros(len(panels))
-        for icp, panel in enumerate(panels):
-            cl_array[icp] = panel.calculate_cl(alpha_array[icp])
-            cd_array[icp], cm_array[icp] = panel.calculate_cd_cm(alpha_array[icp])
-            panel_width_array[icp] = panel[icp].width
-        # Retrieve forces and moments
-        lift = 0.5 * density * Umag_array**2 * cl_array * chord_array
-        drag = 0.5 * density * Umag_array**2 * cd_array * chord_array
+    #     print("-----Starting the speed test")
+    #     time_before = time.time()
 
-        # correct alpha if VSM
-        if aerodynamic_model_type == "VSM":
-            alpha_array = wing_aero.update_effective_angle_of_attack_if_VSM(
-                gamma_new, core_radius_fraction
-            )
-        spanwise_direction = wing_aero.wings[0].spanwise_direction
+    #     # Calculate the new circulation distribution iteratively
+    #     gamma_new = self.calculate_gamma_new_iteratively(wing_aero, gamma_distribution)
+    #     print(f"SOLVER Time taken: {time.time() - time_before:.2f} s")
+    #     time_before = time.time()
+    #     # Calculating results (incl. updating angle of attack for VSM)
+    #     results = wing_aero.calculate_results(
+    #         gamma_new,
+    #         self.density,
+    #         self.aerodynamic_model_type,
+    #         self.core_radius_fraction,
+    #         self.mu,
+    #     )
+    #     print(f"RESULTS Time taken: {time.time() - time_before:.2f} s")
 
-        ### Calculate the direction of the induced apparent wind speed to the airfoil orientation
-        # this is done using the CORRECTED CALCULATED (comes from gamma distribution) angle of attack
-        # For VSM the correction is applied, and it is the angle of attack, from calculating induced velocities at the 1/4c aerodynamic center location
-        # For LTT the correction is NOT applied, and it is the angle of attack, from calculating induced velocities at the 3/4c control point
-        induced_va_airfoil = (
-            np.cos(alpha_array) * y_airf_array + np.sin(alpha_array) * x_airf_array
-        )
-        dir_induced_va_airfoil = induced_va_airfoil / np.linalg.norm(induced_va_airfoil)
-        ### Calculate the direction of the lift and drag vectors
-        # lift is perpendical/normal to induced apparent wind speed
-        # drag is parallel/tangential to induced apparent wind speed
-        dir_lift_induced_va = np.cross(dir_induced_va_airfoil, z_airf_array)
-        dir_lift_induced_va = dir_lift_induced_va / np.linalg.norm(dir_lift_induced_va)
-        dir_drag_induced_va = np.cross(spanwise_direction, dir_lift_induced_va)
-        dir_drag_induced_va = dir_drag_induced_va / np.linalg.norm(dir_drag_induced_va)
-        ftotal_induced_va = lift * dir_drag_induced_va + drag * dir_lift_induced_va
+    #     return results, wing_aero
 
-        # making it 3D
-        ftotal_induced_va_3D_array = ftotal_induced_va * panel_width_array
+    # def getting_kitesim_output(
+    #     self,
+    #     wing_aero,
+    #     gamma_new,
+    #     density,
+    #     aerodynamic_model_type,
+    #     core_radius_fraction,
+    #     alpha_array,
+    #     Umag_array,
+    #     chord_array,
+    #     x_airf_array,
+    #     y_airf_array,
+    #     z_airf_array,
+    #     panels,
+    # ):
+    #     cl_array, cd_array, cm_array = (
+    #         np.zeros(len(panels)),
+    #         np.zeros(len(panels)),
+    #         np.zeros(len(panels)),
+    #     )
+    #     panel_width_array = np.zeros(len(panels))
+    #     for icp, panel in enumerate(panels):
+    #         cl_array[icp] = panel.calculate_cl(alpha_array[icp])
+    #         cd_array[icp], cm_array[icp] = panel.calculate_cd_cm(alpha_array[icp])
+    #         panel_width_array[icp] = panel[icp].width
+    #     # Retrieve forces and moments
+    #     lift = 0.5 * density * Umag_array**2 * cl_array * chord_array
+    #     drag = 0.5 * density * Umag_array**2 * cd_array * chord_array
 
-        return ftotal_induced_va_3D_array
+    #     # correct alpha if VSM
+    #     if aerodynamic_model_type == "VSM":
+    #         alpha_array = wing_aero.update_effective_angle_of_attack_if_VSM(
+    #             gamma_new, core_radius_fraction
+    #         )
+    #     spanwise_direction = wing_aero.wings[0].spanwise_direction
+
+    #     ### Calculate the direction of the induced apparent wind speed to the airfoil orientation
+    #     # this is done using the CORRECTED CALCULATED (comes from gamma distribution) angle of attack
+    #     # For VSM the correction is applied, and it is the angle of attack, from calculating induced velocities at the 1/4c aerodynamic center location
+    #     # For LTT the correction is NOT applied, and it is the angle of attack, from calculating induced velocities at the 3/4c control point
+    #     induced_va_airfoil = (
+    #         np.cos(alpha_array) * y_airf_array + np.sin(alpha_array) * x_airf_array
+    #     )
+    #     dir_induced_va_airfoil = induced_va_airfoil / np.linalg.norm(induced_va_airfoil)
+    #     ### Calculate the direction of the lift and drag vectors
+    #     # lift is perpendical/normal to induced apparent wind speed
+    #     # drag is parallel/tangential to induced apparent wind speed
+    #     dir_lift_induced_va = np.cross(dir_induced_va_airfoil, z_airf_array)
+    #     dir_lift_induced_va = dir_lift_induced_va / np.linalg.norm(dir_lift_induced_va)
+    #     dir_drag_induced_va = np.cross(spanwise_direction, dir_lift_induced_va)
+    #     dir_drag_induced_va = dir_drag_induced_va / np.linalg.norm(dir_drag_induced_va)
+    #     ftotal_induced_va = lift * dir_drag_induced_va + drag * dir_lift_induced_va
+
+    #     # making it 3D
+    #     ftotal_induced_va_3D_array = ftotal_induced_va * panel_width_array
+
+    #     return ftotal_induced_va_3D_array
 
     def calculate_artificial_damping(self, gamma, alpha, stall_angle_list):
 

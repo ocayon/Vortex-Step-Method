@@ -78,11 +78,14 @@ def run_speed_test(gamma):
     print(f"Time : {time.time() - time_start:.2f} s")
 
     # Solving
-    results, CAD_wing_aero = VSM_with_stall_correction.solve(CAD_wing_aero,gamma_distribution=gamma)
+    results, _ = VSM_with_stall_correction.solve(
+        CAD_wing_aero, gamma_distribution=gamma
+    )
 
     time_end = time.time()
     print(f"Time taken for the simulation: {time_end - time_start:.2f}  seconds")
     return results["gamma_distribution"]
+
 
 if __name__ == "__main__":
     # from line_profiler import LineProfiler
