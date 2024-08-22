@@ -1,19 +1,9 @@
 from abc import ABC, abstractmethod
 import numpy as np
 import logging
-from numba import jit
+from . import jit_cross, jit_norm
 
 logging.basicConfig(level=logging.INFO)
-
-
-@jit(nopython=True)
-def jit_cross(a, b):
-    return np.cross(a, b)
-
-
-@jit(nopython=True)
-def jit_norm(value):
-    return np.linalg.norm(value)
 
 
 class Filament(ABC):

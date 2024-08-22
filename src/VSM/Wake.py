@@ -1,5 +1,6 @@
 import numpy as np
 from VSM.Filament import SemiInfiniteFilament
+from . import jit_norm
 
 
 def frozen_wake(
@@ -20,8 +21,8 @@ def frozen_wake(
     """
     for i, panel in enumerate(panels):
         va_i = va_distribution[i]
-        vel_mag = np.linalg.norm(va_i)
-        direction = va_i / np.linalg.norm(va_i)
+        vel_mag = jit_norm(va_i)
+        direction = va_i / jit_norm(va_i)
 
         # Ensuring that not older runs, their filaments remain present
         if len(panel.filaments) == 3:

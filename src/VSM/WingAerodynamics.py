@@ -1,12 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-
 import logging
-
 from VSM.Panel import Panel
 import VSM.Wake as Wake
+from . import jit_cross, jit_norm
 
 
 # TODO: should change name to deal with multiple wings
@@ -205,13 +201,13 @@ class WingAerodynamics:
                 "p4": coordinates[2 * i + 1, :],  # p4 = TE_1
             }
 
-            di = np.linalg.norm(
+            di = jit_norm(
                 coordinates[2 * i, :] * 0.75
                 + coordinates[2 * i + 1, :] * 0.25
                 - (coordinates[2 * i + 2, :] * 0.75 + coordinates[2 * i + 3, :] * 0.25)
             )
             if i == 0:
-                diplus = np.linalg.norm(
+                diplus = jit_norm(
                     coordinates[2 * (i + 1), :] * 0.75
                     + coordinates[2 * (i + 1) + 1, :] * 0.25
                     - (
@@ -221,7 +217,7 @@ class WingAerodynamics:
                 )
                 ncp = di / (di + diplus)
             elif i == n_panels - 1:
-                dimin = np.linalg.norm(
+                dimin = jit_norm(
                     coordinates[2 * (i - 1), :] * 0.75
                     + coordinates[2 * (i - 1) + 1, :] * 0.25
                     - (
@@ -231,7 +227,7 @@ class WingAerodynamics:
                 )
                 ncp = dimin / (dimin + di)
             else:
-                dimin = np.linalg.norm(
+                dimin = jit_norm(
                     coordinates[2 * (i - 1), :] * 0.75
                     + coordinates[2 * (i - 1) + 1, :] * 0.25
                     - (
@@ -239,7 +235,7 @@ class WingAerodynamics:
                         + coordinates[2 * (i - 1) + 3, :] * 0.25
                     )
                 )
-                diplus = np.linalg.norm(
+                diplus = jit_norm(
                     coordinates[2 * (i + 1), :] * 0.75
                     + coordinates[2 * (i + 1) + 1, :] * 0.25
                     - (
@@ -267,17 +263,17 @@ class WingAerodynamics:
             ### Calculate the local reference frame, below are all unit_vectors
             # NORMAL x_airf defined upwards from the chord-line, perpendicular to the panel
             # used to be: p2 - p1
-            x_airf = np.cross(VSMpoint - LLpoint, section["p1"] - section["p2"])
-            x_airf = x_airf / np.linalg.norm(x_airf)
+            x_airf = jit_cross(VSMpoint - LLpoint, section["p1"] - section["p2"])
+            x_airf = x_airf / jit_norm(x_airf)
 
             # TANGENTIAL y_airf defined parallel to the chord-line, from LE-to-TE
             y_airf = VSMpoint - LLpoint
-            y_airf = y_airf / np.linalg.norm(y_airf)
+            y_airf = y_airf / jit_norm(y_airf)
 
             # SPAN z_airf along the LE, in plane (towards left tip, along span) from the airfoil perspective
             # used to be bound_2 - bound_1
             z_airf = bound_1 - bound_2
-            z_airf = z_airf / np.linalg.norm(z_airf)
+            z_airf = z_airf / jit_norm(z_airf)
 
             # Appending
             aerodynamic_center_list.append(LLpoint)
@@ -483,7 +479,7 @@ class WingAerodynamics:
         fz_global_3D_sum = 0
 
         spanwise_direction = self.wings[0].spanwise_direction
-        va_mag = np.linalg.norm(self._va)
+        va_mag = jit_norm(self._va)
         va = self._va
         va_unit = va / va_mag
         q_inf = 0.5 * density * va_mag**2
@@ -492,13 +488,13 @@ class WingAerodynamics:
         #     np.cos(alpha_corrected) * y_airf_array
         #     + np.sin(alpha_corrected) * x_airf_array
         # )
-        # dir_induced_va_airfoil_array = induced_va_airfoil_array / np.linalg.norm(
+        # dir_induced_va_airfoil_array = induced_va_airfoil_array / jit_norm(
         #     induced_va_airfoil_array
         # )
 
         # # z_airf_array = np.array([panel.z_airf for panel in self.panels])
-        # dir_lift_induced_va_array = np.cross(dir_induced_va_airfoil_array, z_airf_array)
-        # dir_lift_induced_va_array = dir_lift_induced_va_array / np.linalg.norm(
+        # dir_lift_induced_va_array = jit_cross(dir_induced_va_airfoil_array, z_airf_array)
+        # dir_lift_induced_va_array = dir_lift_induced_va_array / jit_norm(
         #     dir_lift_induced_va_array
         # )
         # logging.info(f"induced_va_airfoil_array: {induced_va_airfoil_array.shape}")
@@ -531,20 +527,14 @@ class WingAerodynamics:
                 np.cos(alpha_corrected_i) * y_airf_chord
                 + np.sin(alpha_corrected_i) * x_airf_normal_to_chord
             )
-            dir_induced_va_airfoil = induced_va_airfoil / np.linalg.norm(
-                induced_va_airfoil
-            )
+            dir_induced_va_airfoil = induced_va_airfoil / jit_norm(induced_va_airfoil)
             ### Calculate the direction of the lift and drag vectors
             # lift is perpendical/normal to induced apparent wind speed
             # drag is parallel/tangential to induced apparent wind speed
-            dir_lift_induced_va = np.cross(dir_induced_va_airfoil, z_airf_span)
-            dir_lift_induced_va = dir_lift_induced_va / np.linalg.norm(
-                dir_lift_induced_va
-            )
-            dir_drag_induced_va = np.cross(spanwise_direction, dir_lift_induced_va)
-            dir_drag_induced_va = dir_drag_induced_va / np.linalg.norm(
-                dir_drag_induced_va
-            )
+            dir_lift_induced_va = jit_cross(dir_induced_va_airfoil, z_airf_span)
+            dir_lift_induced_va = dir_lift_induced_va / jit_norm(dir_lift_induced_va)
+            dir_drag_induced_va = jit_cross(spanwise_direction, dir_lift_induced_va)
+            dir_drag_induced_va = dir_drag_induced_va / jit_norm(dir_drag_induced_va)
 
             # logging.info(f"----before")
             # logging.info(f"shape induced_va_airfoil: {induced_va_airfoil.shape}")
@@ -600,8 +590,8 @@ class WingAerodynamics:
                 }
 
             ### Converting forces to prescribed wing va
-            dir_lift_prescribed_va = np.cross(va, spanwise_direction)
-            dir_lift_prescribed_va = dir_lift_prescribed_va / np.linalg.norm(
+            dir_lift_prescribed_va = jit_cross(va, spanwise_direction)
+            dir_lift_prescribed_va = dir_lift_prescribed_va / jit_norm(
                 dir_lift_prescribed_va
             )
             lift_prescribed_va = np.dot(
@@ -683,10 +673,7 @@ class WingAerodynamics:
             [
                 np.rad2deg(
                     np.arccos(np.dot(panel_i.y_airf, horizontal_direction))
-                    / (
-                        np.linalg.norm(panel_i.y_airf)
-                        * np.linalg.norm(horizontal_direction)
-                    )
+                    / (jit_norm(panel_i.y_airf) * jit_norm(horizontal_direction))
                 )
                 for panel_i in self.panels
             ]

@@ -1,6 +1,6 @@
 import numpy as np
 import logging
-from numba import jit
+from . import jit_cross
 
 # Maurits-tips :)
 # call the methods of child-classes, inhereted or composed of
@@ -137,10 +137,10 @@ class Solver:
                 ]
             ).T
             relative_velocity_array = va_array + induced_velocity_all
-            relative_velocity_crossz_array = np.cross(
+            relative_velocity_crossz_array = jit_cross(
                 relative_velocity_array, z_airf_array
             )
-            Uinfcrossz_array = np.cross(va_array, z_airf_array)
+            Uinfcrossz_array = jit_cross(va_array, z_airf_array)
             v_normal_array = np.sum(x_airf_array * relative_velocity_array, axis=1)
             v_tangential_array = np.sum(y_airf_array * relative_velocity_array, axis=1)
             alpha_array = np.arctan(v_normal_array / v_tangential_array)

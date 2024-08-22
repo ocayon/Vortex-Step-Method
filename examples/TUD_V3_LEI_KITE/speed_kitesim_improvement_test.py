@@ -177,10 +177,11 @@ if __name__ == "__main__":
     gamma = None
     print("Starting the speed test")
     time_before = time.time()
-    for i in range(5):
+    for i in range(10):
         time_before_this_loop = time.time()
         gamma = run_speed_test(gamma)
         print(f"Time taken: {time.time() - time_before_this_loop:.2f} s")
+        gamma = None
 
     # cProfile.run("run_speed_test_cprofile()", sort="tottime")
     # lp = LineProfiler()
