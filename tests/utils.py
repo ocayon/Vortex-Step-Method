@@ -532,15 +532,15 @@ def calculate_new_for_alpha_range(
         Uinf = np.array([np.cos(aoa_i), 0, np.sin(aoa_i)]) * Umag
         wing_aero.va = Uinf
         if i == 0 and is_plotting:
-            wing_aero.plot()
+            raise ValueError("Plotting is not implemented for the first iteration")
         # LLT
 
-        results_LLT, wing_aero_LLT = LLT.solve(wing_aero)
+        results_LLT = LLT.solve(wing_aero)
         CL_LLT_new[i] = results_LLT["cl"]
         CD_LLT_new[i] = results_LLT["cd"]
         gamma_LLT_new[i] = results_LLT["gamma_distribution"]
 
-        results_VSM, wing_aero_VSM = VSM.solve(wing_aero)
+        results_VSM = VSM.solve(wing_aero)
         CL_VSM_new[i] = results_VSM["cl"]
         CD_VSM_new[i] = results_VSM["cd"]
         gamma_VSM_new[i] = results_VSM["gamma_distribution"]
@@ -549,9 +549,9 @@ def calculate_new_for_alpha_range(
         logging.debug(f"CD_VSM_new = {results_VSM['cd']}")
 
         controlpoints_list.append(
-            [panel.aerodynamic_center for panel in wing_aero_LLT.panels]
+            [panel.aerodynamic_center for panel in wing_aero.panels]
         )
-    panel_y = [panel.aerodynamic_center[1] for panel in wing_aero_LLT.panels]
+    panel_y = [panel.aerodynamic_center[1] for panel in wing_aero.panels]
     AR = results_VSM["aspect_ratio_projected"]
 
     return (

@@ -1,6 +1,7 @@
 import numpy as np
 import logging
 from VSM.Filament import BoundFilament
+from . import jit_cross, jit_norm
 
 
 class Panel:
@@ -67,8 +68,8 @@ class Panel:
         self._LE_point_2 = LE_point_2
         self._chord = np.average(
             [
-                np.linalg.norm(TE_point_1 - LE_point_1),
-                np.linalg.norm(TE_point_2 - LE_point_2),
+                jit_norm(TE_point_1 - LE_point_1),
+                jit_norm(TE_point_2 - LE_point_2),
             ]
         )
         self._va = None
@@ -114,7 +115,7 @@ class Panel:
         # TODO: Discuss with Mac...
         # Calculuting width at the bound, should be done averaged over whole panel
         # Conceptually, you should mulitply by the width of the bound vortex and thus take the average width.
-        self._width = np.linalg.norm(bound_point_2 - bound_point_1)
+        self._width = jit_norm(bound_point_2 - bound_point_1)
 
         ### Setting up the filaments (order used to reversed for right-to-left input)
         self._filaments = []
@@ -219,6 +220,7 @@ class Panel:
             relative_velocity (np.array): Relative velocity of the panel
         """
         # Calculate relative velocity and angle of attack
+        # Constant throughout the iterations: self.va, self.x_airf, self.y_airf
         relative_velocity = self.va + induced_velocity
         v_normal = np.dot(self.x_airf, relative_velocity)
         v_tangential = np.dot(self.y_airf, relative_velocity)
@@ -408,13 +410,13 @@ class Panel:
         r3 = evaluation_point - (self.bound_point_1 + self.bound_point_2) / 2
         # r0 should be the direction of the bound vortex
         r0 = self.bound_point_1 - self.bound_point_2
-        cross = np.cross(r0, r3)
+        cross = jit_cross(r0, r3)
         return (
             cross
             / (cross[0] ** 2 + cross[1] ** 2 + cross[2] ** 2)
             / 2
             / np.pi
-            * np.linalg.norm(r0)
+            * jit_norm(r0)
         )
 
     def calculate_velocity_induced_single_ring_semiinfinite(
@@ -497,7 +499,7 @@ class Panel:
                     color = "green"
             else:
                 # For semi-infinite filaments
-                x2 = x1 + 2 * self.chord * (self.va / np.linalg.norm(self.va))
+                x2 = x1 + 2 * self.chord * (self.va / jit_norm(self.va))
                 color = "orange"
                 if filament.filament_direction == -1:
                     x1, x2 = x2, x1

@@ -1,5 +1,6 @@
 import numpy as np
 import logging
+from . import jit_cross
 
 # Maurits-tips :)
 # call the methods of child-classes, inhereted or composed of
@@ -27,7 +28,7 @@ class Solver:
         artificial_damping (dict): = {"k2": 0.0, "k4": 0.0} | Artificial damping
         type_initial_gamma_distribution (str): = "elliptic" | Type of initial gamma distribution
         core_radius_fraction (float): = 1e-20 | Core radius fraction
-        stall_angle_calculation_values (list): = [9, 25, 1, 50, -10] | Stall angle calculation values, representing [begin, end, step, stall_angle_when_no_stall_is_detected, starting_cl_for_iteration]
+        is_only_f_distribution_output (bool): = False | True when speed is desired and only interest lies in distributed force
 
     Methods:
         solve: Solve the circulation distribution
@@ -49,6 +50,7 @@ class Solver:
         type_initial_gamma_distribution: str = "elliptic",
         core_radius_fraction: float = 1e-20,
         mu: float = 1.81e-5,
+        is_only_f_and_gamma_output: bool = False,
         # TODO: ideally stall_angle_values inputs is given here, rather than hardcoded in the function
         ## TODO: would be nice to having these defined here instead of inside the panel class?
         # aerodynamic_center_location: float = 0.25,
@@ -68,50 +70,48 @@ class Solver:
         self.type_initial_gamma_distribution = type_initial_gamma_distribution
         self.core_radius_fraction = core_radius_fraction
         self.mu = mu
+        self.is_only_f_and_gamma_output = is_only_f_and_gamma_output
 
     def solve(self, wing_aero, gamma_distribution=None):
 
         if wing_aero.va is None:
             raise ValueError("Inflow conditions are not set")
 
-        # Calculate the new circulation distribution iteratively
-        gamma_new = self.calculate_gamma_new_iteratively(wing_aero, gamma_distribution)
-
-        # Calculating results (incl. updating angle of attack for VSM)
-        results = wing_aero.calculate_results(
-            gamma_new,
-            self.density,
-            self.aerodynamic_model_type,
-            self.core_radius_fraction,
-            self.mu,
-        )
-
-        return results, wing_aero
-
-    def calculate_gamma_new_iteratively(self, wing_aero, gamma_distribution):
-        AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
-            self.aerodynamic_model_type, self.core_radius_fraction
-        )
-
-        logging.debug(f"AIC_x: {AIC_x}")
-        logging.debug(f"AIC_y: {AIC_y}")
-        logging.debug(f"AIC_z: {AIC_z}")
-
-        # TODO: CPU optimization: instantiate non-changing (geometric dependent) attributes here
-        # TODO: Further optimization: is to populate only in the loop, not create new arrays
+        # Initialize variables here, outside the loop
         panels = wing_aero.panels
         n_panels = wing_aero.n_panels
-        z_airf_array = np.array([panel.z_airf for panel in panels])
-        va_array = np.array([panel.va for panel in panels])
-        chord_array = np.array([panel.chord for panel in panels])
-        alpha = np.zeros(len(panels))
-        gamma = np.zeros(len(panels))
-        stall_angle_list = wing_aero.stall_angle_list
-        logging.debug(f"stall_angle_list: {np.rad2deg(stall_angle_list)}")
+        alpha_array = np.zeros(n_panels)
+        relaxation_factor = self.relaxation_factor
+        (
+            x_airf_array,
+            y_airf_array,
+            z_airf_array,
+            va_array,
+            chord_array,
+        ) = (
+            np.zeros((n_panels, 3)),
+            np.zeros((n_panels, 3)),
+            np.zeros((n_panels, 3)),
+            np.zeros((n_panels, 3)),
+            np.zeros(n_panels),
+        )
+        for i, panel in enumerate(panels):
+            x_airf_array[i] = panel.x_airf
+            y_airf_array[i] = panel.y_airf
+            z_airf_array[i] = panel.z_airf
+            va_array[i] = panel.va
+            chord_array[i] = panel.chord
 
-        # TODO: Improve upon this dynamic relaxation factor
-        # Adjust relaxation factor based on the number of panels
-        relaxation_factor = self.relaxation_factor * 20 / n_panels
+        va_norm_array = np.linalg.norm(va_array, axis=1)
+        va_unit_array = va_array / va_norm_array[:, None]
+
+        # Calculate the new circulation distribution iteratively
+        AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
+            self.aerodynamic_model_type,
+            self.core_radius_fraction,
+            va_norm_array,
+            va_unit_array,
+        )
 
         # initialize gamma distribution inside
         if (
@@ -122,60 +122,46 @@ class Solver:
         elif len(gamma_distribution) == n_panels:
             gamma_new = gamma_distribution
 
-        # TODO: for now use ZERO, remove this to speed things up
-        gamma_new = np.zeros(len(gamma_new))
         logging.debug("Initial gamma_new: %s", gamma_new)
 
+        # looping untill max_iterations
         converged = False
         for i in range(self.max_iterations):
 
             gamma = np.array(gamma_new)
+            induced_velocity_all = np.array(
+                [
+                    np.matmul(AIC_x, gamma),
+                    np.matmul(AIC_y, gamma),
+                    np.matmul(AIC_z, gamma),
+                ]
+            ).T
+            relative_velocity_array = va_array + induced_velocity_all
+            relative_velocity_crossz_array = jit_cross(
+                relative_velocity_array, z_airf_array
+            )
+            Uinfcrossz_array = jit_cross(va_array, z_airf_array)
+            v_normal_array = np.sum(x_airf_array * relative_velocity_array, axis=1)
+            v_tangential_array = np.sum(y_airf_array * relative_velocity_array, axis=1)
+            alpha_array = np.arctan(v_normal_array / v_tangential_array)
+            Umag_array = np.linalg.norm(relative_velocity_crossz_array, axis=1)
+            Umagw_array = np.linalg.norm(Uinfcrossz_array, axis=1)
+            cl_array = np.array(
+                [panel.calculate_cl(alpha) for panel, alpha in zip(panels, alpha_array)]
+            )
+            gamma_new = 0.5 * Umag_array**2 / Umagw_array * cl_array * chord_array
 
-            for icp, panel in enumerate(panels):
-                # Initialize induced velocity to 0
-                u = 0
-                v = 0
-                w = 0
-                # Compute induced velocities with previous gamma distribution
-                for jring, gamma_jring in enumerate(gamma):
-                    u = u + AIC_x[icp][jring] * gamma_jring
-                    # x-component of velocity
-                    v = v + AIC_y[icp][jring] * gamma_jring
-                    # y-component of velocity
-                    w = w + AIC_z[icp][jring] * gamma_jring
-                    # z-component of velocity
-
-                # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
-                induced_velocity = np.array([u, v, w])
-
-                # This is double checked
-                alpha[icp], relative_velocity = (
-                    panel.calculate_relative_alpha_and_relative_velocity(
-                        induced_velocity
-                    )
-                )
-                relative_velocity_crossz = np.cross(relative_velocity, panel.z_airf)
-                Umag = np.linalg.norm(relative_velocity_crossz)
-                Uinfcrossz = np.cross(panel.va, panel.z_airf)
-                Umagw = np.linalg.norm(Uinfcrossz)
-
-                # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
-                # Lookup cl for this specific alpha
-                cl = panel.calculate_cl(alpha[icp])
-
-                # Find the new gamma using Kutta-Joukouski law
-                gamma_new[icp] = 0.5 * Umag**2 / Umagw * cl * chord_array[icp]
-
-                # logging.info("--------- icp: %d", icp)
-                # logging.info("induced_velocity: %s", induced_velocity)
-                # logging.info("alpha: %f", alpha)
-                # logging.info("relative_velocity: %s", relative_velocity)
-                # logging.info("cl: %f", cl)
-                # logging.info("Umag: %f", Umag)
-                # logging.info("Umagw: %f", Umagw)
-                # logging.info("chord: %f", chord_array[icp])
+            # logging.debug("--------- icp: %d", icp)
+            # logging.debug("induced_velocity: %s", induced_velocity)
+            # logging.debug("alpha: %f", alpha)
+            # logging.debug("relative_velocity: %s", relative_velocity)
+            # logging.debug("cl: %f", cl)
+            # logging.debug("Umag: %f", Umag)
+            # logging.debug("Umagw: %f", Umagw)
+            # logging.debug("chord: %f", chord_array[icp])
 
             # Calculating damping factor for stalled cases
+            # stall_angle_list = wing_aero.stall_angle_list
             # damp, is_with_damp = self.calculate_artificial_damping(
             #     gamma, alpha, stall_angle_list
             # )
@@ -223,7 +209,27 @@ class Solver:
             )
             logging.info("------------------------------------")
 
-        return gamma_new
+        # Calculating results (incl. updating angle of attack for VSM)
+        results = wing_aero.calculate_results(
+            gamma_new,
+            self.density,
+            self.aerodynamic_model_type,
+            self.core_radius_fraction,
+            self.mu,
+            alpha_array,
+            Umag_array,
+            chord_array,
+            x_airf_array,
+            y_airf_array,
+            z_airf_array,
+            va_array,
+            va_norm_array,
+            va_unit_array,
+            panels,
+            self.is_only_f_and_gamma_output,
+        )
+
+        return results
 
     def calculate_artificial_damping(self, gamma, alpha, stall_angle_list):
 

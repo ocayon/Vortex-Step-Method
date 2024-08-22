@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from typing import List
 import logging
+from . import jit_norm
 
 logging.basicConfig(level=logging.INFO)
 
@@ -135,18 +136,18 @@ class Wing:
             right_chord = TE[section_index + 1] - LE[section_index + 1]
 
             # Normalize the chord vectors
-            left_chord_norm = left_chord / max(np.linalg.norm(left_chord), 1e-12)
-            right_chord_norm = right_chord / max(np.linalg.norm(right_chord), 1e-12)
+            left_chord_norm = left_chord / max(jit_norm(left_chord), 1e-12)
+            right_chord_norm = right_chord / max(jit_norm(right_chord), 1e-12)
 
             # Interpolate the direction
             avg_direction = (
                 left_weight * left_chord_norm + right_weight * right_chord_norm
             )
-            avg_direction = avg_direction / max(np.linalg.norm(avg_direction), 1e-12)
+            avg_direction = avg_direction / max(jit_norm(avg_direction), 1e-12)
 
             # Interpolate the length
-            left_length = np.linalg.norm(left_chord)
-            right_length = np.linalg.norm(right_chord)
+            left_length = jit_norm(left_chord)
+            right_length = jit_norm(right_chord)
             avg_length = left_weight * left_length + right_weight * right_length
 
             # Compute the final average chord vector
@@ -217,7 +218,7 @@ class Wing:
                 np.array([tube_diameter_i, chamber_height_i]),
             ]
 
-    #TODO: correct this function, not working
+    # TODO: correct this function, not working
     def refine_mesh_by_splitting_provided_sections(self):
         n_provided_sections = len(self.sections)
         n_new_sections = self.n_panels + 1 - n_provided_sections
@@ -288,10 +289,10 @@ class Wing:
                     [TE[left_section_index], TE[left_section_index + 1]]
                 )
                 aero_input_pair_list = [
-                        aero_input[left_section_index],
-                        aero_input[left_section_index + 1],
-                    ]
-                
+                    aero_input[left_section_index],
+                    aero_input[left_section_index + 1],
+                ]
+
                 new_splitted_sections = self.refine_mesh_for_linear_cosine_distribution(
                     "linear",
                     new_sections_per_pair + 2,
@@ -336,7 +337,7 @@ class Wing:
         # Calculate widths
         widths = np.zeros(n - 1)
         for i in range(n - 1):
-            widths[i] = np.linalg.norm(quarter_chords[i + 1] - quarter_chords[i])
+            widths[i] = jit_norm(quarter_chords[i + 1] - quarter_chords[i])
 
         # Calculate correction eta_cp
         eta_cp = np.zeros(n - 1)
@@ -423,7 +424,7 @@ class Wing:
             projected_area (float): The projected area of the wing.
         """
         # Normalize the z_plane_vector
-        z_plane_vector = z_plane_vector / np.linalg.norm(z_plane_vector)
+        z_plane_vector = z_plane_vector / jit_norm(z_plane_vector)
 
         # Helper function to project a point onto the plane
         def project_onto_plane(point, normal):
@@ -444,11 +445,11 @@ class Wing:
             TE_next_proj = project_onto_plane(TE_next, z_plane_vector)
 
             # Calculate the lengths of the projected edges
-            chord_current_proj = np.linalg.norm(TE_current_proj - LE_current_proj)
-            chord_next_proj = np.linalg.norm(TE_next_proj - LE_next_proj)
+            chord_current_proj = jit_norm(TE_current_proj - LE_current_proj)
+            chord_next_proj = jit_norm(TE_next_proj - LE_next_proj)
 
             # Calculate the spanwise distance between the projected sections
-            spanwise_distance_proj = np.linalg.norm(LE_next_proj - LE_current_proj)
+            spanwise_distance_proj = jit_norm(LE_next_proj - LE_current_proj)
 
             # Calculate the projected area of the trapezoid formed by these points
             area = 0.5 * (chord_current_proj + chord_next_proj) * spanwise_distance_proj
