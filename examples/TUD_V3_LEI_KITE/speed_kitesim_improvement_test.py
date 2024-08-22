@@ -11,7 +11,7 @@ from VSM.Solver import Solver
 from VSM.plotting import plot_distribution, plot_polars
 
 
-def run_speed_test(gamma):
+def run_speed_test_cprofile():
     # Find the root directory of the repository
     root_dir = os.path.abspath(os.path.dirname(__file__))
     while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
@@ -42,6 +42,7 @@ def run_speed_test(gamma):
         aerodynamic_model_type="VSM",
         is_with_artificial_damping=True,
         relaxation_factor=0.04,
+        is_only_f_and_gamma_output=True,
     )
 
     # Defining va
@@ -78,9 +79,82 @@ def run_speed_test(gamma):
     print(f"Time : {time.time() - time_start:.2f} s")
 
     # Solving
-    results, _ = VSM_with_stall_correction.solve(
-        CAD_wing_aero, gamma_distribution=gamma
+    results = VSM_with_stall_correction.solve(CAD_wing_aero)
+
+    time_end = time.time()
+    print(f"Time taken for the simulation: {time_end - time_start:.2f}  seconds")
+    return
+
+
+def run_speed_test(gamma):
+    # Find the root directory of the repository
+    root_dir = os.path.abspath(os.path.dirname(__file__))
+    while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
+        root_dir = os.path.abspath(os.path.join(root_dir, ".."))
+        if root_dir == "/":
+            raise FileNotFoundError(
+                "Could not find the root directory of the repository."
+            )
+
+    # Load from Pickle file
+    CAD_path = (
+        Path(root_dir)
+        / "processed_data"
+        / "TUD_V3_LEI_KITE"
+        / "CAD_extracted_input_rib_list.pkl"
     )
+    with open(CAD_path, "rb") as file:
+        CAD_input_rib_list = pickle.load(file)
+
+    # Create wing geometry
+    n_panels = 36
+    spanwise_panel_distribution = "split_provided"
+    CAD_wing = Wing(n_panels, spanwise_panel_distribution)
+
+    # Settign the solver type
+    VSM = Solver(aerodynamic_model_type="VSM")
+    VSM_with_stall_correction = Solver(
+        aerodynamic_model_type="VSM",
+        is_with_artificial_damping=True,
+        relaxation_factor=0.04,
+        is_only_f_and_gamma_output=True,
+    )
+
+    # Defining va
+    aoa_rad = np.deg2rad(20)
+    side_slip = 0
+    yaw_rate = 0
+    Umag = 15
+    va_definition = (
+        np.array(
+            [
+                np.cos(aoa_rad) * np.cos(side_slip),
+                np.sin(side_slip),
+                np.sin(aoa_rad),
+            ]
+        )
+        * Umag,
+        yaw_rate,
+    )
+
+    logging.info("Starting the simulation")
+
+    time_start = time.time()
+    # Populate the wing geometry
+    for i, CAD_rib_i in enumerate(CAD_input_rib_list):
+        CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
+    print(f"Time : {time.time() - time_start:.2f} s")
+
+    # Create wing aerodynamics objects
+    CAD_wing_aero = WingAerodynamics([CAD_wing])
+    print(f"Time : {time.time() - time_start:.2f} s")
+
+    # Setting va
+    CAD_wing_aero.va = va_definition
+    print(f"Time : {time.time() - time_start:.2f} s")
+
+    # Solving
+    results = VSM_with_stall_correction.solve(CAD_wing_aero, gamma_distribution=gamma)
 
     time_end = time.time()
     print(f"Time taken for the simulation: {time_end - time_start:.2f}  seconds")
@@ -99,6 +173,7 @@ if __name__ == "__main__":
 
     # test_numba_output = test_numba()
     # print(f"test_numba_output: {test_numba_output}")
+
     gamma = None
     print("Starting the speed test")
     time_before = time.time()
@@ -107,7 +182,7 @@ if __name__ == "__main__":
         gamma = run_speed_test(gamma)
         print(f"Time taken: {time.time() - time_before_this_loop:.2f} s")
 
-    # cProfile.run("run_speed_test()", sort="tottime")
+    cProfile.run("run_speed_test_cprofile()", sort="tottime")
     # lp = LineProfiler()
     # VSM_with_stall_correction = Solver(
     #     aerodynamic_model_type="VSM",

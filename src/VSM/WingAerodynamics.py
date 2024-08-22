@@ -339,70 +339,6 @@ class WingAerodynamics:
 
         return AIC[0], AIC[1], AIC[2]
 
-    # def calculate_AIC_matrices(self, model, core_radius_fraction):
-    #     """Calculates the AIC matrices for the given aerodynamic model
-
-    #     Args:
-    #         model (str): The aerodynamic model to be used, either VSM or LLT
-
-    #     Returns:
-    #         MatrixU (np.array): The x-component of the AIC matrix
-    #         MatrixV (np.array): The y-component of the AIC matrix
-    #         MatrixW (np.array): The z-component of the AIC matrix
-    #         U_2D (np.array): The 2D velocity induced by a bound vortex
-    #     """
-
-    #     n_panels = self.n_panels
-    #     AIC_x = np.empty((n_panels, n_panels))
-    #     AIC_y = np.empty((n_panels, n_panels))
-    #     AIC_z = np.empty((n_panels, n_panels))
-
-    #     if model == "VSM":
-    #         evaluation_point = "control_point"
-    #         evaluation_point_on_bound = False
-    #     elif model == "LLT":
-    #         evaluation_point = "aerodynamic_center"
-    #         evaluation_point_on_bound = True
-    #     else:
-    #         raise ValueError("Invalid aerodynamic model type, should be VSM or LLT")
-
-    #     va_norm = np.linalg.norm(self.va)
-    #     va_unit = self.va / np.linalg.norm(self.va)
-
-    #     for icp, panel_icp in enumerate(self.panels):
-
-    #         for jring, panel_jring in enumerate(self.panels):
-    #             velocity_induced = (
-    #                 panel_jring.calculate_velocity_induced_single_ring_semiinfinite(
-    #                     getattr(panel_icp, evaluation_point),
-    #                     evaluation_point_on_bound,
-    #                     va_norm,
-    #                     va_unit,
-    #                     gamma=1,
-    #                     core_radius_fraction=core_radius_fraction,
-    #                 )
-    #             )
-    #             # AIC Matrix
-    #             AIC_x[icp, jring] = velocity_induced[0]
-    #             AIC_y[icp, jring] = velocity_induced[1]
-    #             AIC_z[icp, jring] = velocity_induced[2]
-
-    #             # Only apply correction term when dealing with same horshoe vortex (see p.27 Uri Thesis)
-    #             if (
-    #                 icp == jring and model == "VSM"
-    #             ):  # implying evaluation_point != "aerodynamic_center":
-    #                 # CORRECTION TERM (S.T.Piszkin and E.S.Levinsky,1976)
-    #                 # Not present in classic LLT, added to allow for "arbitrary" (3/4c) control point location [37].
-    #                 U_2D = panel_jring.calculate_velocity_induced_bound_2D(
-    #                     getattr(panel_icp, evaluation_point)
-    #                 )
-
-    #                 AIC_x[icp, jring] -= U_2D[0]
-    #                 AIC_y[icp, jring] -= U_2D[1]
-    #                 AIC_z[icp, jring] -= U_2D[2]
-    #     return AIC_x, AIC_y, AIC_z
-
-    # TODO: be aware that gamma_0 is NEGATIVE, to accompany the weird reference frame
     def calculate_circulation_distribution_elliptical_wing(self, gamma_0=1):
         """
         Calculates the circulation distribution for an elliptical wing.
@@ -475,241 +411,6 @@ class WingAerodynamics:
             stall_angle_list.append(panel_aoa_stall)
         return np.array(stall_angle_list)
 
-    # def calculate_results(
-    #     self, gamma_new, density, aerodynamic_model_type, core_radius_fraction, mu
-    # ):
-
-    #     # Calculate the aerodynamic forces acting on the wing
-    #     lift, drag, moment, alpha_uncorrected = self.calculate_aerodynamic_forces(
-    #         gamma_new, density, aerodynamic_model_type, core_radius_fraction
-    #     )
-    #     if aerodynamic_model_type == "VSM":
-    #         alpha_corrected = self.update_effective_angle_of_attack_if_VSM(
-    #             gamma_new, core_radius_fraction
-    #         )
-    #     elif aerodynamic_model_type == "LLT":
-    #         alpha_corrected = alpha_uncorrected
-    #     else:
-    #         raise ValueError("Unknown aerodynamic model type, should be LLT or VSM")
-    #     # Checking that va is not distributed input
-    #     if len(self._va) != 3:
-    #         raise ValueError("Calc.results not ready for va_distributed input")
-
-    #     # Initializing variables
-    #     cl_prescribed_va_list = []
-    #     cd_prescribed_va_list = []
-    #     cs_prescribed_va_list = []
-    #     f_global_3D_list = []
-    #     fx_global_3D_list = []
-    #     fy_global_3D_list = []
-    #     fz_global_3D_list = []
-    #     area_all_panels = 0
-    #     lift_wing_3D_sum = 0
-    #     drag_wing_3D_sum = 0
-    #     side_wing_3D_sum = 0
-    #     fx_global_3D_sum = 0
-    #     fy_global_3D_sum = 0
-    #     fz_global_3D_sum = 0
-
-    #     spanwise_direction = self.wings[0].spanwise_direction
-    #     va_mag = np.linalg.norm(self._va)
-    #     va = self._va
-    #     va_unit = va / va_mag
-    #     q_inf = 0.5 * density * va_mag**2
-
-    #     for i, panel_i in enumerate(self.panels):
-
-    #         ### Defining panel_variables
-    #         # Defining directions of airfoil that defines current panel_i
-    #         z_airf_span = panel_i.z_airf  # along the span
-    #         y_airf_chord = panel_i.y_airf  # along the chord
-    #         x_airf_normal_to_chord = panel_i.x_airf  # normal to the chord
-    #         # TODO: implement these
-    #         alpha_corrected_i = alpha_corrected[i]
-    #         alpha_uncorrected_i = alpha_uncorrected[i]
-    #         panel_chord = panel_i.chord
-    #         panel_width = panel_i.width
-    #         panel_area = panel_chord * panel_width
-    #         area_all_panels += panel_area
-
-    #         ### Calculate the direction of the induced apparent wind speed to the airfoil orientation
-    #         # this is done using the CORRECTED CALCULATED (comes from gamma distribution) angle of attack
-    #         # For VSM the correction is applied, and it is the angle of attack, from calculating induced velocities at the 1/4c aerodynamic center location
-    #         # For LTT the correction is NOT applied, and it is the angle of attack, from calculating induced velocities at the 3/4c control point
-    #         induced_va_airfoil = (
-    #             np.cos(alpha_corrected_i) * y_airf_chord
-    #             + np.sin(alpha_corrected_i) * x_airf_normal_to_chord
-    #         )
-    #         dir_induced_va_airfoil = induced_va_airfoil / np.linalg.norm(
-    #             induced_va_airfoil
-    #         )
-    #         ### Calculate the direction of the lift and drag vectors
-    #         # lift is perpendical/normal to induced apparent wind speed
-    #         # drag is parallel/tangential to induced apparent wind speed
-    #         dir_lift_induced_va = np.cross(dir_induced_va_airfoil, z_airf_span)
-    #         dir_lift_induced_va = dir_lift_induced_va / np.linalg.norm(
-    #             dir_lift_induced_va
-    #         )
-    #         dir_drag_induced_va = np.cross(spanwise_direction, dir_lift_induced_va)
-    #         dir_drag_induced_va = dir_drag_induced_va / np.linalg.norm(
-    #             dir_drag_induced_va
-    #         )
-
-    #         ### Calculating the MAGNITUDE of the lift and drag
-    #         # The VSM and LTT methods do NOT differ here, both use the uncorrected angle of attack
-    #         # i.e. evaluate the magnitude at the (3/4c) control point
-    #         # 2D AIRFOIL aerodynamic forces, so multiplied by chord
-    #         lift_induced_va_mag = lift[i]
-    #         drag_induced_va_mag = drag[i]
-
-    #         # panel force VECTOR NORMAL to CALCULATED induced velocity
-    #         lift_induced_va = lift_induced_va_mag * dir_lift_induced_va
-    #         # panel force VECTOR TANGENTIAL to CALCULATED induced velocity
-    #         drag_induced_va = drag_induced_va_mag * dir_drag_induced_va
-    #         ftotal_induced_va = lift_induced_va + drag_induced_va
-    #         logging.debug(f"ftotal_induced_va: {ftotal_induced_va}")
-
-    #         ### Converting forces to prescribed wing va
-    #         dir_lift_prescribed_va = np.cross(va, spanwise_direction)
-    #         dir_lift_prescribed_va = dir_lift_prescribed_va / np.linalg.norm(
-    #             dir_lift_prescribed_va
-    #         )
-    #         lift_prescribed_va = np.dot(
-    #             lift_induced_va, dir_lift_prescribed_va
-    #         ) + np.dot(drag_induced_va, dir_lift_prescribed_va)
-    #         drag_prescribed_va = np.dot(lift_induced_va, va_unit) + np.dot(
-    #             drag_induced_va, va_unit
-    #         )
-    #         side_prescribed_va = np.dot(lift_induced_va, spanwise_direction) + np.dot(
-    #             drag_induced_va, spanwise_direction
-    #         )
-
-    #         # TODO: you can check: ftotal_prescribed_va = ftotal_induced_va
-    #         # if not np.allclose(ftotal_prescribed_va, ftotal_induced_va):
-    #         #     raise ValueError(
-    #         #         "Conversion of forces from induced_va to prescribed_va failed"
-    #         #     )
-    #         # The above conversion is merely one of references frames
-
-    #         ### Converting forces to the global reference frame
-    #         fx_global_2D = np.dot(ftotal_induced_va, np.array([1, 0, 0]))
-    #         fy_global_2D = np.dot(ftotal_induced_va, np.array([0, 1, 0]))
-    #         fz_global_2D = np.dot(ftotal_induced_va, np.array([0, 0, 1]))
-
-    #         ### Logging
-    #         logging.debug("----calculate_results_new----- icp: %d", i)
-    #         logging.debug(f"dir urel: {dir_induced_va_airfoil}")
-    #         logging.debug(f"dir_L: {dir_lift_induced_va}")
-    #         logging.debug(f"dir_D: {dir_drag_induced_va}")
-    #         logging.debug(
-    #             "lift_induced_va_2d (=L_rel): %s",
-    #             lift_induced_va,
-    #         )
-    #         logging.debug(
-    #             "lift_induced_va_2d (=D_rel): %s",
-    #             drag_induced_va,
-    #         )
-    #         logging.debug(f"Fmag_0: {lift_prescribed_va}")
-    #         logging.debug(f"Fmag_1: {drag_prescribed_va}")
-    #         logging.debug(f"Fmag_2: {side_prescribed_va}")
-
-    #         # 3D, by multiplying with the panel width
-    #         lift_wing_3D = lift_prescribed_va * panel_width
-    #         drag_wing_3D = drag_prescribed_va * panel_width
-    #         side_wing_3D = side_prescribed_va * panel_width
-    #         fx_global_3D = fx_global_2D * panel_width
-    #         fy_global_3D = fy_global_2D * panel_width
-    #         fz_global_3D = fz_global_2D * panel_width
-
-    #         # summing it up for totals
-    #         lift_wing_3D_sum += lift_wing_3D
-    #         drag_wing_3D_sum += drag_wing_3D
-    #         side_wing_3D_sum += side_wing_3D
-    #         fx_global_3D_sum += fx_global_3D
-    #         fy_global_3D_sum += fy_global_3D
-    #         fz_global_3D_sum += fz_global_3D
-
-    #         # Storing results that are useful
-    #         cl_prescribed_va_list.append(lift_prescribed_va / (q_inf * panel_chord))
-    #         cd_prescribed_va_list.append(drag_prescribed_va / (q_inf * panel_chord))
-    #         cs_prescribed_va_list.append(side_prescribed_va / (q_inf * panel_chord))
-    #         fx_global_3D_list.append(fx_global_3D)
-    #         fy_global_3D_list.append(fy_global_3D)
-    #         fz_global_3D_list.append(fz_global_3D)
-    #         f_global_3D_list.append(
-    #             np.array([fx_global_3D, fy_global_3D, fz_global_3D])
-    #         )
-
-    #     # Calculating projected_area, wing_span, aspect_ratio
-    #     projected_area = 0
-    #     for i, wing in enumerate(self.wings):
-    #         projected_area += wing.calculate_projected_area()
-    #     wing_span = wing.span
-    #     aspect_ratio_projected = wing_span**2 / projected_area
-
-    #     # Calculate geometric angle of attack wrt horizontal at mid-span
-    #     horizontal_direction = np.array([1, 0, 0])
-    #     alpha_geometric = np.array(
-    #         [
-    #             np.rad2deg(
-    #                 np.arccos(np.dot(panel_i.y_airf, horizontal_direction))
-    #                 / (
-    #                     np.linalg.norm(panel_i.y_airf)
-    #                     * np.linalg.norm(horizontal_direction)
-    #                 )
-    #             )
-    #             for panel_i in self.panels
-    #         ]
-    #     )
-    #     # Calculating Reynolds Number
-    #     max_chord = max(np.array([panel.chord for panel in self.panels]))
-    #     reynolds_number = density * va_mag * max_chord / mu
-
-    #     ### Storing results in a dictionary
-    #     results_dict = {}
-    #     # Global wing aerodynamics
-    #     results_dict.update([("Fx", fx_global_3D_sum)])
-    #     results_dict.update([("Fy", fy_global_3D_sum)])
-    #     results_dict.update([("Fz", fz_global_3D_sum)])
-    #     results_dict.update([("lift", lift_wing_3D_sum)])
-    #     results_dict.update([("drag", drag_wing_3D_sum)])
-    #     results_dict.update([("side", side_wing_3D_sum)])
-    #     results_dict.update([("cl", lift_wing_3D_sum / (q_inf * projected_area))])
-    #     results_dict.update([("cd", drag_wing_3D_sum / (q_inf * projected_area))])
-    #     results_dict.update([("cs", side_wing_3D_sum / (q_inf * projected_area))])
-    #     # Local panel aerodynamics
-    #     results_dict.update([("cl_distribution", cl_prescribed_va_list)])
-    #     results_dict.update([("cd_distribution", cd_prescribed_va_list)])
-    #     results_dict.update([("cs_distribution", cs_prescribed_va_list)])
-    #     results_dict.update([("F_distribution", f_global_3D_list)])
-
-    #     # Additional info
-    #     results_dict.update([("cfx", fx_global_3D_list / (q_inf * projected_area))])
-    #     results_dict.update([("cfy", fy_global_3D_list / (q_inf * projected_area))])
-    #     results_dict.update([("cfz", fz_global_3D_list / (q_inf * projected_area))])
-    #     results_dict.update([("alpha_at_ac", alpha_corrected)])
-    #     results_dict.update([("alpha_uncorrected", alpha_uncorrected)])
-    #     results_dict.update([("alpha_geometric", alpha_geometric)])
-    #     results_dict.update([("gamma_distribution", gamma_new)])
-    #     results_dict.update([("area_all_panels", area_all_panels)])
-    #     results_dict.update([("projected_area", projected_area)])
-    #     results_dict.update([("wing_span", wing_span)])
-    #     results_dict.update([("aspect_ratio_projected", aspect_ratio_projected)])
-    #     results_dict.update([("Rey", reynolds_number)])
-
-    #     ### Logging
-    #     logging.debug(f"cl:{results_dict['cl']}")
-    #     logging.debug(f"cd:{results_dict['cd']}")
-    #     logging.debug(f"cs:{results_dict['cs']}")
-    #     logging.debug(f"lift:{lift_wing_3D_sum}")
-    #     logging.debug(f"drag:{drag_wing_3D_sum}")
-    #     logging.debug(f"side:{side_wing_3D_sum}")
-    #     logging.debug(f"area: {area_all_panels}")
-    #     logging.debug(f"Projected Area: {projected_area}")
-    #     logging.debug(f"Aspect Ratio Projected: {aspect_ratio_projected}")
-
-    #     return results_dict
-
     def calculate_results(
         self,
         gamma_new,
@@ -727,7 +428,7 @@ class WingAerodynamics:
         va_norm_array,
         va_unit_array,
         panels,
-        is_only_f_distribution_output,
+        is_only_f_and_gamma_output,
     ):
 
         cl_array, cd_array, cm_array = (
@@ -747,33 +448,12 @@ class WingAerodynamics:
 
         time_begin = time.time()
 
-        # # Calculate the aerodynamic forces acting on the wing
-        # lift, drag, moment, alpha_uncorrected = self.calculate_aerodynamic_forces(
-        #     gamma_new, density, aerodynamic_model_type, core_radius_fraction
-        # )
-        # if aerodynamic_model_type == "VSM":
-        #     alpha_corrected = self.update_effective_angle_of_attack_if_VSM(
-        #         gamma_new,
-        #         core_radius_fraction,
-        #         va_norm_array,
-        #         va_unit_array,
-        #     )
-        #     alpha_uncorrected = alpha_array
-        # elif aerodynamic_model_type == "LLT":
-        #     alpha_corrected = alpha_array
-        #     alpha_uncorrected = alpha_array
-        # else:
-        #     raise ValueError("Unknown aerodynamic model type, should be LLT or VSM")
-        # # Checking that va is not distributed input
-        # if len(self._va) != 3:
-        #     raise ValueError("Calc.results not ready for va_distributed input")
         if aerodynamic_model_type == "VSM":
-            alpha_corrected = self.update_effective_angle_of_attack_if_VSM_new(
+            alpha_corrected = self.update_effective_angle_of_attack_if_VSM(
                 gamma_new,
                 core_radius_fraction,
                 x_airf_array,
                 y_airf_array,
-                z_airf_array,
                 va_array,
                 va_norm_array,
                 va_unit_array,
@@ -789,7 +469,7 @@ class WingAerodynamics:
         if len(self._va) != 3:
             raise ValueError("Calc.results not ready for va_distributed input")
         print("Time for alpha_corrected: ", time.time() - time_begin)
-
+        time_begin = time.time()
         # Initializing variables
         cl_prescribed_va_list = []
         cd_prescribed_va_list = []
@@ -812,23 +492,24 @@ class WingAerodynamics:
         va_unit = va / va_mag
         q_inf = 0.5 * density * va_mag**2
 
-        induced_va_airfoil_array = (
-            np.cos(alpha_corrected) * y_airf_array
-            + np.sin(alpha_corrected) * x_airf_array
-        )
-        dir_induced_va_airfoil_array = induced_va_airfoil_array / np.linalg.norm(
-            induced_va_airfoil_array
-        )
-        # z_airf_array = np.array([panel.z_airf for panel in self.panels])
-        dir_lift_induced_va_array = np.cross(dir_induced_va_airfoil_array, z_airf_array)
-        dir_lift_induced_va_array = dir_lift_induced_va_array / np.linalg.norm(
-            dir_lift_induced_va_array
-        )
-        logging.info(f"induced_va_airfoil_array: {induced_va_airfoil_array.shape}")
-        logging.info(
-            f"dir_induced_va_airfoil_array: {dir_induced_va_airfoil_array.shape}"
-        )
-        logging.info(f"dir_lift_induced_va_array: {dir_lift_induced_va_array.shape}")
+        # induced_va_airfoil_array = (
+        #     np.cos(alpha_corrected) * y_airf_array
+        #     + np.sin(alpha_corrected) * x_airf_array
+        # )
+        # dir_induced_va_airfoil_array = induced_va_airfoil_array / np.linalg.norm(
+        #     induced_va_airfoil_array
+        # )
+
+        # # z_airf_array = np.array([panel.z_airf for panel in self.panels])
+        # dir_lift_induced_va_array = np.cross(dir_induced_va_airfoil_array, z_airf_array)
+        # dir_lift_induced_va_array = dir_lift_induced_va_array / np.linalg.norm(
+        #     dir_lift_induced_va_array
+        # )
+        # logging.info(f"induced_va_airfoil_array: {induced_va_airfoil_array.shape}")
+        # logging.info(
+        #     f"dir_induced_va_airfoil_array: {dir_induced_va_airfoil_array.shape}"
+        # )
+        # logging.info(f"dir_lift_induced_va_array: {dir_lift_induced_va_array.shape}")
 
         # breakpoint()
         for i, panel_i in enumerate(self.panels):
@@ -869,38 +550,38 @@ class WingAerodynamics:
                 dir_drag_induced_va
             )
 
-            logging.info(f"----before")
-            logging.info(f"shape induced_va_airfoil: {induced_va_airfoil.shape}")
-            logging.info(
-                f"shape dir_induced_va_airfoil: {dir_induced_va_airfoil.shape}"
-            )
-            logging.info(f"shape dir_lift_induced_va: {dir_lift_induced_va.shape}")
-            logging.info(f"shape dir_drag_induced_va: {dir_drag_induced_va.shape}")
-
-            logging.info(f"---shape of arrays")
-            logging.info(f"induced_va_airfoil_array: {induced_va_airfoil_array.shape}")
+            # logging.info(f"----before")
+            # logging.info(f"shape induced_va_airfoil: {induced_va_airfoil.shape}")
             # logging.info(
-            #     f"dir_induced_va_airfoil_array: {dir_induced_va_airfoil_array.shape}"
+            #     f"shape dir_induced_va_airfoil: {dir_induced_va_airfoil.shape}"
             # )
-            # logging.info(
-            #     f"dir_lift_induced_va_array: {dir_lift_induced_va_array.shape}"
-            # )
-            # logging.info(
-            #     f"dir_drag_induced_va_array: {dir_drag_induced_va_array.shape}"
-            # )
+            # logging.info(f"shape dir_lift_induced_va: {dir_lift_induced_va.shape}")
+            # logging.info(f"shape dir_drag_induced_va: {dir_drag_induced_va.shape}")
 
-            induced_va_airfoil = induced_va_airfoil_array[i, :]
-            dir_induced_va_airfoil = dir_induced_va_airfoil_array[i, :]
-            # dir_lift_induced_va = dir_lift_induced_va_array[i, :]
-            # dir_drag_induced_va = dir_drag_induced_va_array[i, :]
+            # logging.info(f"---shape of arrays")
+            # logging.info(f"induced_va_airfoil_array: {induced_va_airfoil_array.shape}")
+            # # logging.info(
+            # #     f"dir_induced_va_airfoil_array: {dir_induced_va_airfoil_array.shape}"
+            # # )
+            # # logging.info(
+            # #     f"dir_lift_induced_va_array: {dir_lift_induced_va_array.shape}"
+            # # )
+            # # logging.info(
+            # #     f"dir_drag_induced_va_array: {dir_drag_induced_va_array.shape}"
+            # # )
 
-            logging.info(f"----after")
-            logging.info(f"shape induced_va_airfoil: {induced_va_airfoil.shape}")
-            logging.info(
-                f"shape dir_induced_va_airfoil: {dir_induced_va_airfoil.shape}"
-            )
-            logging.info(f"shape dir_lift_induced_va: {dir_lift_induced_va.shape}")
-            logging.info(f"shape dir_drag_induced_va: {dir_drag_induced_va.shape}")
+            # induced_va_airfoil = induced_va_airfoil_array[i, :]
+            # dir_induced_va_airfoil = dir_induced_va_airfoil_array[i, :]
+            # # dir_lift_induced_va = dir_lift_induced_va_array[i, :]
+            # # dir_drag_induced_va = dir_drag_induced_va_array[i, :]
+
+            # logging.info(f"----after")
+            # logging.info(f"shape induced_va_airfoil: {induced_va_airfoil.shape}")
+            # logging.info(
+            #     f"shape dir_induced_va_airfoil: {dir_induced_va_airfoil.shape}"
+            # )
+            # logging.info(f"shape dir_lift_induced_va: {dir_lift_induced_va.shape}")
+            # logging.info(f"shape dir_drag_induced_va: {dir_drag_induced_va.shape}")
 
             ### Calculating the MAGNITUDE of the lift and drag
             # The VSM and LTT methods do NOT differ here, both use the uncorrected angle of attack
@@ -915,6 +596,13 @@ class WingAerodynamics:
             drag_induced_va = drag_induced_va_mag * dir_drag_induced_va
             ftotal_induced_va = lift_induced_va + drag_induced_va
             logging.debug(f"ftotal_induced_va: {ftotal_induced_va}")
+
+            if is_only_f_and_gamma_output:
+                print(f"Time rest of results: {time.time() - time_begin:.2f} s")
+                return {
+                    "F_distribution": ftotal_induced_va * panel_width,
+                    "gamma_distribution": gamma_new,
+                }
 
             ### Converting forces to prescribed wing va
             dir_lift_prescribed_va = np.cross(va, spanwise_direction)
@@ -1057,297 +745,31 @@ class WingAerodynamics:
 
         return results_dict
 
-    # def calculate_results(
-    #     self,
-    #     gamma_new,
-    #     density,
-    #     aerodynamic_model_type,
-    #     core_radius_fraction,
-    #     mu,
-    #     alpha_array,
-    #     Umag_array,
-    #     chord_array,
-    #     x_airf_array,
-    #     y_airf_array,
-    #     z_airf_array,
-    #     va_array,
-    #     va_norm_array,
-    #     va_unit_array,
-    #     panels,
-    #     is_only_f_distribution_output,
-    # ):
-
-    #     # Calculate the aerodynamic forces acting on the wing
-    #     # lift, drag, moment, alpha_uncorrected = self.calculate_aerodynamic_forces(
-    #     #     gamma_new, density, aerodynamic_model_type, core_radius_fraction
-    #     # )
-    #     cl_array, cd_array, cm_array = (
-    #         np.zeros(len(panels)),
-    #         np.zeros(len(panels)),
-    #         np.zeros(len(panels)),
-    #     )
-    #     panel_width_array = np.zeros(len(panels))
-    #     for icp, panel_i in enumerate(panels):
-    #         cl_array[icp] = panel_i.calculate_cl(alpha_array[icp])
-    #         cd_array[icp], cm_array[icp] = panel_i.calculate_cd_cm(alpha_array[icp])
-    #         panel_width_array[icp] = panel_i.width
-    #     lift = (cl_array * 0.5 * density * Umag_array**2 * chord_array)[:, np.newaxis]
-    #     drag = (cd_array * 0.5 * density * Umag_array**2 * chord_array)[:, np.newaxis]
-    #     moment = (cm_array * 0.5 * density * Umag_array**2 * chord_array)[:, np.newaxis]
-
-    #     import time
-
-    #     time_begin = time.time()
-    #     if aerodynamic_model_type == "VSM":
-    #         alpha_corrected = self.update_effective_angle_of_attack_if_VSM(
-    #             gamma_new,
-    #             core_radius_fraction,
-    #             x_airf_array,
-    #             y_airf_array,
-    #             z_airf_array,
-    #             va_array,
-    #             va_norm_array,
-    #             va_unit_array,
-    #         )
-    #         alpha_uncorrected = alpha_array[:, np.newaxis]
-
-    #     elif aerodynamic_model_type == "LLT":
-    #         alpha_corrected = alpha_array[:, np.newaxis]
-    #         alpha_uncorrected = alpha_array[:, np.newaxis]
-    #     else:
-    #         raise ValueError("Unknown aerodynamic model type, should be LLT or VSM")
-    #     # Checking that va is not distributed input
-    #     if len(self._va) != 3:
-    #         raise ValueError("Calc.results not ready for va_distributed input")
-    #     print("Time for alpha_corrected: ", time.time() - time_begin)
-
-    #     # Initializing variables
-    #     cl_prescribed_va_list = []
-    #     cd_prescribed_va_list = []
-    #     cs_prescribed_va_list = []
-    #     f_global_3D_list = []
-    #     fx_global_3D_list = []
-    #     fy_global_3D_list = []
-    #     fz_global_3D_list = []
-    #     area_all_panels = 0
-    #     lift_wing_3D_sum = 0
-    #     drag_wing_3D_sum = 0
-    #     side_wing_3D_sum = 0
-    #     fx_global_3D_sum = 0
-    #     fy_global_3D_sum = 0
-    #     fz_global_3D_sum = 0
-
-    #     spanwise_direction = self.wings[0].spanwise_direction
-    #     q_inf_array = 0.5 * density * va_norm_array**2
-    #     q_inf_mean = np.mean(q_inf_array)
-
-    #     ### Calculate the direction of the induced apparent wind speed to the airfoil orientation
-    #     # this is done using the CORRECTED CALCULATED (comes from gamma distribution) angle of attack
-    #     # For VSM the correction is applied, and it is the angle of attack, from calculating induced velocities at the 1/4c aerodynamic center location
-    #     # For LTT the correction is NOT applied, and it is the angle of attack, from calculating induced velocities at the 3/4c control point
-    #     induced_va_airfoil_array = (
-    #         np.cos(alpha_corrected)[:, np.newaxis] * y_airf_array
-    #         + np.sin(alpha_corrected)[:, np.newaxis] * x_airf_array
-    #     )
-    #     dir_induced_va_airfoil_array = induced_va_airfoil_array / np.linalg.norm(
-    #         induced_va_airfoil_array
-    #     )
-
-    #     ### Calculate the direction of the lift and drag vectors
-    #     # lift is perpendical/normal to induced apparent wind speed
-    #     # drag is parallel/tangential to induced apparent wind speed
-    #     dir_lift_induced_va_array = np.cross(dir_induced_va_airfoil_array, z_airf_array)
-    #     dir_lift_induced_va_array = dir_lift_induced_va_array / np.linalg.norm(
-    #         dir_lift_induced_va_array
-    #     )
-
-    #     dir_drag_induced_va_array = np.cross(
-    #         spanwise_direction, dir_lift_induced_va_array
-    #     )
-    #     dir_drag_induced_va_array = dir_drag_induced_va_array / np.linalg.norm(
-    #         dir_drag_induced_va_array
-    #     )
-
-    #     ### Calculating the MAGNITUDE of the lift and drag
-    #     # The VSM and LTT methods do NOT differ here, both use the uncorrected angle of attack
-    #     # i.e. evaluate the magnitude at the (3/4c) control point
-    #     # 2D AIRFOIL aerodynamic forces, so multiplied by chord
-    #     # panel force VECTOR NORMAL to CALCULATED induced velocity
-    #     lift_induced_va_array = lift * dir_lift_induced_va_array
-    #     # panel force VECTOR TANGENTIAL to CALCULATED induced velocity
-    #     drag_induced_va_array = drag * dir_drag_induced_va_array
-    #     ftotal_induced_va_array = lift_induced_va_array + drag_induced_va_array
-    #     f_global_3D = ftotal_induced_va_array * panel_width_array[:, np.newaxis]
-
-    #     if is_only_f_distribution_output:
-    #         return {"F_distribution": f_global_3D}
-
-    #     ### Converting forces to prescribed wing va
-    #     dir_lift_prescribed_va_array = np.cross(va_array, spanwise_direction)
-    #     dir_lift_prescribed_va_array = dir_lift_prescribed_va_array / np.linalg.norm(
-    #         dir_lift_prescribed_va_array
-    #     )
-
-    #     # logging.info(
-    #     #     f"shape of dir_lift_induced_va_array: {dir_lift_induced_va_array.shape}"
-    #     # )
-    #     # logging.info(
-    #     #     f"shape of dir_lift_prescribed_va_array: {dir_lift_prescribed_va_array.shape}"
-    #     # )
-    #     # logging.info(f"shape of lift_induced_va_array: {lift_induced_va_array.shape}")
-    #     # logging.info(f"shape of drag_induced_va_array: {drag_induced_va_array.shape}")
-    #     # logging.info(f"shape of va_unit_array: {va_unit_array.shape}")
-    #     # lift_prescribed_va_array = np.dot(
-    #     #     lift_induced_va_array, dir_lift_prescribed_va_array
-    #     # ) + np.dot(drag_induced_va_array, dir_lift_prescribed_va_array)
-    #     # drag_prescribed_va_array = np.dot(lift_induced_va_array, va_unit) + np.dot(
-    #     #     drag_induced_va_array, va_unit
-    #     # )
-    #     # side_prescribed_va_array = np.dot(
-    #     #     lift_induced_va_array, spanwise_direction
-    #     # ) + np.dot(drag_induced_va_array, spanwise_direction)
-
-    #     # Calculate lift_prescribed_va_array
-    #     lift_prescribed_va_array = np.sum(
-    #         lift_induced_va_array * dir_lift_prescribed_va_array[:, np.newaxis, :],
-    #         axis=2,
-    #     ) + np.sum(
-    #         drag_induced_va_array * dir_lift_prescribed_va_array[:, np.newaxis, :],
-    #         axis=2,
-    #     )
-
-    #     # Calculate drag_prescribed_va_array
-    #     drag_prescribed_va_array = np.sum(
-    #         lift_induced_va_array * va_unit_array[:, np.newaxis, :], axis=2
-    #     ) + np.sum(drag_induced_va_array * va_unit_array[:, np.newaxis, :], axis=2)
-
-    #     # Calculate side_prescribed_va_array
-    #     side_prescribed_va_array = np.sum(
-    #         lift_induced_va_array * spanwise_direction, axis=2
-    #     ) + np.sum(drag_induced_va_array * spanwise_direction, axis=2)
-
-    #     # Converting to global reference frame
-    #     lift_wing_3D = lift_prescribed_va_array * panel_width_array
-    #     drag_wing_3D = drag_prescribed_va_array * panel_width_array
-    #     side_wing_3D = side_prescribed_va_array * panel_width_array
-
-    #     # summing it up for totals
-    #     lift_wing_3D_sum = np.sum(lift_wing_3D)
-    #     drag_wing_3D_sum = np.sum(drag_wing_3D)
-    #     side_wing_3D_sum = np.sum(side_wing_3D)
-    #     f_global_3D_sum = np.sum(f_global_3D, axis=0)
-    #     fx_global_3D_sum = f_global_3D_sum[:, 0]
-    #     fy_global_3D_sum = f_global_3D_sum[:, 1]
-    #     fz_global_3D_sum = f_global_3D_sum[:, 2]
-
-    #     # Storing results that are useful
-    #     cl_prescribed_va_list = lift_prescribed_va_array / (q_inf_array * chord_array)
-    #     cd_prescribed_va_list = drag_prescribed_va_array / (q_inf_array * chord_array)
-    #     cs_prescribed_va_list = side_prescribed_va_array / (q_inf_array * chord_array)
-    #     fx_global_3D_list = f_global_3D[:, 0]
-    #     fy_global_3D_list = f_global_3D[:, 1]
-    #     fz_global_3D_list = f_global_3D[:, 2]
-    #     f_global_3D_list = f_global_3D
-
-    #     # Calculating projected_area, wing_span, aspect_ratio
-    #     projected_area = 0
-    #     for i, wing in enumerate(self.wings):
-    #         projected_area += wing.calculate_projected_area()
-    #     wing_span = wing.span
-    #     aspect_ratio_projected = wing_span**2 / projected_area
-
-    #     # Calculate geometric angle of attack wrt horizontal at mid-span
-    #     horizontal_direction = np.array([1, 0, 0])
-    #     alpha_geometric = np.array(
-    #         [
-    #             np.rad2deg(
-    #                 np.arccos(np.dot(panel_i.y_airf, horizontal_direction))
-    #                 / (
-    #                     np.linalg.norm(panel_i.y_airf)
-    #                     * np.linalg.norm(horizontal_direction)
-    #                 )
-    #             )
-    #             for panel_i in self.panels
-    #         ]
-    #     )
-    #     # Calculating Reynolds Number
-    #     max_chord = max(np.array([panel.chord for panel in self.panels]))
-    #     reynolds_number = density * np.average(va_norm_array) * max_chord / mu
-
-    #     ### Storing results in a dictionary
-    #     results_dict = {}
-    #     # Global wing aerodynamics
-    #     results_dict.update([("Fx", fx_global_3D_sum)])
-    #     results_dict.update([("Fy", fy_global_3D_sum)])
-    #     results_dict.update([("Fz", fz_global_3D_sum)])
-    #     results_dict.update([("lift", lift_wing_3D_sum)])
-    #     results_dict.update([("drag", drag_wing_3D_sum)])
-    #     results_dict.update([("side", side_wing_3D_sum)])
-    #     results_dict.update([("cl", lift_wing_3D_sum / (q_inf_mean * projected_area))])
-    #     results_dict.update([("cd", drag_wing_3D_sum / (q_inf_mean * projected_area))])
-    #     results_dict.update([("cs", side_wing_3D_sum / (q_inf_mean * projected_area))])
-    #     # Local panel aerodynamics
-    #     results_dict.update([("cl_distribution", cl_prescribed_va_list)])
-    #     results_dict.update([("cd_distribution", cd_prescribed_va_list)])
-    #     results_dict.update([("cs_distribution", cs_prescribed_va_list)])
-    #     results_dict.update([("F_distribution", f_global_3D_list)])
-
-    #     # Additional info
-    #     results_dict.update(
-    #         [("cfx", fx_global_3D_list / (q_inf_mean * projected_area))]
-    #     )
-    #     results_dict.update(
-    #         [("cfy", fy_global_3D_list / (q_inf_mean * projected_area))]
-    #     )
-    #     results_dict.update(
-    #         [("cfz", fz_global_3D_list / (q_inf_mean * projected_area))]
-    #     )
-    #     results_dict.update([("alpha_at_ac", alpha_corrected)])
-    #     results_dict.update([("alpha_uncorrected", alpha_uncorrected)])
-    #     results_dict.update([("alpha_geometric", alpha_geometric)])
-    #     results_dict.update([("gamma_distribution", gamma_new)])
-    #     results_dict.update([("area_all_panels", area_all_panels)])
-    #     results_dict.update([("projected_area", projected_area)])
-    #     results_dict.update([("wing_span", wing_span)])
-    #     results_dict.update([("aspect_ratio_projected", aspect_ratio_projected)])
-    #     results_dict.update([("Rey", reynolds_number)])
-
-    #     ### Logging
-    #     logging.debug(f"cl:{results_dict['cl']}")
-    #     logging.debug(f"cd:{results_dict['cd']}")
-    #     logging.debug(f"cs:{results_dict['cs']}")
-    #     logging.debug(f"lift:{lift_wing_3D_sum}")
-    #     logging.debug(f"drag:{drag_wing_3D_sum}")
-    #     logging.debug(f"side:{side_wing_3D_sum}")
-    #     logging.debug(f"area: {area_all_panels}")
-    #     logging.debug(f"Projected Area: {projected_area}")
-    #     logging.debug(f"Aspect Ratio Projected: {aspect_ratio_projected}")
-
-    #     return results_dict
-
     ###########################
     ## UPDATE FUNCTIONS
     ###########################
-    # def calculate_aerodynamic_forces(
-    #     self, gamma, density, aerodynamic_model_type, core_radius_fraction
+
+    # def update_effective_angle_of_attack_if_VSM(
+    #     self, gamma, core_radius_fraction, va_norm_array, va_unit_array
     # ):
-    #     """Calculates the aerodynamic forces acting on the wing
+    #     """Updates the angle of attack at the aerodynamic center of each panel,
+    #         Calculated at the AERODYNAMIC CENTER, which needs an update for VSM
+    #         And can just use the old value for the LLT
 
     #     Args:
-    #         gamma_new (np.array): The circulation distribution
-    #         density (float): The density of the air
+    #         None
 
     #     Returns:
-    #         dict: A dictionary containing the aerodynamic forces
+    #         None
     #     """
-    #     panels = self.panels
+    #     # The correction is done by calculating the alpha at the aerodynamic center,
+    #     # where as before the control_point was used in the VSM method
+    #     aerodynamic_model_type = "LLT"
     #     AIC_x, AIC_y, AIC_z = self.calculate_AIC_matrices(
-    #         aerodynamic_model_type, core_radius_fraction
+    #         aerodynamic_model_type, core_radius_fraction, va_norm_array, va_unit_array
     #     )
-    #     alpha_uncorrected = np.zeros(len(panels))
-    #     lift = np.zeros(len(panels))
-    #     drag = np.zeros(len(panels))
-    #     moment = np.zeros(len(panels))
+    #     panels = self.panels
+    #     alpha_corrected = np.zeros(len(panels))
     #     for icp, panel in enumerate(panels):
     #         # Initialize induced velocity to 0
     #         u = 0
@@ -1366,78 +788,18 @@ class WingAerodynamics:
     #         induced_velocity = np.array([u, v, w])
 
     #         # This is double checked
-    #         alpha_uncorrected[icp], relative_velocity = (
+    #         alpha_corrected[icp], _ = (
     #             panel.calculate_relative_alpha_and_relative_velocity(induced_velocity)
     #         )
-    #         relative_velocity_crossz = np.cross(relative_velocity, panel.z_airf)
-    #         Umag = np.linalg.norm(relative_velocity_crossz)
-    #         Uinfcrossz = np.cross(panel.va, panel.z_airf)
-    #         Umagw = np.linalg.norm(Uinfcrossz)
 
-    #         # TODO: CPU this should ideally be instantiated upfront, from the wing_aero object
-    #         # Lookup cl for this specific alpha
-    #         cl = panel.calculate_cl(alpha_uncorrected[icp])
-    #         cd, cm = panel.calculate_cd_cm(alpha_uncorrected[icp])
-    #         # Retrieve forces and moments
-    #         lift[icp] = 0.5 * density * Umag**2 * cl * panel.chord
-    #         drag[icp] = 0.5 * density * Umag**2 * cd * panel.chord
-    #         moment[icp] = 0.5 * density * Umag**2 * cm * panel.chord**2
-
-    #     # Return forces and alpha uncorrected
-    #     return lift, drag, moment, alpha_uncorrected
+    #     return alpha_corrected
 
     def update_effective_angle_of_attack_if_VSM(
-        self, gamma, core_radius_fraction, va_norm_array, va_unit_array
-    ):
-        """Updates the angle of attack at the aerodynamic center of each panel,
-            Calculated at the AERODYNAMIC CENTER, which needs an update for VSM
-            And can just use the old value for the LLT
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
-        # The correction is done by calculating the alpha at the aerodynamic center,
-        # where as before the control_point was used in the VSM method
-        aerodynamic_model_type = "LLT"
-        AIC_x, AIC_y, AIC_z = self.calculate_AIC_matrices(
-            aerodynamic_model_type, core_radius_fraction, va_norm_array, va_unit_array
-        )
-        panels = self.panels
-        alpha_corrected = np.zeros(len(panels))
-        for icp, panel in enumerate(panels):
-            # Initialize induced velocity to 0
-            u = 0
-            v = 0
-            w = 0
-            # Compute induced velocities with previous gamma distribution
-            for jring, gamma_jring in enumerate(gamma):
-                u = u + AIC_x[icp][jring] * gamma_jring
-                # x-component of velocity
-                v = v + AIC_y[icp][jring] * gamma_jring
-                # y-component of velocity
-                w = w + AIC_z[icp][jring] * gamma_jring
-                # z-component of velocity
-
-            # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
-            induced_velocity = np.array([u, v, w])
-
-            # This is double checked
-            alpha_corrected[icp], _ = (
-                panel.calculate_relative_alpha_and_relative_velocity(induced_velocity)
-            )
-
-        return alpha_corrected
-
-    def update_effective_angle_of_attack_if_VSM_new(
         self,
         gamma,
         core_radius_fraction,
         x_airf_array,
         y_airf_array,
-        z_airf_array,
         va_array,
         va_norm_array,
         va_unit_array,
@@ -1470,28 +832,4 @@ class WingAerodynamics:
         v_tangential_array = np.sum(y_airf_array * relative_velocity_array, axis=1)
         alpha_array = np.arctan(v_normal_array / v_tangential_array)
 
-        # panels = self.panels
-        # alpha_corrected = np.zeros(len(panels))
-        # for icp, panel in enumerate(panels):
-        #     # Initialize induced velocity to 0
-        #     u = 0
-        #     v = 0
-        #     w = 0
-        #     # Compute induced velocities with previous gamma distribution
-        #     for jring, gamma_jring in enumerate(gamma):
-        #         u = u + AIC_x[icp][jring] * gamma_jring
-        #         # x-component of velocity
-        #         v = v + AIC_y[icp][jring] * gamma_jring
-        #         # y-component of velocity
-        #         w = w + AIC_z[icp][jring] * gamma_jring
-        #         # z-component of velocity
-
-        #     # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
-        #     induced_velocity = np.array([u, v, w])
-
-        #     # This is double checked
-        #     alpha_corrected[icp], _ = (
-        #         panel.calculate_relative_alpha_and_relative_velocity(induced_velocity)
-        #     )
-        # return alpha_corrected
         return alpha_array[:, np.newaxis]
