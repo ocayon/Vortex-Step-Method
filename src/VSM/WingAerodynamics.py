@@ -298,6 +298,48 @@ class WingAerodynamics:
             z_airf_list,
         )
 
+    # def calculate_AIC_matrices(self, model, core_radius_fraction):
+    #     """Calculates the AIC matrices for the given aerodynamic model
+
+    #     Args:
+    #         model (str): The aerodynamic model to be used, either VSM or LLT
+    #         core_radius_fraction (float): The core radius fraction for the vortex model
+
+    #     Returns:
+    #         Tuple[np.array, np.array, np.array]: The x, y, and z components of the AIC matrix
+    #     """
+    #     if model not in ["VSM", "LLT"]:
+    #         raise ValueError("Invalid aerodynamic model type, should be VSM or LLT")
+
+    #     evaluation_point = "control_point" if model == "VSM" else "aerodynamic_center"
+    #     evaluation_point_on_bound = model == "LLT"
+
+    #     va_norm = np.linalg.norm(self.va)
+    #     va_unit = self.va / va_norm
+
+    #     AIC = np.empty((3, self.n_panels, self.n_panels))
+
+    #     for icp, panel_icp in enumerate(self.panels):
+    #         ep = getattr(panel_icp, evaluation_point)
+    #         for jring, panel_jring in enumerate(self.panels):
+    #             velocity_induced = (
+    #                 panel_jring.calculate_velocity_induced_single_ring_semiinfinite(
+    #                     ep,
+    #                     evaluation_point_on_bound,
+    #                     va_norm,
+    #                     va_unit,
+    #                     gamma=1,
+    #                     core_radius_fraction=core_radius_fraction,
+    #                 )
+    #             )
+    #             AIC[:, icp, jring] = velocity_induced
+
+    #             if icp == jring and model == "VSM":
+    #                 U_2D = panel_jring.calculate_velocity_induced_bound_2D(ep)
+    #                 AIC[:, icp, jring] -= U_2D
+
+    #     return AIC[0], AIC[1], AIC[2]
+
     def calculate_AIC_matrices(self, model, core_radius_fraction):
         """Calculates the AIC matrices for the given aerodynamic model
 
@@ -347,19 +389,18 @@ class WingAerodynamics:
                 AIC_z[icp, jring] = velocity_induced[2]
 
                 # Only apply correction term when dealing with same horshoe vortex (see p.27 Uri Thesis)
-                if icp == jring:
-                    if (
-                        model == "VSM"
-                    ):  # implying evaluation_point != "aerodynamic_center":
-                        # CORRECTION TERM (S.T.Piszkin and E.S.Levinsky,1976)
-                        # Not present in classic LLT, added to allow for "arbitrary" (3/4c) control point location [37].
-                        U_2D = panel_jring.calculate_velocity_induced_bound_2D(
-                            getattr(panel_icp, evaluation_point)
-                        )
+                if (
+                    icp == jring and model == "VSM"
+                ):  # implying evaluation_point != "aerodynamic_center":
+                    # CORRECTION TERM (S.T.Piszkin and E.S.Levinsky,1976)
+                    # Not present in classic LLT, added to allow for "arbitrary" (3/4c) control point location [37].
+                    U_2D = panel_jring.calculate_velocity_induced_bound_2D(
+                        getattr(panel_icp, evaluation_point)
+                    )
 
-                        AIC_x[icp, jring] -= U_2D[0]
-                        AIC_y[icp, jring] -= U_2D[1]
-                        AIC_z[icp, jring] -= U_2D[2]
+                    AIC_x[icp, jring] -= U_2D[0]
+                    AIC_y[icp, jring] -= U_2D[1]
+                    AIC_z[icp, jring] -= U_2D[2]
         return AIC_x, AIC_y, AIC_z
 
     # def calculate_AIC_matrices(self, model, core_radius_fraction):

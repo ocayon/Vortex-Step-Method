@@ -186,7 +186,7 @@ class Solver:
         AIC_x, AIC_y, AIC_z = wing_aero.calculate_AIC_matrices(
             self.aerodynamic_model_type, self.core_radius_fraction
         )
-        print(f"Time gamma calculation {time.time() - time_before:.2f} s")
+        print(f"Time AIC calculation {time.time() - time_before:.2f} s")
         logging.debug(f"AIC_x: {AIC_x}")
         logging.debug(f"AIC_y: {AIC_y}")
         logging.debug(f"AIC_z: {AIC_z}")
