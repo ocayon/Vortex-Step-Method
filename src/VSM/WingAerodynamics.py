@@ -444,9 +444,6 @@ class WingAerodynamics:
         lift = (cl_array * 0.5 * density * Umag_array**2 * chord_array)[:, np.newaxis]
         drag = (cd_array * 0.5 * density * Umag_array**2 * chord_array)[:, np.newaxis]
         moment = (cm_array * 0.5 * density * Umag_array**2 * chord_array)[:, np.newaxis]
-        import time
-
-        time_begin = time.time()
 
         if aerodynamic_model_type == "VSM":
             alpha_corrected = self.update_effective_angle_of_attack_if_VSM(
@@ -468,8 +465,7 @@ class WingAerodynamics:
         # Checking that va is not distributed input
         if len(self._va) != 3:
             raise ValueError("Calc.results not ready for va_distributed input")
-        print("Time for alpha_corrected: ", time.time() - time_begin)
-        time_begin = time.time()
+
         # Initializing variables
         cl_prescribed_va_list = []
         cd_prescribed_va_list = []
@@ -598,7 +594,6 @@ class WingAerodynamics:
             logging.debug(f"ftotal_induced_va: {ftotal_induced_va}")
 
             if is_only_f_and_gamma_output:
-                print(f"Time rest of results: {time.time() - time_begin:.2f} s")
                 return {
                     "F_distribution": ftotal_induced_va * panel_width,
                     "gamma_distribution": gamma_new,

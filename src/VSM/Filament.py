@@ -6,12 +6,12 @@ from numba import jit
 logging.basicConfig(level=logging.INFO)
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def jit_cross(a, b):
     return np.cross(a, b)
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def jit_norm(value):
     return np.linalg.norm(value)
 

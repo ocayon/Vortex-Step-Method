@@ -143,21 +143,21 @@ def run_speed_test(gamma):
     # Populate the wing geometry
     for i, CAD_rib_i in enumerate(CAD_input_rib_list):
         CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-    print(f"Time : {time.time() - time_start:.2f} s")
+    # print(f"Time : {time.time() - time_start:.2f} s")
 
     # Create wing aerodynamics objects
     CAD_wing_aero = WingAerodynamics([CAD_wing])
-    print(f"Time : {time.time() - time_start:.2f} s")
+    # print(f"Time : {time.time() - time_start:.2f} s")
 
     # Setting va
     CAD_wing_aero.va = va_definition
-    print(f"Time : {time.time() - time_start:.2f} s")
+    # print(f"Time : {time.time() - time_start:.2f} s")
 
     # Solving
     results = VSM_with_stall_correction.solve(CAD_wing_aero, gamma_distribution=gamma)
 
     time_end = time.time()
-    print(f"Time taken for the simulation: {time_end - time_start:.2f}  seconds")
+    # print(f"Time taken for the simulation: {time_end - time_start:.2f}  seconds")
     return results["gamma_distribution"]
 
 
@@ -182,7 +182,7 @@ if __name__ == "__main__":
         gamma = run_speed_test(gamma)
         print(f"Time taken: {time.time() - time_before_this_loop:.2f} s")
 
-    cProfile.run("run_speed_test_cprofile()", sort="tottime")
+    # cProfile.run("run_speed_test_cprofile()", sort="tottime")
     # lp = LineProfiler()
     # VSM_with_stall_correction = Solver(
     #     aerodynamic_model_type="VSM",
