@@ -2,8 +2,8 @@
 #data/
 # processed_data/
 # results/
-# old_code/
-# venv/
+old_code/
+venv/
 
 
 # Byte-compiled / optimized / DLL files
