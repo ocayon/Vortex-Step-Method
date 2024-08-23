@@ -5,6 +5,27 @@
 old_code/
 venv/
 
+# results
+results/*
+!results/rectangular_wing/
+!results/TUDEFLT_V3_LEI_KITE/
+results/rectangular_wing/**
+results/TUDEFLT_V3_LEI_KITE/**
+
+# data
+data/*
+!data/rectangular_wing/
+!data/TUDEFLT_V3_LEI_KITE/
+data/rectangular_wing/**
+data/TUDEFLT_V3_LEI_KITE/**
+
+# processed_data
+processed_data/*
+!processed_data/rectangular_wing/
+!processed_data/TUDEFLT_V3_LEI_KITE/
+processed_data/rectangular_wing/**
+processed_data/TUDEFLT_V3_LEI_KITE/**
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
