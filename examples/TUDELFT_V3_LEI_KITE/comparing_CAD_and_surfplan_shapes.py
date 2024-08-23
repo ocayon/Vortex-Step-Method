@@ -61,7 +61,7 @@ VSM_stall = Solver(
     is_with_artificial_damping=True,
 )
 
-save_folder = Path(root_dir) / "results" / "TUD_V3_LEI_KITE"
+save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 
 # ### plotting distributions
 # surfplan_y_coordinates = [
@@ -128,10 +128,10 @@ CAD_wing_aero.va = (
 )
 plot_geometry(
     CAD_wing_aero,
-    title="CAD_wing_geometry",
+    title="CAD_extracted_shape",
     data_type=".pdf",
-    save_path=None,
-    is_save=False,
+    save_path=Path(save_folder) / "geometry",
+    is_save=True,
     is_show=True,
     view_elevation=15,
     view_azimuth=-120,
@@ -149,10 +149,10 @@ surfplan_wing_aero.va = (
 )
 plot_geometry(
     surfplan_wing_aero,
-    title="surfplan_wing_geometry",
+    title="surfplan_extracted_shape",
     data_type=".pdf",
-    save_path=None,
-    is_save=False,
+    save_path=Path(save_folder) / "geometry",
+    is_save=True,
     is_show=True,
     view_elevation=15,
     view_azimuth=-120,
@@ -216,7 +216,7 @@ plot_polars(
     side_slip=side_slip,
     yaw_rate=yaw_rate,
     Umag=Umag,
-    title="polars_CAD_vs_surfplan",
+    title="polars_comparing_CAD_vs_surfplan",
     data_type=".pdf",
     save_path=Path(save_folder) / "polars",
     is_save=True,

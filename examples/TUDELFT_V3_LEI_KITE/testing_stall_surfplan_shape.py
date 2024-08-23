@@ -48,7 +48,7 @@ VSM_with_stall_correction = Solver(
 )
 
 ### plotting distributions
-save_folder = Path(root_dir) / "results" / "TUD_V3_LEI_KITE"
+save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 surfplan_y_coordinates = [
     panels.aerodynamic_center[1] for panels in surfplan_wing_aero.panels
 ]
@@ -115,7 +115,7 @@ for angle_of_attack in angle_of_attack_range:
 
 
 ### plotting polar
-save_path = Path(root_dir) / "results" / "TUD_V3_LEI_KITE"
+save_path = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 path_cfd_lebesque = (
     Path(root_dir)
     / "data"
@@ -149,7 +149,7 @@ plot_polars(
     side_slip=0,
     yaw_rate=0,
     Umag=10,
-    title="rectangular_wing_polars",
+    title="V3_stall_vs_no_stall_polars",
     data_type=".pdf",
     save_path=Path(save_folder) / "polars",
     is_save=True,

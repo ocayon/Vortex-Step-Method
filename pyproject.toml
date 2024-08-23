@@ -89,6 +89,7 @@ dependencies = [
   "scipy",
   "numba",
   "ipykernel",
+  "screeninfo",
 ]
 
 

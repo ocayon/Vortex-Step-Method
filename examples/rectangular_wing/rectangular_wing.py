@@ -69,7 +69,7 @@ Uinf = np.array([np.cos(aoa), 0, np.sin(aoa)]) * Umag
 wing_aero.va = Uinf
 wing_aero_LLT = deepcopy(wing_aero)
 
-# ### Plotting the wing
+# # ### Plotting the wing
 save_path = Path(root_dir) / "results" / "rectangular_wing"
 plotting.plot_geometry(
     wing_aero,
@@ -86,36 +86,49 @@ plotting.plot_geometry(
 results_VSM = VSM.solve(wing_aero)
 results_LLT = LLT.solve(wing_aero_LLT)
 
-# ### plotting distributions
-# plotting.plot_distribution(
-#     y_coordinates_list=[wing_aero.panels.aerodynamic_center[:, 1]],
-#     results_list=[results_VSM, results_LLT],
-#     label_list=["VSM", "LLT"],
-#     title="spanwise_distributions",
-#     data_type=".pdf",
-#     save_path=save_path,
-#     is_save=True,
-#     is_show=True,
-# )
+### plotting distributions
+plotting.plot_distribution(
+    y_coordinates_list=[[panel.aerodynamic_center[1] for panel in wing_aero.panels]],
+    results_list=[results_VSM, results_LLT],
+    label_list=["VSM", "LLT"],
+    title="rectangular_wing_spanwise_distributions",
+    data_type=".pdf",
+    save_path=save_path,
+    is_save=True,
+    is_show=True,
+)
+
+### plotting distributions
+plotting.plot_distribution(
+    y_coordinates_list=[[panel.aerodynamic_center[1] for panel in wing_aero.panels]],
+    results_list=[results_VSM, results_LLT],
+    label_list=["VSM", "LLT"],
+    title="rectangular_wing_spanwise_distributions",
+    data_type=".png",
+    save_path=save_path,
+    is_save=True,
+    is_show=True,
+)
+
 
 # ### plotting polar
-# plotting.plot_polars(
-#     solver_list=[LLT, VSM],
-#     wing_aero_list=[wing_aero, wing_aero],
-#     label_list=["LLT", "VSM"],
-#     literature_path_list=[],
-#     angle_range=np.linspace(0, 20, 4),
-#     angle_type="angle_of_attack",
-#     angle_of_attack=0,
-#     side_slip=0,
-#     yaw_rate=0,
-#     Umag=10,
-#     title="rectangular_wing_polars",
-#     data_type=".pdf",
-#     save_path=save_path,
-#     is_save=True,
-#     is_show=True,
-# )
+plotting.plot_polars(
+    solver_list=[LLT, VSM],
+    wing_aero_list=[wing_aero, wing_aero],
+    label_list=["LLT", "VSM"],
+    literature_path_list=[],
+    angle_range=np.linspace(0, 20, 4),
+    angle_type="angle_of_attack",
+    angle_of_attack=0,
+    side_slip=0,
+    yaw_rate=0,
+    Umag=10,
+    title="rectangular_wing_polars",
+    data_type=".pdf",
+    save_path=save_path,
+    is_save=True,
+    is_show=True,
+)
 
 
 # Check if the gamma distribution is symmetric

@@ -137,7 +137,7 @@ def run_speed_test(gamma):
         yaw_rate,
     )
 
-    logging.info("Starting the simulation")
+    # print("\n Starting the simulation")
 
     time_start = time.time()
     # Populate the wing geometry
@@ -178,9 +178,10 @@ if __name__ == "__main__":
     print("Starting the speed test")
     time_before = time.time()
     for i in range(10):
+        print(f"\nStarting the simulation")
         time_before_this_loop = time.time()
         gamma = run_speed_test(gamma)
-        print(f"Time taken: {time.time() - time_before_this_loop:.2f} s")
+        print(f"Run: {i} took: {time.time() - time_before_this_loop:.2f}s")
         gamma = None
     # cProfile.run("run_speed_test_cprofile()", sort="tottime")
     # lp = LineProfiler()

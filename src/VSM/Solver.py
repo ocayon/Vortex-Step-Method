@@ -118,15 +118,17 @@ class Solver:
             gamma_distribution is None
             and self.type_initial_gamma_distribution == "elliptic"
         ):
-            gamma_new = wing_aero.calculate_circulation_distribution_elliptical_wing()
+            gamma_initial = (
+                wing_aero.calculate_circulation_distribution_elliptical_wing()
+            )
         elif len(gamma_distribution) == n_panels:
-            gamma_new = gamma_distribution
+            gamma_initial = gamma_distribution
 
-        logging.debug("Initial gamma_new: %s", gamma_new)
+        logging.debug("Initial gamma_new: %s", gamma_initial)
 
         # Run the iterative loop
         converged, gamma_new, alpha_array, Umag_array = self.gamma_loop(
-            gamma_new,
+            gamma_initial,
             AIC_x,
             AIC_y,
             AIC_z,
@@ -140,12 +142,12 @@ class Solver:
         )
         # run again with half the relaxation factor if not converged
         if not converged and relaxation_factor > 1e-3:
-            logging.info(
-                f"Not converged so running again with half the relaxation_factor = {relaxation_factor / 2}"
+            logging.warning(
+                f"Running again with half the relaxation_factor = {relaxation_factor / 2}"
             )
             relaxation_factor = relaxation_factor / 2
             converged, gamma_new, alpha_array, Umag_array = self.gamma_loop(
-                gamma_new,
+                gamma_initial,
                 AIC_x,
                 AIC_y,
                 AIC_z,
@@ -267,6 +269,11 @@ class Solver:
                 # if error smaller than limit, stop iteration cycle
                 converged = True
                 break
+
+        if converged:
+            logging.info(f"Converged after {i} iterations")
+        else:
+            logging.warning(f"NO convergences after {self.max_iterations} iterations")
         return converged, gamma_new, alpha_array, Umag_array
 
     def calculate_artificial_damping(self, gamma, alpha, stall_angle_list):

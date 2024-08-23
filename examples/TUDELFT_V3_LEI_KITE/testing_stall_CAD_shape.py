@@ -106,6 +106,39 @@ VSM_with_stall_correction = Solver(
     aerodynamic_model_type="VSM",
     is_with_artificial_damping=True,
 )
+# setting va
+Umag = 15
+aoa = 0
+side_slip = 0
+yaw_rate = 0
+aoa_rad = np.deg2rad(aoa)
+vel_app = (
+    np.array(
+        [
+            np.cos(aoa_rad) * np.cos(side_slip),
+            np.sin(side_slip),
+            np.sin(aoa_rad),
+        ]
+    )
+    * Umag
+)
+CAD_wing_aero.va = (vel_app, yaw_rate)
+CAD_wing_aero_new.va = (vel_app, yaw_rate)
+
+### Checking symmetry
+results_VSM = VSM.solve(CAD_wing_aero)
+results_VSM_stall_correction = VSM_with_stall_correction.solve(CAD_wing_aero)
+
+
+def is_symmetric_1d(array, tol=1e-8):
+    return np.allclose(array, array[::-1], atol=tol)
+
+
+print(f"\n VSM is symmetric: {is_symmetric_1d(results_VSM['gamma_distribution'])}")
+print(
+    f"results_VSM_stall_correction is symmetric: {is_symmetric_1d(results_VSM_stall_correction['gamma_distribution'])} \n"
+)
+
 
 # ### plotting distributions
 
@@ -189,25 +222,29 @@ path_wind_tunnel_poland = (
     / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )
 plot_polars(
-    solver_list=[VSM_with_stall_correction, VSM_with_stall_correction],
+    solver_list=[VSM, VSM, VSM_with_stall_correction, VSM_with_stall_correction],
     wing_aero_list=[
+        CAD_wing_aero,
+        CAD_wing_aero_new,
         CAD_wing_aero,
         CAD_wing_aero_new,
     ],
     label_list=[
-        "VSM from CAD (with correction) | from OLD cad extraction",
-        "VSM from CAD (with correction) | from NEW cad extraction",
+        "VSM from OLD cad extraction",
+        "VSM from NEW cad extraction",
+        "VSM (with correction) from OLD cad extraction",
+        "VSM (with correction) from NEW cad extraction",
         "CFD_Lebesque Rey 30e5",
         "WindTunnel_Poland Rey 5.6e5",
     ],
     literature_path_list=[path_cfd_lebesque, path_wind_tunnel_poland],
-    angle_range=np.linspace(0, 22, 4),
+    angle_range=np.linspace(0, 22, 10),
     angle_type="angle_of_attack",
     angle_of_attack=0,
     side_slip=0,
     yaw_rate=0,
     Umag=10,
-    title="rectangular_wing_polars",
+    title="CAD_shape_different_geometric_inputs",
     data_type=".pdf",
     save_path=Path(save_folder) / "polars",
     is_save=True,

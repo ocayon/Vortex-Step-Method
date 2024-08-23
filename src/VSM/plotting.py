@@ -1,10 +1,106 @@
+import os
+import sys
 import logging
+import tempfile
+import subprocess
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from matplotlib.backends.backend_pdf import PdfPages
+from screeninfo import get_monitors
 from VSM.color_palette import set_plot_style, get_color
+
+
+def save_plot(fig, save_path, title, data_type=".pdf"):
+    """
+    Save a matplotlib figure to a file.
+
+    Args:
+        fig: matplotlib figure object
+        save_path: path to save the plot
+        title: title of the plot
+        data_type: type of the data to be saved | default: ".pdf"
+
+    Returns:
+        None
+    """
+
+    if save_path is None:
+        raise ValueError("save_path should be provided")
+    else:
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        full_path = Path(save_path) / (title + data_type)
+        logging.debug(f"Attempting to save figure to: {full_path}")
+        logging.debug(f"Current working directory: {os.getcwd()}")
+        logging.debug(f"File exists before saving: {os.path.exists(full_path)}")
+
+        try:
+            if data_type.lower() == ".pdf":
+                with PdfPages(full_path) as pdf:
+                    pdf.savefig(fig)
+                logging.debug("Figure saved using PdfPages")
+            else:
+                fig.savefig(full_path)
+                logging.debug(f"Figure saved as {data_type}")
+
+            if os.path.exists(full_path):
+                logging.debug(f"File successfully saved to {full_path}")
+                logging.debug(f"File size: {os.path.getsize(full_path)} bytes")
+            else:
+                logging.info(f"File does not exist after save attempt: {full_path}")
+
+        except Exception as e:
+            logging.info(f"Error saving figure: {str(e)}")
+            logging.info(f"Error type: {type(e).__name__}")
+            logging.info(f"Error details: {sys.exc_info()}")
+
+        finally:
+            logging.debug(
+                f"File exists after save attempts: {os.path.exists(full_path)}"
+            )
+            if os.path.exists(full_path):
+                logging.debug(f"Final file size: {os.path.getsize(full_path)} bytes")
+
+
+def show_plot(fig, dpi=130):
+    """
+    Display a matplotlib figure in full screen using the default system PDF viewer.
+
+    :param fig: matplotlib figure object
+    :param dpi: Dots per inch for the figure (default: 100)
+    """
+    # Get the screen resolution
+    monitor = get_monitors()[0]
+    screen_width = monitor.width
+    screen_height = monitor.height
+
+    # Calculate figure size in inches
+    fig_width = screen_width / dpi
+    fig_height = screen_height / dpi
+
+    # Set figure size to match screen resolution
+    fig.set_size_inches(fig_width, fig_height)
+
+    # Save the figure to a temporary file
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+        fig.savefig(temp_file.name, format="png", dpi=dpi, bbox_inches="tight")
+        temp_file_name = temp_file.name
+
+    # Open the temporary file with the default PDF viewer
+    if sys.platform.startswith("darwin"):  # macOS
+        subprocess.call(("open", temp_file_name))
+    elif os.name == "nt":  # Windows
+        os.startfile(temp_file_name)
+    elif os.name == "posix":  # Linux
+        subprocess.call(("xdg-open", temp_file_name))
+
+    logging.debug(
+        f"Plot opened in full screen with dimensions: {screen_width}x{screen_height} pixels at {dpi} DPI"
+    )
 
 
 def plot_line_segment(ax, segment, color, label, width: float = 3):
@@ -70,15 +166,11 @@ def set_axes_equal(ax):
     ax.set_zlim3d([z_mid - max_range / 2, z_mid + max_range / 2])
 
 
-def plot_geometry(
+def creating_geometry_plot(
     wing_aero,
-    title="wing_geometry",
-    data_type=".pdf",
-    save_path=None,
-    is_save=False,
-    is_show=True,
-    view_elevation=15,
-    view_azimuth=-120,
+    title,
+    view_elevation,
+    view_azimuth,
 ):
     """
     Plots the wing panels and filaments in 3D.
@@ -110,7 +202,7 @@ def plot_geometry(
     aerodynamic_centers = np.array([panel.aerodynamic_center for panel in panels])
 
     # Create a 3D plot
-    fig = plt.figure()
+    fig = plt.figure(figsize=(14, 14))
     ax = fig.add_subplot(111, projection="3d")
     ax.set_title(title)
 
@@ -188,17 +280,63 @@ def plot_geometry(
     # Set the initial view
     ax.view_init(elev=view_elevation, azim=view_azimuth)
 
-    if is_show:
-        plt.show()
+    # Ensure the figure is fully rendered
+    fig.canvas.draw()
 
+    return fig
+
+
+def plot_geometry(
+    wing_aero,
+    title,
+    data_type,
+    save_path,
+    is_save=False,
+    is_show=False,
+    view_elevation=15,
+    view_azimuth=-120,
+):
+
+    # saving plot
     if is_save:
-        if save_path is None:
-            raise ValueError("save_path should be provided")
-        else:
-            plt.savefig(Path(save_path) / (title + data_type))
-            plt.close()
-    else:
+        # plot top view
+        fig = creating_geometry_plot(
+            wing_aero,
+            title=title + "_top_view",
+            view_elevation=90,
+            view_azimuth=0,
+        )
+
+        save_plot(fig, save_path, title + "_top_view", data_type)
         plt.close()
+        # plot front view
+        fig = creating_geometry_plot(
+            wing_aero,
+            title=title + "_front_view",
+            view_elevation=0,
+            view_azimuth=0,
+        )
+        save_plot(fig, save_path, title + "_front_view", data_type)
+        plt.close()
+        # save side view
+        fig = creating_geometry_plot(
+            wing_aero,
+            title=title + "_side_view",
+            view_elevation=0,
+            view_azimuth=-90,
+        )
+        save_plot(fig, save_path, title + "_side_view", data_type)
+        plt.close()
+
+    # showing plot
+    if is_show:
+        fig = creating_geometry_plot(
+            wing_aero,
+            title=title,
+            view_elevation=15,
+            view_azimuth=-120,
+        )
+        plt.show()
 
 
 def plot_distribution(
@@ -360,17 +498,16 @@ def plot_distribution(
 
     plt.tight_layout()
 
-    if is_show:
-        plt.show()
+    # Ensure the figure is fully rendered
+    fig.canvas.draw()
 
+    # saving plot
     if is_save:
-        if save_path is None:
-            raise ValueError("save_path should be provided")
-        else:
-            plt.savefig(Path(save_path) / (title + data_type))
-            plt.close()
-    else:
-        plt.close()
+        save_plot(fig, save_path, title, data_type)
+
+    # showing plot
+    if is_show:
+        show_plot(fig)
 
 
 def generate_polar_data(
@@ -538,7 +675,7 @@ def plot_polars(
             polar_data_list.append([angle, CL, CD])
 
     # Initializing plot
-    fig, axs = plt.subplots(2, 2, figsize=(10, 15))
+    fig, axs = plt.subplots(2, 2, figsize=(14, 14))
 
     n_solvers = len(solver_list)
     # CL plot
@@ -644,14 +781,13 @@ def plot_polars(
     axs[1, 1].set_ylabel(r"$C_L$")
     axs[1, 1].legend()
 
-    if is_show:
-        plt.show()
+    # Ensure the figure is fully rendered
+    fig.canvas.draw()
 
+    # saving plot
     if is_save:
-        if save_path is not None:
-            plt.savefig(Path(save_path) / (title + data_type))
-            plt.close()
-        else:
-            raise ValueError("save_path should be provided")
-    else:
-        plt.close()
+        save_plot(fig, save_path, title, data_type)
+
+    # showing plot
+    if is_show:
+        show_plot(fig, dpi=110)
