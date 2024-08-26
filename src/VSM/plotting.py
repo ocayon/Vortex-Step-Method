@@ -639,10 +639,10 @@ def plot_polars(
         None
     """
 
-    if (len(wing_aero_list) + len(literature_path_list)) != len(label_list):
+    if (len(wing_aero_list) + len(literature_path_list)) != len(label_list) or len(solver_list) != len(wing_aero_list):
         raise ValueError(
-            "The number of results and labels should be the same. Got {} results and {} labels".format(
-                (len(wing_aero_list) + len(literature_path_list)), len(label_list)
+            "The number of solvers, results and labels should be the same. Got {} solvers and {} results and {} labels".format(
+                (len(solver_list)+ len(literature_path_list)) ,(len(wing_aero_list) + len(literature_path_list)), len(label_list)
             )
         )
 

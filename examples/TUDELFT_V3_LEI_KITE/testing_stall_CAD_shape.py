@@ -195,7 +195,7 @@ plot_polars(
     side_slip=0,
     yaw_rate=0,
     Umag=10,
-    title="test_stall_wing_aero_CAD_10ribs",
+    title=f"test_stall_wing_aero_CAD_10ribs_n_panels_{int(n_panels):.0f}_distribution_{spanwise_panel_distribution}",
     data_type=".pdf",
     save_path=Path(save_folder) / "polars",
     is_save=True,

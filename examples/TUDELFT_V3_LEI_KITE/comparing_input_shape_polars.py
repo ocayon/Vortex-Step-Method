@@ -17,8 +17,8 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
         raise FileNotFoundError("Could not find the root directory of the repository.")
 
 # Defining settings
-n_panels = 41
-spanwise_panel_distribution = "linear"
+n_panels = 36
+spanwise_panel_distribution = "split_provided"
 
 ### rib_list_from_Surfplan_19ribs
 csv_file_path = (
@@ -252,7 +252,7 @@ plot_polars(
     side_slip=side_slip,
     yaw_rate=yaw_rate,
     Umag=Umag,
-    title="polars_comparing_CAD_vs_surfplan",
+    title=f"polars_comparing_CAD_vs_surfplan_n_panels_{int(n_panels):.0f}_distribution_{spanwise_panel_distribution}",
     data_type=".pdf",
     save_path=Path(save_folder) / "polars",
     is_save=True,
