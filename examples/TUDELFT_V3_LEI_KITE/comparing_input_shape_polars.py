@@ -16,43 +16,104 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
     if root_dir == "/":
         raise FileNotFoundError("Could not find the root directory of the repository.")
 
-# Load from Pickle file
-surfplan_path = (
-    Path(root_dir)
-    / "processed_data"
-    / "TUDELFT_V3_LEI_KITE"
-    / "surfplan_extracted_input_rib_list.pkl"
-)
-with open(surfplan_path, "rb") as file:
-    surfplan_input_rib_list = pickle.load(file)
-
-CAD_path = (
-    Path(root_dir)
-    / "processed_data"
-    / "TUDELFT_V3_LEI_KITE"
-    / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber.pkl"
-)
-with open(CAD_path, "rb") as file:
-    CAD_input_rib_list = pickle.load(file)
-
-# Create wing geometry
+# Defining settings
 n_panels = 41
 spanwise_panel_distribution = "linear"
+
+### rib_list_from_Surfplan_19ribs
+csv_file_path = (
+    Path(root_dir)
+    / "processed_data"
+    / "TUDELFT_V3_LEI_KITE"
+    / "rib_list_from_Surfplan_19ribs.csv"
+)
+(
+    LE_x_array,
+    LE_y_array,
+    LE_z_array,
+    TE_x_array,
+    TE_y_array,
+    TE_z_array,
+    d_tube_array,
+    camber_array,
+) = np.loadtxt(csv_file_path, delimiter=",", skiprows=1, unpack=True)
+rib_list_from_Surfplan_19ribs = []
+for i in range(len(LE_x_array)):
+    LE = np.array([LE_x_array[i], LE_y_array[i], LE_z_array[i]])
+    TE = np.array([TE_x_array[i], TE_y_array[i], TE_z_array[i]])
+    rib_list_from_Surfplan_19ribs.append(
+        [LE, TE, ["lei_airfoil_breukels", [d_tube_array[i], camber_array[i]]]]
+    )
 surfplan_wing = Wing(n_panels, spanwise_panel_distribution)
+for i, surfplan_rib_i in enumerate(rib_list_from_Surfplan_19ribs):
+    surfplan_wing.add_section(surfplan_rib_i[0], surfplan_rib_i[1], surfplan_rib_i[2])
+wing_aero_surfplan_19ribs = WingAerodynamics([surfplan_wing])
+
+### rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
+csv_file_path = (
+    Path(root_dir)
+    / "processed_data"
+    / "TUDELFT_V3_LEI_KITE"
+    / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs.csv"
+)
+(
+    LE_x_array,
+    LE_y_array,
+    LE_z_array,
+    TE_x_array,
+    TE_y_array,
+    TE_z_array,
+    d_tube_array,
+    camber_array,
+) = np.loadtxt(csv_file_path, delimiter=",", skiprows=1, unpack=True)
+rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs = []
+for i in range(len(LE_x_array)):
+    LE = np.array([LE_x_array[i], LE_y_array[i], LE_z_array[i]])
+    TE = np.array([TE_x_array[i], TE_y_array[i], TE_z_array[i]])
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs.append(
+        [LE, TE, ["lei_airfoil_breukels", [d_tube_array[i], camber_array[i]]]]
+    )
 CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 
-# Populate the wing geometry
-for i, surfplan_rib_i in enumerate(surfplan_input_rib_list):
-    surfplan_wing.add_section(surfplan_rib_i[0], surfplan_rib_i[1], surfplan_rib_i[2])
-
-for i, CAD_rib_i in enumerate(CAD_input_rib_list):
+for i, CAD_rib_i in enumerate(
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
+):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
+wing_aero_CAD_10ribs = WingAerodynamics([CAD_wing])
 
-# Create wing aerodynamics objects
-surfplan_wing_aero = WingAerodynamics([surfplan_wing])
-CAD_wing_aero = WingAerodynamics([CAD_wing])
+### rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs
+csv_file_path = (
+    Path(root_dir)
+    / "processed_data"
+    / "TUDELFT_V3_LEI_KITE"
+    / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs.csv"
+)
+(
+    LE_x_array,
+    LE_y_array,
+    LE_z_array,
+    TE_x_array,
+    TE_y_array,
+    TE_z_array,
+    d_tube_array,
+    camber_array,
+) = np.loadtxt(csv_file_path, delimiter=",", skiprows=1, unpack=True)
+rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs = []
+for i in range(len(LE_x_array)):
+    LE = np.array([LE_x_array[i], LE_y_array[i], LE_z_array[i]])
+    TE = np.array([TE_x_array[i], TE_y_array[i], TE_z_array[i]])
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs.append(
+        [LE, TE, ["lei_airfoil_breukels", [d_tube_array[i], camber_array[i]]]]
+    )
+CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 
-# Solvers
+for i, CAD_rib_i in enumerate(
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs
+):
+    CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
+wing_aero_CAD_19ribs = WingAerodynamics([CAD_wing])
+
+### Solvers
 VSM = Solver(
     aerodynamic_model_type="VSM",
 )
@@ -65,9 +126,9 @@ save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 
 # ### plotting distributions
 # surfplan_y_coordinates = [
-#     panels.aerodynamic_center[1] for panels in surfplan_wing_aero.panels
+#     panels.aerodynamic_center[1] for panels in wing_aero_surfplan_19ribs.panels
 # ]
-# CAD_y_coordinates = [panels.aerodynamic_center[1] for panels in CAD_wing_aero.panels]
+# CAD_y_coordinates = [panels.aerodynamic_center[1] for panels in wing_aero_CAD_10ribs.panels]
 
 # angle_of_attack_range = np.linspace(0, 20, 2)
 # side_slip = 0
@@ -75,7 +136,7 @@ save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 # Umag = 15
 # for angle_of_attack in angle_of_attack_range:
 #     aoa_rad = np.deg2rad(angle_of_attack)
-#     CAD_wing_aero.va = (
+#     wing_aero_CAD_10ribs.va = (
 #         np.array(
 #             [
 #                 np.cos(aoa_rad) * np.cos(side_slip),
@@ -86,7 +147,7 @@ save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 #         * Umag,
 #         yaw_rate,
 #     )
-#     surfplan_wing_aero.va = (
+#     wing_aero_surfplan_19ribs.va = (
 #         np.array(
 #             [
 #                 np.cos(aoa_rad) * np.cos(side_slip),
@@ -97,8 +158,8 @@ save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 #         * Umag,
 #         yaw_rate,
 #     )
-#     CAD_results, _ = VSM.solve(CAD_wing_aero)
-#     surfplan_results, _ = VSM.solve(surfplan_wing_aero)
+#     CAD_results, _ = VSM.solve(wing_aero_CAD_10ribs)
+#     surfplan_results, _ = VSM.solve(wing_aero_surfplan_19ribs)
 #     plot_distribution(
 #         y_coordinates_list=[CAD_y_coordinates, surfplan_y_coordinates],
 #         results_list=[CAD_results, surfplan_results],
@@ -110,12 +171,12 @@ save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 #         is_show=True,
 #     )
 
-### plotting shapes
+### Setting va for each wing
 aoa_rad = np.deg2rad(10)
 side_slip = 0
 yaw_rate = 0
 Umag = 15
-CAD_wing_aero.va = (
+va = (
     np.array(
         [
             np.cos(aoa_rad) * np.cos(side_slip),
@@ -123,40 +184,11 @@ CAD_wing_aero.va = (
             np.sin(aoa_rad),
         ]
     )
-    * Umag,
-    yaw_rate,
+    * Umag
 )
-plot_geometry(
-    CAD_wing_aero,
-    title="CAD_extracted_shape",
-    data_type=".pdf",
-    save_path=Path(save_folder) / "geometry",
-    is_save=True,
-    is_show=True,
-    view_elevation=15,
-    view_azimuth=-120,
-)
-surfplan_wing_aero.va = (
-    np.array(
-        [
-            np.cos(aoa_rad) * np.cos(side_slip),
-            np.sin(side_slip),
-            np.sin(aoa_rad),
-        ]
-    )
-    * Umag,
-    yaw_rate,
-)
-plot_geometry(
-    surfplan_wing_aero,
-    title="surfplan_extracted_shape",
-    data_type=".pdf",
-    save_path=Path(save_folder) / "geometry",
-    is_save=True,
-    is_show=True,
-    view_elevation=15,
-    view_azimuth=-120,
-)
+wing_aero_CAD_10ribs.va = va, yaw_rate
+wing_aero_CAD_19ribs.va = va, yaw_rate
+wing_aero_surfplan_19ribs.va = va, yaw_rate
 
 ### plotting polar
 angle_of_attack_range = np.linspace(-5, 25, 15)
@@ -189,18 +221,22 @@ path_wind_tunnel_poland_56e4 = (
     / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )
 plot_polars(
-    solver_list=[VSM, VSM, VSM_stall, VSM_stall],
+    solver_list=[VSM, VSM, VSM, VSM_stall, VSM_stall, VSM_stall],
     wing_aero_list=[
-        surfplan_wing_aero,
-        CAD_wing_aero,
-        surfplan_wing_aero,
-        CAD_wing_aero,
+        wing_aero_surfplan_19ribs,
+        wing_aero_CAD_10ribs,
+        wing_aero_CAD_19ribs,
+        wing_aero_surfplan_19ribs,
+        wing_aero_CAD_10ribs,
+        wing_aero_CAD_19ribs,
     ],
     label_list=[
-        f"Surfplan",
-        f"CAD",
-        f"Surfplan with stall correction",
-        f"CAD with stall correction",
+        f"Surfplan 19ribs",
+        f"CAD 10ribs",
+        f"CAD 19ribs",
+        f"Surfplan 19ribs with stall correction",
+        f"CAD 10ribs with stall correction",
+        f"CAD 19ribs with stall correction",
         f"RANS CFD Lebesque Rey = 10e5 (2020)",
         f"RANS CFD Lebesque Rey = 30e5 (2020)",
         f"Wind Tunnel Poland Rey = 5.6e5 (2024)",

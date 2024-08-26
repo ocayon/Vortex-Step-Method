@@ -21,17 +21,30 @@ def run_speed_test_cprofile():
                 "Could not find the root directory of the repository."
             )
 
-    # Load from Pickle file
+    #### CAD from csv, with Surfplan d_tube and camber
     CAD_path = (
         Path(root_dir)
         / "processed_data"
         / "TUDELFT_V3_LEI_KITE"
-        / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber.pkl"
+        / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber.csv"
     )
-    with open(CAD_path, "rb") as file:
-        CAD_input_rib_list = pickle.load(file)
-
-    # Create wing geometry
+    (
+        LE_x_array,
+        LE_y_array,
+        LE_z_array,
+        TE_x_array,
+        TE_y_array,
+        TE_z_array,
+        d_tube_array,
+        camber_array,
+    ) = np.loadtxt(CAD_path, delimiter=",", skiprows=1, unpack=True)
+    CAD_input_rib_list = []
+    for i in range(len(LE_x_array)):
+        LE = np.array([LE_x_array[i], LE_y_array[i], LE_z_array[i]])
+        TE = np.array([TE_x_array[i], TE_y_array[i], TE_z_array[i]])
+        CAD_input_rib_list.append(
+            [LE, TE, ["lei_airfoil_breukels", [d_tube_array[i], camber_array[i]]]]
+        )
     n_panels = 36
     spanwise_panel_distribution = "split_provided"
     CAD_wing = Wing(n_panels, spanwise_panel_distribution)

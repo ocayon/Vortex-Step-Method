@@ -642,7 +642,7 @@ def plot_polars(
     if (len(wing_aero_list) + len(literature_path_list)) != len(label_list):
         raise ValueError(
             "The number of results and labels should be the same. Got {} results and {} labels".format(
-                len(wing_aero_list), len(label_list)
+                (len(wing_aero_list) + len(literature_path_list)), len(label_list)
             )
         )
 

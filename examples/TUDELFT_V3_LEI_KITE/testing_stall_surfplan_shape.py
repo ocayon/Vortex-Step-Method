@@ -16,27 +16,38 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
     if root_dir == "/":
         raise FileNotFoundError("Could not find the root directory of the repository.")
 
-# Load from Pickle file
-surfplan_path = (
+## Defining discretisation
+n_panels = 41
+spanwise_panel_distribution = "linear"
+
+### rib_list_from_Surfplan_19ribs
+csv_file_path = (
     Path(root_dir)
     / "processed_data"
     / "TUDELFT_V3_LEI_KITE"
-    / "surfplan_extracted_input_rib_list.pkl"
+    / "rib_list_from_Surfplan_19ribs.csv"
 )
-with open(surfplan_path, "rb") as file:
-    surfplan_input_rib_list = pickle.load(file)
-
-# Create wing geometry
-n_panels = 20
-spanwise_panel_distribution = "unchanged"
+(
+    LE_x_array,
+    LE_y_array,
+    LE_z_array,
+    TE_x_array,
+    TE_y_array,
+    TE_z_array,
+    d_tube_array,
+    camber_array,
+) = np.loadtxt(csv_file_path, delimiter=",", skiprows=1, unpack=True)
+rib_list_from_Surfplan_19ribs = []
+for i in range(len(LE_x_array)):
+    LE = np.array([LE_x_array[i], LE_y_array[i], LE_z_array[i]])
+    TE = np.array([TE_x_array[i], TE_y_array[i], TE_z_array[i]])
+    rib_list_from_Surfplan_19ribs.append(
+        [LE, TE, ["lei_airfoil_breukels", [d_tube_array[i], camber_array[i]]]]
+    )
 surfplan_wing = Wing(n_panels, spanwise_panel_distribution)
-
-# Populate the wing geometry
-for i, surfplan_rib_i in enumerate(surfplan_input_rib_list):
+for i, surfplan_rib_i in enumerate(rib_list_from_Surfplan_19ribs):
     surfplan_wing.add_section(surfplan_rib_i[0], surfplan_rib_i[1], surfplan_rib_i[2])
-
-# Create wing aerodynamics objects
-surfplan_wing_aero = WingAerodynamics([surfplan_wing])
+wing_aero_surfplan_19ribs = WingAerodynamics([surfplan_wing])
 
 # Solvers
 VSM = Solver(
@@ -50,7 +61,7 @@ VSM_with_stall_correction = Solver(
 ### plotting distributions
 save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 surfplan_y_coordinates = [
-    panels.aerodynamic_center[1] for panels in surfplan_wing_aero.panels
+    panels.aerodynamic_center[1] for panels in wing_aero_surfplan_19ribs.panels
 ]
 angle_of_attack_range = np.linspace(0, 20, 2)
 
@@ -61,7 +72,7 @@ for angle_of_attack in angle_of_attack_range:
     side_slip = 0
     yaw_rate = 0
     Umag = 15
-    surfplan_wing_aero.va = (
+    wing_aero_surfplan_19ribs.va = (
         np.array(
             [
                 np.cos(aoa_rad) * np.cos(side_slip),
@@ -72,8 +83,10 @@ for angle_of_attack in angle_of_attack_range:
         * Umag,
         yaw_rate,
     )
-    results = VSM.solve(surfplan_wing_aero)
-    results_with_stall_correction = VSM_with_stall_correction.solve(surfplan_wing_aero)
+    results = VSM.solve(wing_aero_surfplan_19ribs)
+    results_with_stall_correction = VSM_with_stall_correction.solve(
+        wing_aero_surfplan_19ribs
+    )
     plot_distribution(
         y_coordinates_list=[surfplan_y_coordinates, surfplan_y_coordinates],
         results_list=[results, results_with_stall_correction],
@@ -131,10 +144,10 @@ path_wind_tunnel_poland = (
     / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )
 plot_polars(
-    solver_list=[VSM, VSM_with_stall_correction, VSM, VSM_with_stall_correction],
+    solver_list=[VSM, VSM_with_stall_correction],
     wing_aero_list=[
-        surfplan_wing_aero,
-        surfplan_wing_aero,
+        wing_aero_surfplan_19ribs,
+        wing_aero_surfplan_19ribs,
     ],
     label_list=[
         "VSM from surfplan",
@@ -149,7 +162,7 @@ plot_polars(
     side_slip=0,
     yaw_rate=0,
     Umag=10,
-    title="V3_stall_vs_no_stall_polars",
+    title="test_stall_wing_aero_surfplan_19ribs",
     data_type=".pdf",
     save_path=Path(save_folder) / "polars",
     is_save=True,

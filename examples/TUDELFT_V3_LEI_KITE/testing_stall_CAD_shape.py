@@ -17,85 +17,41 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
         raise FileNotFoundError("Could not find the root directory of the repository.")
 save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 
-# Load from Pickle file
-CAD_path = (
-    Path(root_dir)
-    / "processed_data"
-    / "TUDELFT_V3_LEI_KITE"
-    / "CAD_extracted_input_rib_list.pkl"
-)
-with open(CAD_path, "rb") as file:
-    CAD_input_rib_list = pickle.load(file)
-
-print(
-    f"shape(CAD_input_rib_list): ({len(CAD_input_rib_list)},{len(CAD_input_rib_list[0])})"
-)
-# Load from Pickle file
-CAD_path_adjusted = (
-    Path(root_dir)
-    / "processed_data"
-    / "TUDELFT_V3_LEI_KITE"
-    / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber.pkl"
-)
-with open(CAD_path_adjusted, "rb") as file:
-    CAD_input_rib_list_adjusted = pickle.load(file)
-
-
-n_panels = 18
+# Defining discretisation
+n_panels = 36
 spanwise_panel_distribution = "split_provided"
-CAD_wing_new = Wing(n_panels, spanwise_panel_distribution)
-for i, CAD_rib_i in enumerate(CAD_input_rib_list_adjusted):
-    CAD_wing_new.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
 
-print(
-    f"shape(CAD_input_rib_list_adjusted): ({len(CAD_input_rib_list_adjusted)},{len(CAD_input_rib_list_adjusted[0])})"
+### rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
+csv_file_path = (
+    Path(root_dir)
+    / "processed_data"
+    / "TUDELFT_V3_LEI_KITE"
+    / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs.csv"
 )
-
-# Create wing geometry
-n_panels = 18
-spanwise_panel_distribution = "unchanged"
+(
+    LE_x_array,
+    LE_y_array,
+    LE_z_array,
+    TE_x_array,
+    TE_y_array,
+    TE_z_array,
+    d_tube_array,
+    camber_array,
+) = np.loadtxt(csv_file_path, delimiter=",", skiprows=1, unpack=True)
+rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs = []
+for i in range(len(LE_x_array)):
+    LE = np.array([LE_x_array[i], LE_y_array[i], LE_z_array[i]])
+    TE = np.array([TE_x_array[i], TE_y_array[i], TE_z_array[i]])
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs.append(
+        [LE, TE, ["lei_airfoil_breukels", [d_tube_array[i], camber_array[i]]]]
+    )
 CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 
-## Creating arrays
-
-# Populate the wing geometry
-for i, CAD_rib_i in enumerate(CAD_input_rib_list):
-    CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-    index = int(i / 2)
-    # index = i
-    print(f"--------------Rib {i}")
-    logging.info(f"LE: {CAD_rib_i[0]} VS NEW: {CAD_input_rib_list_adjusted[index][0]}")
-    logging.info(f"TE: {CAD_rib_i[1]} VS NEW: {CAD_input_rib_list_adjusted[index][1]}")
-    logging.info(
-        f"airfoil_input: {CAD_rib_i[2]} VS NEW: {CAD_input_rib_list_adjusted[index][2]}"
-    )
-    print(
-        f"delta LE: {np.array(CAD_rib_i[0]) - np.array(CAD_input_rib_list_adjusted[index][0])}"
-    )
-    print(
-        f"delta TE: {np.array(CAD_rib_i[1]) - np.array(CAD_input_rib_list_adjusted[index][1])}"
-    )
-    print(
-        f"delta airfoil: {np.array(CAD_rib_i[2][1]) - np.array(CAD_input_rib_list_adjusted[index][2][1])}"
-    )
-    print(f"\n")
-
-
-# Create wing aerodynamics objects
-CAD_wing_aero = WingAerodynamics([CAD_wing])
-CAD_wing_aero_new = WingAerodynamics([CAD_wing_new])
-
-for i, (panel, panel_new) in enumerate(
-    zip(CAD_wing_aero.panels, CAD_wing_aero_new.panels)
+for i, CAD_rib_i in enumerate(
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
 ):
-    print(f"--------------Panel {i}")
-    print(f"LE: {panel.LE_point_1} VS NEW: {panel_new.LE_point_1}")
-    print(f"TE: {panel.TE_point_1} VS NEW: {panel_new.TE_point_1}")
-    print(f"chord: {panel.chord} VS NEW: {panel_new.chord}")
-    index = int(i / 2)
-    print(
-        f"delta airfoil: {np.array(CAD_input_rib_list[i][2][1]) - np.array(CAD_input_rib_list_adjusted[index][2][1])}"
-    )
+    CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
+wing_aero_CAD_10ribs = WingAerodynamics([CAD_wing])
 
 
 # Solvers
@@ -122,12 +78,11 @@ vel_app = (
     )
     * Umag
 )
-CAD_wing_aero.va = (vel_app, yaw_rate)
-CAD_wing_aero_new.va = (vel_app, yaw_rate)
+wing_aero_CAD_10ribs.va = (vel_app, yaw_rate)
 
 ### Checking symmetry
-results_VSM = VSM.solve(CAD_wing_aero)
-results_VSM_stall_correction = VSM_with_stall_correction.solve(CAD_wing_aero)
+results_VSM = VSM.solve(wing_aero_CAD_10ribs)
+results_VSM_stall_correction = VSM_with_stall_correction.solve(wing_aero_CAD_10ribs)
 
 
 def is_symmetric_1d(array, tol=1e-8):
@@ -222,18 +177,14 @@ path_wind_tunnel_poland = (
     / "V3_CL_CD_Wind_Tunnel_Poland_2024_Rey_56e4.csv"
 )
 plot_polars(
-    solver_list=[VSM, VSM, VSM_with_stall_correction, VSM_with_stall_correction],
+    solver_list=[VSM, VSM_with_stall_correction],
     wing_aero_list=[
-        CAD_wing_aero,
-        CAD_wing_aero_new,
-        CAD_wing_aero,
-        CAD_wing_aero_new,
+        wing_aero_CAD_10ribs,
+        wing_aero_CAD_10ribs,
     ],
     label_list=[
-        "VSM from OLD cad extraction",
-        "VSM from NEW cad extraction",
-        "VSM (with correction) from OLD cad extraction",
-        "VSM (with correction) from NEW cad extraction",
+        "VSM CAD 10ribs",
+        "VSM CAD 10ribs , with stall correction",
         "CFD_Lebesque Rey 30e5",
         "WindTunnel_Poland Rey 5.6e5",
     ],
@@ -244,7 +195,7 @@ plot_polars(
     side_slip=0,
     yaw_rate=0,
     Umag=10,
-    title="CAD_shape_different_geometric_inputs",
+    title="test_stall_wing_aero_CAD_10ribs",
     data_type=".pdf",
     save_path=Path(save_folder) / "polars",
     is_save=True,

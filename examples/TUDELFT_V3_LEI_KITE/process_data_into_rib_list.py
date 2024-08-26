@@ -1,5 +1,5 @@
 import numpy as np
-
+import csv
 import logging
 import pickle
 import os
@@ -338,14 +338,39 @@ def save_rib_input_list(
         airfoil_input = ["lei_airfoil_breukels", [d_tube, camber]]
         input_rib_list.append([LE, TE, airfoil_input])
 
-    save_path = (
-        Path(root_dir) / "processed_data" / "TUDELFT_V3_LEI_KITE" / f"{file_name}.pkl"
-    )
+    # save_path = (
+    #     Path(root_dir) / "processed_data" / "TUDELFT_V3_LEI_KITE" / f"{file_name}.pkl"
+    # )
     logging.info(
         f"file_name: {file_name} | shape: ({len(input_rib_list)},{len(input_rib_list[0])})"
     )
-    with open(save_path, "wb") as file:
-        pickle.dump(input_rib_list, file)
+
+    # with open(save_path, "wb") as file:
+    #     pickle.dump(input_rib_list, file)
+
+    # Save wing geometry in a csv file
+    csv_file_path = (
+        Path(root_dir) / "processed_data" / "TUDELFT_V3_LEI_KITE" / f"{file_name}.csv"
+    )
+    if csv_file_path is None:
+        raise ValueError("You must provide a csv_file_path.")
+    if not os.path.exists(csv_file_path):
+        os.makedirs(os.path.dirname(csv_file_path), exist_ok=True)
+
+    with open(csv_file_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        # Write the header
+        writer.writerow(
+            ["LE_x", "LE_y", "LE_z", "TE_x", "TE_y", "TE_z", "d_tube", "camber"]
+        )
+
+        # Write the data for each rib
+        for LE, TE, d_tube, camber in zip(
+            LE_array, TE_array, d_tube_array, camber_array
+        ):
+            le_x, le_y, le_z = LE
+            te_x, te_y, te_z = TE
+            writer.writerow([le_x, le_y, le_z, te_x, te_y, te_z, d_tube, camber])
 
 
 def extract_d_tube_and_camber_from_surfplan(root_dir):
@@ -364,7 +389,7 @@ def extract_d_tube_and_camber_from_surfplan(root_dir):
     return d_tube, camber
 
 
-def extract_LE_and_TE_from_surfplan(root_dir):
+def extract_LE_and_TE_from_CAD_data_csv(root_dir):
     # Getting the geometry of the points
     CAD_path = (
         Path(root_dir)
@@ -396,6 +421,27 @@ def extract_LE_and_TE_from_surfplan(root_dir):
     TE_array = TE_array[np.argsort(-TE_array[:, 1])]
 
     return LE_array, TE_array
+
+
+def extract_LE_and_TE_from_CAD_pickle(root_dir):
+    CAD_path_OLD = (
+        Path(root_dir)
+        / "processed_data"
+        / "TUDELFT_V3_LEI_KITE"
+        / "CAD_extracted_input_rib_list.pkl"
+    )
+    with open(CAD_path_OLD, "rb") as file:
+        CAD_input_rib_list_OLD = pickle.load(file)
+    LE_array, TE_array, d_tube_array, camber_array = [], [], [], []
+    for i, CAD_rib_i in enumerate(CAD_input_rib_list_OLD):
+        LE_array.append(CAD_rib_i[0])
+        TE_array.append(CAD_rib_i[1])
+        d_tube_array.append(CAD_rib_i[2][1][0])
+        camber_array.append(CAD_rib_i[2][1][1])
+
+    logging.info(f"shape LE: {len(LE_array)} | shape TE: {len(TE_array)}")
+
+    return np.array(LE_array), np.array(TE_array), d_tube_array, camber_array
 
 
 # def refine_LE_and_TE_using_ballooning(LE_array, TE_array, N_split):
@@ -437,14 +483,17 @@ if __name__ == "__main__":
                 "Could not find the root directory of the repository."
             )
 
-    LE_array, TE_array = extract_LE_and_TE_from_surfplan(root_dir)
+    # LE_array, TE_array, d_tube_array, camber_array = extract_LE_and_TE_from_CAD_pickle(
+    #     root_dir
+    # )
+    LE_array, TE_array = extract_LE_and_TE_from_CAD_data_csv(root_dir)
     d_tube_array, camber_array = extract_d_tube_and_camber_from_surfplan(root_dir)
     save_rib_input_list(
         LE_array,
         TE_array,
         d_tube_array,
         camber_array,
-        "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber",
+        "rib_list_new_run_need_to_specify_the_right_name",
         root_dir,
     )
 
