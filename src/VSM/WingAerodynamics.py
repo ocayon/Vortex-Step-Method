@@ -583,12 +583,6 @@ class WingAerodynamics:
             ftotal_induced_va = lift_induced_va + drag_induced_va
             logging.debug(f"ftotal_induced_va: {ftotal_induced_va}")
 
-            if is_only_f_and_gamma_output:
-                return {
-                    "F_distribution": ftotal_induced_va * panel_width,
-                    "gamma_distribution": gamma_new,
-                }
-
             ### Converting forces to prescribed wing va
             dir_lift_prescribed_va = jit_cross(va, spanwise_direction)
             dir_lift_prescribed_va = dir_lift_prescribed_va / jit_norm(
@@ -659,6 +653,12 @@ class WingAerodynamics:
             f_global_3D_list.append(
                 np.array([fx_global_3D, fy_global_3D, fz_global_3D])
             )
+
+        if is_only_f_and_gamma_output:
+            return {
+                "F_distribution": f_global_3D_list,
+                "gamma_distribution": gamma_new,
+            }
 
         # Calculating projected_area, wing_span, aspect_ratio
         projected_area = 0

@@ -239,7 +239,7 @@ class Solver:
             # )
             if self.is_with_artificial_damping:
                 damp, is_damping_applied = self.smooth_circulation(
-                    circulation=gamma, smoothness_factor=0.1, damping_factor=0.5
+                    circulation=gamma_new, smoothness_factor=0.1, damping_factor=0.5
                 )
                 logging.debug("damp: %s", damp)
             else:
