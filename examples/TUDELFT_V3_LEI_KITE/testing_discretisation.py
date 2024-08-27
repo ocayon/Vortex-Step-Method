@@ -17,12 +17,12 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
         raise FileNotFoundError("Could not find the root directory of the repository.")
 save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 
-### rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
+### rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs
 csv_file_path = (
     Path(root_dir)
     / "processed_data"
     / "TUDELFT_V3_LEI_KITE"
-    / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs.csv"
+    / "rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs.csv"
 )
 (
     LE_x_array,
@@ -34,11 +34,11 @@ csv_file_path = (
     d_tube_array,
     camber_array,
 ) = np.loadtxt(csv_file_path, delimiter=",", skiprows=1, unpack=True)
-rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs = []
+rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs = []
 for i in range(len(LE_x_array)):
     LE = np.array([LE_x_array[i], LE_y_array[i], LE_z_array[i]])
     TE = np.array([TE_x_array[i], TE_y_array[i], TE_z_array[i]])
-    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs.append(
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs.append(
         [LE, TE, ["lei_airfoil_breukels", [d_tube_array[i], camber_array[i]]]]
     )
 
@@ -46,68 +46,68 @@ for i in range(len(LE_x_array)):
 spanwise_panel_distribution = "split_provided"
 
 
-### n_panels = 9
-n_panels = 9
-CAD_wing = Wing(n_panels, spanwise_panel_distribution)
-for i, CAD_rib_i in enumerate(
-    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
-):
-    CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-wing_aero_CAD_10ribs_9panels = WingAerodynamics([CAD_wing])
+# ### n_panels = 9
+# n_panels = 9
+# CAD_wing = Wing(n_panels, spanwise_panel_distribution)
+# for i, CAD_rib_i in enumerate(
+#     rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs
+# ):
+#     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
+# wing_aero_CAD_19ribs_9panels = WingAerodynamics([CAD_wing])
 
 ### n_panels = 18
 n_panels = 18
 CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 for i, CAD_rib_i in enumerate(
-    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs
 ):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-wing_aero_CAD_10ribs_18panels = WingAerodynamics([CAD_wing])
+wing_aero_CAD_19ribs_18panels = WingAerodynamics([CAD_wing])
 
 ### n_panels = 36
 n_panels = 36
 CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 for i, CAD_rib_i in enumerate(
-    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs
 ):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-wing_aero_CAD_10ribs_36panels = WingAerodynamics([CAD_wing])
+wing_aero_CAD_19ribs_36panels = WingAerodynamics([CAD_wing])
 
 ### n_panels = 45
 n_panels = 45
 CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 for i, CAD_rib_i in enumerate(
-    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs
 ):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-wing_aero_CAD_10ribs_45panels = WingAerodynamics([CAD_wing])
+wing_aero_CAD_19ribs_45panels = WingAerodynamics([CAD_wing])
 
 ### n_panels = 54
 n_panels = 54
 CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 for i, CAD_rib_i in enumerate(
-    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs
 ):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-wing_aero_CAD_10ribs_54panels = WingAerodynamics([CAD_wing])
+wing_aero_CAD_19ribs_54panels = WingAerodynamics([CAD_wing])
 
 ## n_panels = 72
 n_panels = 72
 CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 for i, CAD_rib_i in enumerate(
-    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs
 ):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-wing_aero_CAD_10ribs_72panels = WingAerodynamics([CAD_wing])
+wing_aero_CAD_19ribs_72panels = WingAerodynamics([CAD_wing])
 
 ## n_panels = 117
 n_panels = 117
 CAD_wing = Wing(n_panels, spanwise_panel_distribution)
 for i, CAD_rib_i in enumerate(
-    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
+    rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs
 ):
     CAD_wing.add_section(CAD_rib_i[0], CAD_rib_i[1], CAD_rib_i[2])
-wing_aero_CAD_10ribs_117panels = WingAerodynamics([CAD_wing])
+wing_aero_CAD_19ribs_117panels = WingAerodynamics([CAD_wing])
 
 
 # Solvers
@@ -134,7 +134,7 @@ path_wind_tunnel_poland = (
 )
 plot_polars(
     solver_list=[
-        VSM_stall,
+        # VSM_stall,
         VSM_stall,
         VSM_stall,
         VSM_stall,
@@ -143,22 +143,22 @@ plot_polars(
         VSM_stall,
     ],
     wing_aero_list=[
-        wing_aero_CAD_10ribs_9panels,
-        wing_aero_CAD_10ribs_18panels,
-        wing_aero_CAD_10ribs_36panels,
-        wing_aero_CAD_10ribs_45panels,
-        wing_aero_CAD_10ribs_54panels,
-        wing_aero_CAD_10ribs_72panels,
-        wing_aero_CAD_10ribs_117panels,
+        # wing_aero_CAD_19ribs_9panels,
+        wing_aero_CAD_19ribs_18panels,
+        wing_aero_CAD_19ribs_36panels,
+        wing_aero_CAD_19ribs_45panels,
+        wing_aero_CAD_19ribs_54panels,
+        wing_aero_CAD_19ribs_72panels,
+        wing_aero_CAD_19ribs_117panels,
     ],
     label_list=[
-        "  9panels VSM stall CAD 10ribs",
-        " 18panels VSM stall CAD 10ribs",
-        " 36panels VSM stall CAD 10ribs",
-        " 45panels VSM stall CAD 10ribs",
-        " 54panels VSM stall CAD 10ribs",
-        " 72panels VSM stall CAD 10ribs",
-        "117panels VSM stall CAD 10ribs",
+        # "  9panels VSM stall CAD 19ribs",
+        " 18panels VSM stall CAD 19ribs",
+        " 36panels VSM stall CAD 19ribs",
+        " 45panels VSM stall CAD 19ribs",
+        " 54panels VSM stall CAD 19ribs",
+        " 72panels VSM stall CAD 19ribs",
+        "117panels VSM stall CAD 19ribs",
         "CFD_Lebesque Rey 30e5",
         "WindTunnel_Poland Rey 5.6e5",
     ],
@@ -169,7 +169,7 @@ plot_polars(
     side_slip=0,
     yaw_rate=0,
     Umag=10,
-    title=f"discretisation_study_CAD_10ribs_distribution_{spanwise_panel_distribution}",
+    title=f"discretisation_study_CAD_19ribs_distribution_{spanwise_panel_distribution}",
     data_type=".pdf",
     save_path=Path(save_folder) / "polars",
     is_save=True,
