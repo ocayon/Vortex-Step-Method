@@ -18,7 +18,7 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
 save_results_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 
 # Defining settings
-n_panels = 41
+n_panels = 18
 spanwise_panel_distribution = "unchanged"
 
 ### rib_list_from_Surfplan_19ribs

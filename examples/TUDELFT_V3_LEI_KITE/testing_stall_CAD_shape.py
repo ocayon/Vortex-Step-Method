@@ -7,7 +7,7 @@ from pathlib import Path
 from VSM.WingGeometry import Wing
 from VSM.WingAerodynamics import WingAerodynamics
 from VSM.Solver import Solver
-from VSM.plotting import plot_polars, plot_distribution
+from VSM.plotting import plot_polars, plot_distribution, plot_geometry
 
 # Find the root directory of the repository
 root_dir = os.path.abspath(os.path.dirname(__file__))
@@ -18,7 +18,7 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
 save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 
 # Defining discretisation
-n_panels = 36
+n_panels = 18
 spanwise_panel_distribution = "split_provided"
 
 ### rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_10ribs
@@ -79,6 +79,19 @@ vel_app = (
     * Umag
 )
 wing_aero_CAD_10ribs.va = (vel_app, yaw_rate)
+
+## Plotting
+plot_geometry(
+    wing_aero_CAD_10ribs,
+    title="wing_aero_CAD_10ribs",
+    data_type=".pdf",
+    save_path="",
+    is_save=False,
+    is_show=True,
+    view_elevation=15,
+    view_azimuth=-120,
+)
+
 
 ### Checking symmetry
 results_VSM = VSM.solve(wing_aero_CAD_10ribs)

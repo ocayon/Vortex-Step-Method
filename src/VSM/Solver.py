@@ -239,7 +239,7 @@ class Solver:
             # )
             if self.is_with_artificial_damping:
                 damp, is_damping_applied = self.smooth_circulation(
-                    circulation=gamma_new, smoothness_factor=0.1, damping_factor=0.5
+                    circulation=gamma, smoothness_factor=0.1, damping_factor=0.5
                 )
                 logging.debug("damp: %s", damp)
             else:
@@ -364,7 +364,10 @@ class Solver:
         logging.debug("circulation_mean: %s, diff: %s", circulation_mean, differences)
 
         # Check if the curve is smooth based on the maximum difference
-        is_smooth = np.max(np.abs(differences)) <= smoothness_threshold
+        if len(differences) != 0:
+            is_smooth = True
+        else:
+            is_smooth = np.max(np.abs(differences)) <= smoothness_threshold
 
         if is_smooth:
             return np.zeros(len(circulation)), False
