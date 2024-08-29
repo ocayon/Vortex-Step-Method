@@ -64,53 +64,53 @@ VSM_with_stall_correction = Solver(
     is_with_artificial_damping=True,
 )
 
-# # setting va
-# Umag = 20
-# aoa = 20
-# side_slip = 0
-# yaw_rate = 0
-# aoa_rad = np.deg2rad(aoa)
-# vel_app = (
-#     np.array(
-#         [
-#             np.cos(aoa_rad) * np.cos(side_slip),
-#             np.sin(side_slip),
-#             np.sin(aoa_rad),
-#         ]
-#     )
-#     * Umag
-# )
-# wing_aero_CAD_19ribs.va = (vel_app, yaw_rate)
+# setting va
+Umag = 15
+aoa = 18
+side_slip = 0
+yaw_rate = 0
+aoa_rad = np.deg2rad(aoa)
+vel_app = (
+    np.array(
+        [
+            np.cos(aoa_rad) * np.cos(side_slip),
+            np.sin(side_slip),
+            np.sin(aoa_rad),
+        ]
+    )
+    * Umag
+)
+wing_aero_CAD_19ribs.va = (vel_app, yaw_rate)
 
-# ## Plotting
-# plot_geometry(
-#     wing_aero_CAD_19ribs,
-#     title="wing_aero_CAD_19ribs",
-#     data_type=".pdf",
-#     save_path="",
-#     is_save=False,
-#     is_show=True,
-#     view_elevation=15,
-#     view_azimuth=-120,
-# )
+## Plotting
+plot_geometry(
+    wing_aero_CAD_19ribs,
+    title="wing_aero_CAD_19ribs",
+    data_type=".pdf",
+    save_path="",
+    is_save=False,
+    is_show=True,
+    view_elevation=15,
+    view_azimuth=-120,
+)
 
 
-# ### plotting distributions
-# results = VSM.solve(wing_aero_CAD_19ribs)
-# results_with_stall_correction = VSM_with_stall_correction.solve(wing_aero_CAD_19ribs)
-# CAD_y_coordinates = [
-#     panels.aerodynamic_center[1] for panels in wing_aero_CAD_19ribs.panels
-# ]
-# plot_distribution(
-#     y_coordinates_list=[CAD_y_coordinates, CAD_y_coordinates],
-#     results_list=[results, results_with_stall_correction],
-#     label_list=["VSM", "VSM with stall correction"],
-#     title=f"CAD_spanwise_distributions_alpha_{aoa:.1f}_beta_{side_slip:.1f}_yaw_{yaw_rate:.1f}_Umag_{Umag:.1f}",
-#     data_type=".pdf",
-#     save_path=Path(save_folder) / "spanwise_distributions",
-#     is_save=False,
-#     is_show=True,
-# )
+### plotting distributions
+results = VSM.solve(wing_aero_CAD_19ribs)
+results_with_stall_correction = VSM_with_stall_correction.solve(wing_aero_CAD_19ribs)
+CAD_y_coordinates = [
+    panels.aerodynamic_center[1] for panels in wing_aero_CAD_19ribs.panels
+]
+plot_distribution(
+    y_coordinates_list=[CAD_y_coordinates, CAD_y_coordinates],
+    results_list=[results, results_with_stall_correction],
+    label_list=["VSM", "VSM with stall correction"],
+    title=f"CAD_spanwise_distributions_alpha_{aoa:.1f}_beta_{side_slip:.1f}_yaw_{yaw_rate:.1f}_Umag_{Umag:.1f}",
+    data_type=".pdf",
+    save_path=Path(save_folder) / "spanwise_distributions",
+    is_save=False,
+    is_show=True,
+)
 
 ### plotting polar
 save_path = Path(root_dir) / "results" / "TUD_V3_LEI_KITE"
@@ -134,7 +134,7 @@ plot_polars(
         "CFD_Lebesque Rey 30e5",
     ],
     literature_path_list=[path_cfd_lebesque],
-    angle_range=np.linspace(15, 20, 3),
+    angle_range=np.linspace(0, 25, 25),
     angle_type="angle_of_attack",
     angle_of_attack=0,
     side_slip=0,
