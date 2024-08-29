@@ -286,7 +286,6 @@ class Panel:
         lambda7 = S13 * k + S14
         lambda8 = S15 * k + S16
 
-
         self._cl_coefficients = [lambda5, lambda6, lambda7, lambda8]
 
         # cd_coefficients
@@ -306,7 +305,6 @@ class Panel:
         cd_1_deg = 0
         cd_0_deg = (C50 * t + C51) * k + (C52 * t**2 + C53 * t + C54)
 
-
         self._cd_coefficients = [cd_2_deg, cd_1_deg, cd_0_deg]
 
         # cm_coefficients
@@ -322,7 +320,6 @@ class Panel:
         cm_2_deg = (C55 * t + C56) * k + (C57 * t + C58)
         cm_1_deg = 0
         cm_0_deg = (C59 * t + C60) * k + (C61 * t + C62)
-
 
         self._cm_coefficients = [cm_2_deg, cm_1_deg, cm_0_deg]
 

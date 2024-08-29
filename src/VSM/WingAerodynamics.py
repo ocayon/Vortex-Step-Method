@@ -84,7 +84,7 @@ class WingAerodynamics:
         self._gamma_distribution = None
         self._alpha_uncorrected = None
         self._alpha_corrected = None
-        self.stall_angle_list = self.calculate_stall_angle_list()
+        self._stall_angle_list = self.calculate_stall_angle_list()
 
     ###########################
     ## GETTER FUNCTIONS
@@ -109,6 +109,10 @@ class WingAerodynamics:
     @property
     def wings(self):
         return self._wings
+
+    @property
+    def stall_angle_list(self):
+        return self._stall_angle_list
 
     ###########################
     ## SETTER FUNCTIONS
@@ -170,7 +174,6 @@ class WingAerodynamics:
     ###########################
     ## CALCULATE FUNCTIONS
     ###########################
-
 
     def calculate_panel_properties(
         self,

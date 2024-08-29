@@ -19,8 +19,9 @@ class Filament(ABC):
 
     @abstractmethod
     def __init__(self):
-        pass
-        
+        self._alpha0 = 1.25643  # Oseen parameter
+        self._nu = 1.48e-5  # Kinematic viscosity of air
+
 
 class BoundFilament(Filament):
     """
@@ -46,6 +47,7 @@ class BoundFilament(Filament):
         self._x2 = np.array(x2)
         self._length = jit_norm(self._x2 - self._x1)
         self._r0 = self._x2 - self._x1
+        super().__init__()
 
     @property
     def x1(self):
@@ -144,12 +146,12 @@ class BoundFilament(Filament):
         r1 = XVP - XV1  # Controlpoint to one end of the vortex filament
         r2 = XVP - XV2  # Controlpoint to one end of the vortex filament
 
-        alpha0 = 1.25643  # Oseen parameter
-        nu = 1.48e-5  # Kinematic viscosity of air
         r_perp = (
             jit_dot(r1, r0) * r0 / (jit_norm(r0) ** 2)
         )  # Vector from XV1 to XVP perpendicular to the core radius
-        epsilon = np.sqrt(4 * alpha0 * nu * jit_norm(r_perp) / Uinf)  # Cut-off radius
+        epsilon = np.sqrt(
+            4 * self._alpha0 * self._nu * jit_norm(r_perp) / Uinf
+        )  # Cut-off radius
 
         # Cross products used for later computations
         r1Xr0 = jit_cross(r1, r0)
@@ -203,8 +205,6 @@ class SemiInfiniteFilament(Filament):
         - direction: unit vector of apparent wind speed
         - vel_mag: the magnitude of the apparent wind speed
         - filament_direction: -1 or 1, indicating if its with or against the direction of the apparent wind speed
-        - alpha0: Oseen parameter (default 1.25643)
-        - nu: Kinematic viscosity of air (default 1.48e-5)
 
     Returns:
         - a filament object
@@ -218,17 +218,14 @@ class SemiInfiniteFilament(Filament):
 
     """
 
-    def __init__(
-        self, x1, direction, vel_mag, filament_direction, alpha0=1.25643, nu=1.48e-5
-    ):
+    def __init__(self, x1, direction, vel_mag, filament_direction):
         self._x1 = x1  # the trailing edge point, of which the trailing vortex starts
         # x2 is a point far away from the filament, defined here for plotting purposes
         # self._x2 = x1 + filament_direction * direction * 0.5
         self._direction = direction  # unit vector of apparent wind speed
-        self._alpha0 = alpha0  # Oseen parameter
-        self._nu = nu  # Kinematic viscosity of air
         self._vel_mag = vel_mag  # the magnitude of the apparent wind speed
         self._filament_direction = filament_direction  # -1 or 1, indicating if its with or against the direction of the apparent wind speed
+        super().__init__()
 
     @property
     def x1(self):
@@ -263,12 +260,12 @@ class SemiInfiniteFilament(Filament):
         r1 = XVP - XV1  # Vector from XV1 to XVP
         r1XVf = jit_cross(r1, Vf)
 
-        alpha0 = 1.25643  # Oseen parameter
-        nu = 1.48e-5  # Kinematic viscosity of air
         r_perp = (
             jit_dot(r1, Vf) * Vf
         )  # Vector from XV1 to XVP perpendicular to the core radius
-        epsilon = np.sqrt(4 * alpha0 * nu * jit_norm(r_perp) / Uinf)  # Cut-off radius
+        epsilon = np.sqrt(
+            4 * self._alpha0 * self._nu * jit_norm(r_perp) / Uinf
+        )  # Cut-off radius
 
         # if point is outside the core radius of filament
         if jit_norm(r1XVf) / jit_norm(Vf) > epsilon:
