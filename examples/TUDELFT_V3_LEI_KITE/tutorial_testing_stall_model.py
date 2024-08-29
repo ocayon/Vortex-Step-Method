@@ -18,7 +18,7 @@ while not os.path.isfile(os.path.join(root_dir, ".gitignore")):
 save_folder = Path(root_dir) / "results" / "TUDELFT_V3_LEI_KITE"
 
 # Defining discretisation
-n_panels = 36
+n_panels = 54
 spanwise_panel_distribution = "split_provided"
 
 ### rib_list_from_CAD_LE_TE_and_surfplan_d_tube_camber_19ribs
@@ -85,7 +85,7 @@ wing_aero_CAD_19ribs.va = (vel_app, yaw_rate)
 ## Plotting
 plot_geometry(
     wing_aero_CAD_19ribs,
-    title="wing_aero_CAD_19ribs",
+    title="",
     data_type=".pdf",
     save_path="",
     is_save=False,
@@ -93,7 +93,6 @@ plot_geometry(
     view_elevation=15,
     view_azimuth=-120,
 )
-
 
 ### plotting distributions
 results = VSM.solve(wing_aero_CAD_19ribs)
