@@ -60,6 +60,10 @@ Implementation of the Vortex Step Method for a static wing shape.
 - numba
 - ipykernel
 - screeninfo
+
+## Usage tutorial
+Please look at the tutorial on a rectangular wing, where the code usage and settings are fully detailed.
+You can find it in examples/rectangular_wing/tutorial_rectangular_wing.ipynb
   
 ## Contributing Guide
 We welcome contributions to this project! Whether you're reporting a bug, suggesting a feature, or writing code, here’s how you can contribute:
@@ -93,4 +97,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Copyright
 Copyright (c) 2022 Oriol Cayon
+
 Copyright (c) 2024 Oriol Cayon, Jelle Poland, TU Delft
