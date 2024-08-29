@@ -68,7 +68,7 @@ You can find it in `examples/rectangular_wing/tutorial_rectangular_wing.ipynb`
 Another tutorial is present under `examples/TUDELFT_V3_LEI_KITE/tutorial_testing_stall_model.py` where a geometry is loaded from .csv, plotted, distributions are plotted and polars are created to demonstrate the effect of the stall model.
 
 For more detailed information one is referred to:
-- [Aerodynamic model](Aerodynamic_model.md)
+- [Aerodynamic model](docs/Aerodynamic_model.md)
 - [Paper: Fast Aero-Structural Model of a Leading-Edge Inflatable Kite](https://doi.org/10.3390/en16073061) 
 
 ## Contributing Guide
