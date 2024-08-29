@@ -237,6 +237,12 @@ class Wing:
 
         return new_sections
 
+    def interpolate_to_common_alpha(alpha_common, alpha_orig, CL_orig, CD_orig, CM_orig):
+        CL_common = np.interp(alpha_common, alpha_orig, CL_orig)
+        CD_common = np.interp(alpha_common, alpha_orig, CD_orig)
+        CM_common = np.interp(alpha_common, alpha_orig, CM_orig)
+        return CL_common, CD_common, CM_common
+    
     def calculate_new_aero_input(
         self, aero_input, section_index, left_weight, right_weight
     ):
@@ -257,14 +263,33 @@ class Wing:
             )
         if aero_input[section_index][0] == "inviscid":
             return ["inviscid"]
+        # TODO: add test for polar data interpolation
         elif aero_input[section_index][0] == "polar_data":
             polar_left = aero_input[section_index][1]
             polar_right = aero_input[section_index + 1][1]
-            if polar_left == polar_right:
-                return ["polar_data", polar_left]
-            # TODO: Implement polar interpolation
-            else:
-                raise NotImplementedError("Polar interpolation not implemented")
+            
+            # Unpack polar data
+            alpha_left, CL_left, CD_left, CM_left = polar_left
+            alpha_right, CL_right, CD_right, CM_right = polar_right
+            
+            # Create a common alpha array spanning the range of both alpha arrays
+            alpha_common = np.union1d(alpha_left, alpha_right)
+            
+            # Interpolate both polars to this common alpha array
+            CL_left_common, CD_left_common, CM_left_common = self.interpolate_to_common_alpha(
+                alpha_common, alpha_left, CL_left, CD_left, CM_left
+            )
+            CL_right_common, CD_right_common, CM_right_common = self.interpolate_to_common_alpha(
+                alpha_common, alpha_right, CL_right, CD_right, CM_right
+            )
+            
+            # Interpolate using the given weights
+            CL_interp = CL_left_common * left_weight + CL_right_common * right_weight
+            CD_interp = CD_left_common * left_weight + CD_right_common * right_weight
+            CM_interp = CM_left_common * left_weight + CM_right_common * right_weight
+            
+            return ["polar_data", [alpha_common, CL_interp, CD_interp, CM_interp]]
+        
         elif aero_input[section_index][0] == "lei_airfoil_breukels":
             tube_diameter_left = aero_input[section_index][1][0]
             tube_diameter_right = aero_input[section_index + 1][1][0]
@@ -285,6 +310,10 @@ class Wing:
                 "lei_airfoil_breukels",
                 np.array([tube_diameter_i, chamber_height_i]),
             ]
+        
+        else:
+            raise NotImplementedError(f"Unsupported aero model: {aero_input[section_index][0]}")
+
 
     # TODO: correct this function, not working
     def refine_mesh_by_splitting_provided_sections(self):

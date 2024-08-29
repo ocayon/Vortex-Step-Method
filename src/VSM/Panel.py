@@ -115,7 +115,6 @@ class Panel:
         self._y_airf = y_airf
         self._z_airf = z_airf
 
-        # TODO: Discuss with Mac...
         # Calculuting width at the bound, should be done averaged over whole panel
         # Conceptually, you should mulitply by the width of the bound vortex and thus take the average width.
         self._width = jit_norm(bound_point_2 - bound_point_1)
@@ -287,13 +286,6 @@ class Panel:
         lambda7 = S13 * k + S14
         lambda8 = S15 * k + S16
 
-        # # TODO: for CPU efficiency
-        # # converting the coefficients to handle alpha input in radians
-        # cl_3_rad = lambda5 * (np.pi / 180) ** 3
-        # cl_2_rad = lambda6 * (np.pi / 180) ** 2
-        # cl_1_rad = lambda7 * (np.pi / 180)
-        # cl_0_rad = lambda8
-        # self._cl_coefficients = [cl_3_rad, cl_2_rad, cl_1_rad, cl_0_rad]
 
         self._cl_coefficients = [lambda5, lambda6, lambda7, lambda8]
 
@@ -314,12 +306,6 @@ class Panel:
         cd_1_deg = 0
         cd_0_deg = (C50 * t + C51) * k + (C52 * t**2 + C53 * t + C54)
 
-        # # TODO: for CPU efficiency
-        # # converting the coefficients to handle alpha input in radians
-        # cd_2_rad = cd_2_deg * (np.pi / 180) ** 2
-        # cd_1_rad = cd_1_deg * (np.pi / 180)
-        # cd_0_rad = cd_0_deg
-        # self._cd_coefficients = [cd_2_rad, cd_1_rad, cd_0_rad]
 
         self._cd_coefficients = [cd_2_deg, cd_1_deg, cd_0_deg]
 
@@ -337,11 +323,6 @@ class Panel:
         cm_1_deg = 0
         cm_0_deg = (C59 * t + C60) * k + (C61 * t + C62)
 
-        # # TODO: for CPU efficiency
-        # # converting the coefficients to handle alpha input in radians
-        # cm_2_rad = cm_2_deg * (np.pi / 180) ** 2
-        # cm_1_rad = cm_1_deg * (np.pi / 180)
-        # cm_0_rad = cm_0_deg
 
         self._cm_coefficients = [cm_2_deg, cm_1_deg, cm_0_deg]
 
@@ -363,7 +344,6 @@ class Panel:
                 cl = 2 * np.cos(alpha) * np.sin(alpha) ** 2
             return cl
         elif self._panel_aero_model == "inviscid":
-            # TODO: could change back to sin(alpha)?
             return 2 * np.pi * alpha
         elif self._panel_aero_model == "polar_data":
             return np.interp(
