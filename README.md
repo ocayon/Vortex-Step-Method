@@ -2,7 +2,6 @@
 Implementation of the Vortex Step Method for a static wing shape.
 
 ## Installation Instructions
-### Linux
 1. Clone the repository:
     ```bash
     git clone https://github.com/ocayon/Vortex-Step-Method
@@ -12,7 +11,7 @@ Implementation of the Vortex Step Method for a static wing shape.
     ```bash
     cd Vortex-Step-Method
     ```
-
+### Linux
 3. Create a virtual environment:
     ```bash
     python3 -m venv venv
@@ -34,16 +33,6 @@ Implementation of the Vortex Step Method for a static wing shape.
     ```
 
 ### Windows
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/ocayon/Vortex-Step-Method
-    ```
-
-2. Navigate to the repository folder:
-    ```bash
-    cd Vortex-Step-Method
-    ```
-
 3. Create a virtual environment:
     ```bash
     python -m venv venv
