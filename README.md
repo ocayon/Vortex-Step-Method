@@ -63,7 +63,7 @@ Implementation of the Vortex Step Method for a static wing shape.
 
 ## Usage tutorial
 Please look at the tutorial on a rectangular wing, where the code usage and settings are fully detailed.
-You can find it in examples/rectangular_wing/tutorial_rectangular_wing.ipynb
+You can find it in **examples/rectangular_wing/tutorial_rectangular_wing.ipynb**
   
 ## Contributing Guide
 We welcome contributions to this project! Whether you're reporting a bug, suggesting a feature, or writing code, here’s how you can contribute:
