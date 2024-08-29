@@ -22,16 +22,6 @@ Implementation of the Vortex Step Method for a static wing shape.
     source venv/bin/activate
     ```
 
-5. Install the required dependencies:
-    ```bash
-    pip install -e .[dev]
-    ```
-
-6. To deactivate the virtual environment:
-    ```bash
-    deactivate
-    ```
-
 ### Windows
 3. Create a virtual environment:
     ```bash
@@ -44,11 +34,18 @@ Implementation of the Vortex Step Method for a static wing shape.
     ```
 
 5. Install the required dependencies:
+
+   For users:
+    ```bash
+    pip install .
+    ```
+        
+   For developers:
     ```bash
     pip install -e .[dev]
     ```
 
-6. To deactivate the virtual environment:
+7. To deactivate the virtual environment:
     ```bash
     deactivate
     ```
