@@ -56,29 +56,39 @@ Implementation of the Vortex Step Method for a static wing shape.
 ## Contributing Guide
 We welcome contributions to this project! Whether you're reporting a bug, suggesting a feature, or writing code, here’s how you can contribute:
 
-1. **Fork the repository** to your own GitHub account.
-2. **Create a new branch** for your feature or bugfix:
-    ```bash
-    git checkout -b feature/my-new-feature
-    ```
-3. **Make your changes** in your branch.
-4. **Commit your changes**:
-    ```bash
-    git commit -m "Description of your changes"
-    ```
-5. **Push to your branch**:
-    ```bash
-    git push origin feature/my-new-feature
-    ```
-6. **Create a Pull Request** on the main repository. Make sure to describe the changes you’ve made and why they should be merged.
+1. Create an issue on GitHub
+2. Create a branch from this issue and change the branch source to `develop`
+3. Use provided cmds to checkout this branch locally
+4. --- Implement your new feature---
+5. Verify nothing broke using pytest
+```
+  pytest
+```
+7. git add, git commit (with # to current Issue number), git push
+```
+  git add .
+  git commit -m "#<number> <message>"
+  git push
+```
+7. Create a pull-request, with `base:develop`, to merge this feature branch and close this issue
+9. Update branch information locally using `git fetch --prune`, pull in new info `git pull origin develop` and delete branch locally using `git branch -d <enter branch name>`
+```
+  git fetch --prune
+  git pull --all
+  git checkout develop
+  git pull
+```
+9. Once merged on the remote and locally, delete this feature branch on the remote (see pull-request) and locally using 
+```
+  git branch -d <branch name>
+```
+10. Close issue
+
 
 ### Code Style and Guidelines
 - Follow PEP 8 for Python code style.
 - Ensure that your code is well-documented.
 - Write unit tests for new features and bug fixes.
-
-### Reporting Issues
-If you encounter any issues, please report them on the [GitHub Issues](https://github.com/ocayon/Vortex-Step-Method/issues) page. Provide as much detail as possible to help us resolve the issue quickly.
 
 ## Citation
 If you use this project in your research, please consider citing it. Citation details can be found in the `CITATION.cff` file included in this repository.
