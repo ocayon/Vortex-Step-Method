@@ -27,18 +27,25 @@ def test_add_section():
 
 def test_robustness_left_to_right():
     example_wing = Wing(n_panels=10)
-    # Test adding a section
+    # Test correct order
     example_wing.add_section(np.array([0, 1, 0]), np.array([0, 1, 0]), ["inviscid"])
     example_wing.add_section(np.array([0, -1, 0]), np.array([0, -1, 0]), ["inviscid"])
     example_wing.add_section(np.array([0, -1.5, 0]), np.array([0, -1.5, 0]), ["inviscid"])
     example_wing.refine_aerodynamic_mesh()
 
     example_wing_1 = Wing(n_panels=10)
-    # Test adding a section
+    # Test right to left order
     example_wing_1.add_section(np.array([0, -1.5, 0]), np.array([0, -1.5, 0]), ["inviscid"])
     example_wing_1.add_section(np.array([0, -1, 0]), np.array([0, -1, 0]), ["inviscid"])
     example_wing_1.add_section(np.array([0, 1, 0]), np.array([0, 1, 0]), ["inviscid"])
     example_wing_1.refine_aerodynamic_mesh()
+
+    example_wing_2 = Wing(n_panels=10)
+    # Test random order
+    example_wing_2.add_section(np.array([0, 1, 0]), np.array([0, 1, 0]), ["inviscid"])
+    example_wing_2.add_section(np.array([0, -1.5, 0]), np.array([0, -1.5, 0]), ["inviscid"])
+    example_wing_2.add_section(np.array([0, -1, 0]), np.array([0, -1, 0]), ["inviscid"])
+    example_wing_2.refine_aerodynamic_mesh()
 
     for i in range(len(example_wing.sections)):
         np.testing.assert_array_equal(
@@ -46,6 +53,12 @@ def test_robustness_left_to_right():
         )
         np.testing.assert_array_equal(
             example_wing.sections[i].TE_point, example_wing_1.sections[i].TE_point
+        )
+        np.testing.assert_array_equal(
+            example_wing.sections[i].LE_point, example_wing_2.sections[i].LE_point
+        )
+        np.testing.assert_array_equal(
+            example_wing.sections[i].TE_point, example_wing_2.sections[i].TE_point
         )
 
 

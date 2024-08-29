@@ -57,7 +57,6 @@ class Solver:
         core_radius_fraction: float = 1e-20,
         mu: float = 1.81e-5,
         is_only_f_and_gamma_output: bool = False,
-        # TODO: ideally stall_angle_values inputs is given here, rather than hardcoded in the function
         ## TODO: would be nice to having these defined here instead of inside the panel class?
         # aerodynamic_center_location: float = 0.25,
         # control_point_location: float = 0.75,
@@ -259,20 +258,6 @@ class Solver:
             )
             gamma_new = 0.5 * Umag_array**2 / Umagw_array * cl_array * chord_array
 
-            # logging.debug("--------- icp: %d", icp)
-            # logging.debug("induced_velocity: %s", induced_velocity)
-            # logging.debug("alpha: %f", alpha)
-            # logging.debug("relative_velocity: %s", relative_velocity)
-            # logging.debug("cl: %f", cl)
-            # logging.debug("Umag: %f", Umag)
-            # logging.debug("Umagw: %f", Umagw)
-            # logging.debug("chord: %f", chord_array[icp])
-
-            # Calculating damping factor for stalled cases
-            # stall_angle_list = wing_aero.stall_angle_list
-            # damp, is_with_damp = self.calculate_artificial_damping(
-            #     gamma, alpha, stall_angle_list
-            # )
             if self.is_with_artificial_damping:
                 damp, is_damping_applied = self.smooth_circulation(
                     circulation=gamma, smoothness_factor=0.1, damping_factor=0.5

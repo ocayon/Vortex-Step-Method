@@ -9,7 +9,7 @@ name = "VSM"
 
 # Your project will be accessible at: https://pypi.org/project/exampleproject/
 
-version = "0.1.0"
+version = "1.0.0"
 # Version numbers should conform to PEP 440, and are also mandatory (but they can be set dynamic)
 # https://www.python.org/dev/peps/pep-0440/
 
