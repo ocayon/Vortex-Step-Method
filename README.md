@@ -13,6 +13,7 @@ Implementation of the Vortex Step Method for a static wing shape.
     ```
     
 3. Create a virtual environment:
+   
    Linux or Mac:
     ```bash
     python3 -m venv venv
@@ -23,7 +24,8 @@ Implementation of the Vortex Step Method for a static wing shape.
     python -m venv venv
     ```
     
-4. Activate the virtual environment:
+5. Activate the virtual environment:
+
    Linux or Mac:
     ```bash
     source venv/bin/activate
@@ -34,7 +36,7 @@ Implementation of the Vortex Step Method for a static wing shape.
     .\venv\Scripts\activate
     ```
 
-5. Install the required dependencies:
+6. Install the required dependencies:
 
    For users:
     ```bash
@@ -46,7 +48,7 @@ Implementation of the Vortex Step Method for a static wing shape.
     pip install -e .[dev]
     ```
 
-6. To deactivate the virtual environment:
+7. To deactivate the virtual environment:
     ```bash
     deactivate
     ```
