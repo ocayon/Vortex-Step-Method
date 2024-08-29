@@ -1,6 +1,8 @@
 # Vortex Step Method
 Implementation of the Vortex Step Method for a static wing shape.
 
+![](docs/TUDELFT_V3_LEI_KITE.png)
+
 ## Installation Instructions
 1. Clone the repository:
     ```bash
