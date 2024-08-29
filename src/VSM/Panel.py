@@ -7,42 +7,45 @@ from . import jit_cross, jit_norm, jit_dot
 class Panel:
     """Class for Panel object
 
-    Init input:
-        section_1 (Section Object): First section of the panel
-        section_2 (Section Object): Second section of the panel
-        aerodynamic_center (np.array): Aerodynamic center of the panel
-        control_point (np.array): Control point of the panel
-        bound_point_1 (np.array): Bound point 1 of the panel
-        bound_point_2 (np.array): Bound point 2 of the panel
-        x_airf (np.array): Unit vector pointing upwards from the chord-line, perpendicular to the panel
-        y_airf (np.array): Unit vector pointing parallel to the chord-line, from LE-to-TE
-        z_airf (np.array): Unit vector pointing in the airfoil plane, so that is towards left-tip in spanwise direction
+    Args:
+        - section_1 (Section Object): First section of the panel
+        - section_2 (Section Object): Second section of the panel
+        - aerodynamic_center (np.array): Aerodynamic center of the panel
+        - control_point (np.array): Control point of the panel
+        - bound_point_1 (np.array): First bound point of the panel
+        - bound_point_2 (np.array): Second bound point of the panel
+        - x_airf (np.array): Unit vector pointing upwards from the chord-line, perpendicular to the panel
+        - y_airf (np.array): Unit vector pointing parallel to the chord-line, from LE-to-TE
+        - z_airf (np.array): Unit vector pointing in the airfoil plane, so that is towards left-tip in spanwise direction
 
-    Properties:
-        z_airf (np.array): Unit vector pointing in the airfoil plane, so that is towards left-tip in spanwise direction
-        x_airf (np.array): Unit vector pointing upwards from the chord-line, perpendicular to the panel
-        y_airf (np.array): Unit vector pointing parallel to the chord-line, from LE-to-TE
-        va (np.array): Velocity at the aerodynamic center of the panel
-        aerodynamic_center (np.array): The aerodynamic center of the panel, also LLTpoint, at 1/4c
-        control_point (np.array): The control point of the panel, also VSMpoint, at 3/4c
-        corner_points (np.array): Corner points of the panel
-        bound_point_1 (np.array): Bound point 1 of the panel
-        bound_point_2 (np.array): Bound point 2 of the panel
-        width (float): Width of the panel evualated at BOUND TODO: fix this
-        chord (float): Chord of the panel
-        TE_point_1 (np.array): Trailing edge point of the first section
-        TE_point_2 (np.array): Trailing edge point of the second section
-        LE_point_1 (np.array): Leading edge point of the first section
-        LE_point_2 (np.array): Leading edge point of the second section
+    Returns:
+        Panel Object: Panel object with the given attributes
 
     Methods:
-        calculate_relative_alpha_and_relative_velocity(induced_velocity): Calculates the relative angle of attack and relative velocity of the panel
-        instantiate_lei_airfoil_breukels_cl_cd_cm_coefficients(section_1, section_2): Instantiates the Lei Airfoil Breukels Cl, Cd, Cm coefficients
-        calculate_cl(alpha): Get the lift coefficient (Cl) for a given angle of attack
-        calculate_cd_cm(alpha): Get the lift, drag, and moment coefficients (Cl, Cd, Cm) for a given angle of attack
-        calculate_velocity_induced_bound_2D(evaluation_point): Calculates velocity induced by bound vortex filaments at the control point
-        calculate_velocity_induced_single_ring_semiinfinite(evaluation_point, evaluation_point_on_bound, va_norm, va_unit, gamma, core_radius_fraction): Calculates the velocity induced by a ring at a certain controlpoint
-        calculate_filaments_for_plotting(): Calculates the filaments for plotting
+        - calculate_relative_alpha_and_relative_velocity(induced_velocity: np.array): Calculates the relative angle of attack and relative velocity of the panel
+        - calculate_cl(alpha): Get the lift coefficient (Cl) for a given angle of attack
+        - calculate_cd_cm(alpha): Get the lift, drag, and moment coefficients (Cl, Cd, Cm) for a given angle of attack
+        - calculate_velocity_induced_bound_2D(evaluation_point): Calculates velocity induced by bound vortex filaments at the control point
+        - calculate_velocity_induced_single_ring_semiinfinite(evaluation_point, evaluation_point_on_bound, va_norm, va_unit, gamma, core_radius_fraction): Calculates the velocity induced by a ring at a certain controlpoint
+        - calculate_filaments_for_plotting(): Calculates the filaments for plotting
+
+    Properties:
+        - z_airf (np.array): Unit vector pointing in the airfoil plane, so that is towards left-tip in spanwise direction
+        - x_airf (np.array): Unit vector pointing upwards from the chord-line, perpendicular to the panel
+        - y_airf (np.array): Unit vector pointing parallel to the chord-line, from LE-to-TE
+        - va (np.array): Relative velocity of the panel
+        - aerodynamic_center (np.array): The aerodynamic center of the panel, also LLTpoint, at 1/4c
+        - control_point (np.array): The control point of the panel, also VSMpoint, at 3/4c
+        - corner_points (np.array): Corner points of the panel
+        - bound_point_1 (np.array): First bound point of the panel
+        - bound_point_2 (np.array): Second bound point of the panel
+        - width (float): Width of the panel
+        - chord (float): Chord of the panel
+        - TE_point_1 (np.array): Trailing edge point 1 of the panel
+        - TE_point_2 (np.array): Trailing edge point 2 of the panel
+        - LE_point_1 (np.array): Leading edge point 1 of the panel
+        - LE_point_2 (np.array): Leading edge point 2 of the panel
+        - filaments (list): List of filaments of the panel
     """
 
     def __init__(
@@ -230,6 +233,15 @@ class Panel:
     def instantiate_lei_airfoil_breukels_cl_cd_cm_coefficients(
         self, section_1, section_2
     ):
+        """Instantiates the Lei Airfoil Breukels Cl, Cd, Cm coefficients
+
+        Args:
+            section_1 (Section Object): First section of the panel
+            section_2 (Section Object): Second section of the panel
+
+        Returns:
+            None"""
+
         t1, k1 = section_1.aero_input[1]
         t2, k2 = section_2.aero_input[1]
         t = (t1 + t2) / 2

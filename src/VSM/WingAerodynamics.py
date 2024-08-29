@@ -11,25 +11,31 @@ class WingAerodynamics:
 
     This class is used to calculate the aerodynamic properties of a wing.
 
-    init inputs:
-        wings (list): List of Wing object instances
-        aerodynamic_center_location (float): The location of the aerodynamic center (default is 0.25)
-        control_point_location (float): The location of the control point (default is 0.75)
+    Args:
+        - wings (list): List of Wing object instances
+        - aerodynamic_center_location (float): The location of the aerodynamic center (default is 0.25)
+        - control_point_location (float): The location of the control point (default is 0.75)
+
+    Returns:
+        - WingAerodynamics object
 
     Properties:
-        panels (list): List of Panel object instances
-        n_panels (int): Number of Panel object instances
-        va (np.array): The velocity vector of the air
-        gamma_distribution (np.array): The circulation distribution
-        wings (list): List of Wing object instances
+        - panels: The list of Panel object instances
+        - n_panels: The number of panels
+        - va: The velocity array
+        - gamma_distribution: The circulation distribution
+        - wings: The list of Wing object instances
+
 
     Methods:
-        calculate_panel_properties: Calculate the properties of the panels
-        calculate_AIC_matrices: Calculate the AIC matrices
-        calculate_circulation_distribution_elliptical_wing: Calculate the circulation distribution for an elliptical wing
-        calculate_results: Calculate the results
-        update_effective_angle_of_attack_if_VSM: Update the effective angle of attack if VSM
-        plot_line_segment: Plot a line segment
+        - calculate_panel_properties: Calculates the properties of the panels
+        - calculate_AIC_matrices: Calculates the AIC matrices
+        - calculate_circulation_distribution_elliptical_wing: Calculates the circulation distribution for an elliptical wing
+        - calculate_stall_angle_list: Calculates the stall angle list
+        - calculate_results: Calculates the results
+        - update_effective_angle_of_attack_if_VSM: Updates the effective angle of attack if VSM
+        - calculate_stall_angle_list: Calculates the stall angle list
+        - calculate_results: Calculates the results
     """
 
     def __init__(

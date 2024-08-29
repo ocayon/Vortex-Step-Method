@@ -210,6 +210,27 @@ class Solver:
         panels,
         relaxation_factor,
     ):
+        """Loop to calculate the circulation distribution
+
+        Args:
+            - gamma_new (np.array): Initial gamma distribution
+            - AIC_x (np.array): Induced velocity matrix in x-direction
+            - AIC_y (np.array): Induced velocity matrix in y-direction
+            - AIC_z (np.array): Induced velocity matrix in z-direction
+            - va_array (np.array): Free-stream velocity array
+            - chord_array (np.array): Chord length array
+            - x_airf_array (np.array): Airfoil x-coordinates array
+            - y_airf_array (np.array): Airfoil y-coordinates array
+            - z_airf_array (np.array): Airfoil z-coordinates array
+            - panels (list): List of Panel objects
+            - relaxation_factor (float): Relaxation factor for convergence
+
+        Returns:
+            - bool: Whether the convergence is reached
+            - np.array: Final gamma distribution
+            - np.array: Angle of attack array
+            - np.array: Relative velocity magnitude array
+        """
         # looping untill max_iterations
         converged = False
         for i in range(self.max_iterations):
@@ -291,7 +312,17 @@ class Solver:
         return converged, gamma_new, alpha_array, Umag_array
 
     def calculate_artificial_damping(self, gamma, alpha, stall_angle_list):
+        """Calculate the artificial damping
 
+        Args:
+            - gamma (np.array): Circulation distribution array
+            - alpha (np.array): Angle of attack array
+            - stall_angle_list (np.array): Stall angle list
+
+        Returns:
+            - np.array: Damping array
+            - bool: Whether the damping is applied
+        """
         # Determine if there is a stalled case
         is_stalled = False
         for ia, alpha_i in enumerate(alpha):
@@ -358,13 +389,13 @@ class Solver:
         Check if a circulation curve is smooth and apply damping if necessary.
 
         Args:
-        circulation (np.array): Circulation strength array of shape (n_points, 1)
-        smoothness_factor (float): Factor to determine the smoothness threshold
-        damping_factor (float): Factor to control the strength of smoothing (0 to 1)
+            - circulation (np.array): Circulation strength array of shape (n_points, 1)
+            - smoothness_factor (float): Factor to determine the smoothness threshold
+            - damping_factor (float): Factor to control the strength of smoothing (0 to 1)
 
         Returns:
-        np.array: Smoothed circulation array
-        bool: Whether damping was applied
+            - np.array: Smoothed circulation array
+            - bool: Whether damping was applied
         """
 
         # Calculate the mean circulation, excluding first and last points

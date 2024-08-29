@@ -19,7 +19,13 @@ PALETTE = {
 
 
 def hex_to_rgba(hex_color, alpha=1.0):
-    """Convert hex color to RGBA."""
+    """Convert hex color to RGBA.
+
+    Args:
+        hex_color (str): Hex color code.
+        alpha (float): Transparency value between 0 and 1.
+    Returns:
+        tuple: RGBA color code."""
     hex_color = hex_color.lstrip("#")
     lv = len(hex_color)
     return tuple(
@@ -28,7 +34,14 @@ def hex_to_rgba(hex_color, alpha=1.0):
 
 
 def get_color(color_name, alpha=1.0):
-    """Return the RGBA code of the given color name with specified transparency."""
+    """Return the RGBA code of the given color name with specified transparency.
+
+    Args:
+        color_name (str): Name of the color.
+        alpha (float): Transparency value between 0 and 1.
+
+    Returns:
+        tuple: RGBA color code."""
     hex_color = PALETTE.get(
         color_name, "#000000"
     )  # Default to black if color not found
@@ -41,7 +54,13 @@ def get_color_list():
 
 
 def visualize_palette():
-    """Visualize the color palette."""
+    """Visualize the color palette
+
+    Args:
+        None
+
+    Returns:
+        None"""
     fig, ax = plt.subplots(figsize=(20, 2))
     for i, (color_name, color_hex) in enumerate(PALETTE.items()):
         ax.add_patch(plt.Rectangle((i * 2, 0), 2, 2, color=color_hex))
@@ -62,7 +81,13 @@ def visualize_palette():
 
 
 def set_plot_style():
-    """Set the default style for plots using LaTeX."""
+    """Set the default style for plots using LaTeX.
+
+    Args:
+        None
+
+    Returns:
+        None"""
     # plt.style.use('seaborn-whitegrid')
     plt.style.use("seaborn-v0_8-whitegrid")
     plt.rcParams.update(
@@ -88,7 +113,14 @@ def set_plot_style():
 
 # Optionally, you can also include a function to apply the palette to a plot
 def apply_palette(ax, colors):
-    """Apply the color palette to a matplotlib axis."""
+    """Apply the color palette to a matplotlib axis.
+
+    Args:
+        ax (matplotlib.axis): Axis object to apply the palette.
+        colors (list): List of color names.
+
+    Returns:
+        None"""
     for line, color in zip(ax.get_lines(), colors):
         line.set_color(color)
     plt.draw()

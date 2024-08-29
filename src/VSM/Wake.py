@@ -12,11 +12,11 @@ def frozen_wake(
         It makes sure to replace older filaments if present, by checking length of the filaments
 
     Args:
-        va_distribution (np.ndarray): Array of velocity vectors at each panel
-        panels (List[Panel]): List of panels
+        - va_distribution (np.ndarray): Array of velocity vectors at each panel
+        - panels (List[Panel]): List of panels
 
     Returns:
-        List[Panel]: List of panels with updated filaments
+        - List[Panel]: List of panels with updated filaments
 
     """
     for i, panel in enumerate(panels):

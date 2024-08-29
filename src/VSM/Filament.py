@@ -10,11 +10,11 @@ class Filament(ABC):
     """
     A class to represent a filament.
 
-    Input:
-    two points defining the filament
+    Args:
+        - two points defining the filament
 
-    Output:
-    a filament object
+    Returns:
+        - a filament object
     """
 
     @abstractmethod
@@ -31,11 +31,19 @@ class BoundFilament(Filament):
     """
     A class to represent a bound vortex filament.
 
-    Input:
-    two points defining the filament
+    Args:
+        - two points defining the filament
 
-    Output:
-    a filament object
+    Returns:
+        - a bound vortex filament object
+
+    Methods:
+        - velocity_3D_bound_vortex: calculate the induced velocity of a bound vortex filament
+
+    Properties:
+        - x1: the first point defining the filament
+        - x2: the second point defining the filament
+
     """
 
     # TODO: --CPU-- could initialize more attributes here, such that a new calculation with an existing object will go faster?
@@ -55,22 +63,17 @@ class BoundFilament(Filament):
 
     def velocity_3D_bound_vortex(self, XVP, gamma, core_radius_fraction):
         """
-            Calculate the velocity induced by a bound vortex filament in a point in space ()
+        Calculate the velocity induced by a bound vortex filament in a point in space
 
-            Vortex core correction from:
-                Rick Damiani et al. “A vortex step method for nonlinear airfoil polar data as implemented in
-        KiteAeroDyn”.
+        "Vortex core correction from: Rick Damiani et al. “A vortex step method for nonlinear airfoil polar data as implemented in KiteAeroDyn”.
 
-            ----------
-            XV1 : Point A of Bound vortex (array)
-            XV2 : Point B of Bound vortex (array)
-            XVP : Control point (array)
-            gamma : Strength of the vortex (scalar)
+        Args:
+            - XVP : Controlpoint (array)
+            - gamma : Strength of the vortex (scalar)
+            - core_radius_fraction : Fraction of the core radius (scalar)
 
-            Returns
-            -------
-            vel_ind : Induced velocity (array)
-
+        Returns:
+            - vel_ind : induced velocity by the bound fil. (array)
         """
         XV1 = self.x1
         XV2 = self.x2
@@ -128,22 +131,17 @@ class BoundFilament(Filament):
 
     def velocity_3D_trailing_vortex(self, XVP, gamma, Uinf):
         """
-            Calculate the velocity induced by a trailing vortex filament in a point in space
+        Calculate the velocity induced by a trailing vortex filament in a point in space
 
-            Vortex core correction from:
-                Rick Damiani et al. “A vortex step method for nonlinear airfoil polar data as implemented in
-        KiteAeroDyn”.
-            ----------
-            XV1 : Point A of the vortex filament (array)
-            XV2 : Point B of the vortex filament (array)
-            XVP : Controlpoint (array)
-            gamma : Strength of the vortex (scalar)
-            Uinf : Inflow velocity modulus (scalar)
+        Vortex core correction from: Rick Damiani et al. “A vortex step method for nonlinear airfoil polar data as implemented in KiteAeroDyn”.
 
-            Returns
-            -------
-            vel_ind : induced velocity by the trailing fil. (array)
+        Args:
+            - XVP : Controlpoint (array)
+            - gamma : Strength of the vortex (scalar)
+            - Uinf : Inflow velocity modulus (scalar)
 
+        Returns:
+            - vel_ind : induced velocity by the trailing fil. (array)
         """
         XV1 = self.x1
         XV2 = self.x2
@@ -206,11 +204,23 @@ class SemiInfiniteFilament(Filament):
     """
     A class to represent a filament.
 
-    input:
-    two points defining the filament
+    Args:
+        - x1: the trailing edge point, of which the trailing vortex starts
+        - direction: unit vector of apparent wind speed
+        - vel_mag: the magnitude of the apparent wind speed
+        - filament_direction: -1 or 1, indicating if its with or against the direction of the apparent wind speed
+        - alpha0: Oseen parameter (default 1.25643)
+        - nu: Kinematic viscosity of air (default 1.48e-5)
 
-    output:
-    a filament object
+    Returns:
+        - a filament object
+
+    Methods:
+        - velocity_3D_trailing_vortex_semiinfinite: calculate the induced velocity of a semi-infinite trailing vortex filament
+
+    Properties:
+        - x1: the trailing edge point, of which the trailing vortex starts
+        - filament_direction: -1 or 1, indicating if its with or against the direction of the apparent wind speed
 
     """
 
