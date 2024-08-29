@@ -1,7 +1,7 @@
 # Vortex Step Method
 Implementation of the Vortex Step Method for a static wing shape.
 
-## Installation
+## Installation Instructions
 ### Linux
 1. Clone the repository:
     ```bash
