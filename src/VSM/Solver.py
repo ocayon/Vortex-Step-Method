@@ -50,7 +50,7 @@ class Solver:
         max_iterations: int = 1500,
         allowed_error: float = 1e-5,  # 1e-5,
         tol_reference_error: float = 0.001,
-        relaxation_factor: float = 0.01,
+        relaxation_factor: float = 0.03,
         is_with_artificial_damping: bool = False,
         artificial_damping: dict = {"k2": 0.1, "k4": 0.0},
         type_initial_gamma_distribution: str = "elliptic",

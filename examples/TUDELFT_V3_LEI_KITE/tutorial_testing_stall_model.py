@@ -66,7 +66,7 @@ VSM_with_stall_correction = Solver(
 
 # setting va
 Umag = 15
-aoa = 18
+aoa = 17
 side_slip = 0
 yaw_rate = 0
 aoa_rad = np.deg2rad(aoa)
@@ -85,9 +85,9 @@ wing_aero_CAD_19ribs.va = (vel_app, yaw_rate)
 ## Plotting
 plot_geometry(
     wing_aero_CAD_19ribs,
-    title="",
-    data_type=".pdf",
-    save_path="",
+    title=" ",
+    data_type=".svg",
+    save_path=" ",
     is_save=False,
     is_show=True,
     view_elevation=15,
