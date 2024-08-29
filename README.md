@@ -1,35 +1,101 @@
-# Vortex_step_method
-Implementation of the Vortex Step Method for a static wing shape
+# Vortex Step Method
+Implementation of the Vortex Step Method for a static wing shape.
 
-# functions_VSM_LLT.py
+## Installation Instructions
+1. Clone the repository:
+    ```bash
+    git clone https://github.com/ocayon/Vortex-Step-Method
+    ```
 
-Contains all the necessary functions to solve the aerodynamics of the wing with both the Vortex Step Method [1,2] and the classic Lifting Line Theory.
+2. Navigate to the repository folder:
+    ```bash
+    cd Vortex-Step-Method
+    ```
+    
+3. Create a virtual environment:
+   
+   Linux or Mac:
+    ```bash
+    python3 -m venv venv
+    ```
+    
+    Windows:
+    ```bash
+    python -m venv venv
+    ```
+    
+5. Activate the virtual environment:
 
-# main.py
+   Linux or Mac:
+    ```bash
+    source venv/bin/activate
+    ```
 
-Script to solve for one angle of attack
-INPUTS:
-- Coordinates of the wing (look at the rectangular wing example). 
-The coordinates are defined so that the first point is the LE position of the first section, the second point the TE of the first section and so on. 
-- Convergence criteria
-- Velocity magnitude and direction
-- Number of filaments per horseshoe (default should be 5)
-- Model : 'VSM' or 'LLT'
-- Airfoil polars
+    Windows
+    ```bash
+    .\venv\Scripts\activate
+    ```
 
-# References
+6. Install the required dependencies:
 
-[1] Cayon, O. Fast aeroelastic model of a leading-edge inflatable kite for the design phase of airborne wind energy systems. Master’s
-thesis, Delft University of Technology, 2022. http://resolver.tudelft.nl/uuid:aede2a25-4776-473a-8a75-fb6b17b1a690
+   For users:
+    ```bash
+    pip install .
+    ```
+        
+   For developers:
+    ```bash
+    pip install -e .[dev]
+    ```
 
-[2] Maximilian Ranneberg: "Direct Wing Design and Inverse Airfoil Identification with the Nonlinear Weissinger Method". arXiv:1501.04983 [physics.flu-dyn], June 2015. https://arxiv.org/abs/1501.04983
+7. To deactivate the virtual environment:
+    ```bash
+    deactivate
+    ```
+### Dependencies
+- numpy
+- matplotlib>=3.7.1
+- seaborn
+- scipy
+- numba
+- ipykernel
+- screeninfo
 
-[3] Rick Damiani, Fabian F. Wendt, Jason M. Jonkman, Jerome Sicard: "A Vortex Step Method for Nonlinear Airfoil Polar Data as Implemented in KiteAeroDyn". AIAA Scitech 2019 Forum, San Diego, California, 7-11 January 2019. https://doi.org/10.2514/6.2019-0804
+## Usage tutorial
+Please look at the tutorial on a rectangular wing, where the code usage and settings are fully detailed.
+You can find it in **examples/rectangular_wing/tutorial_rectangular_wing.ipynb**
+  
+## Contributing Guide
+We welcome contributions to this project! Whether you're reporting a bug, suggesting a feature, or writing code, here’s how you can contribute:
+
+1. **Create an issue** on GitHub
+2. **Create a branch** from this issue
+   ```bash
+   git checkout -b issue_number-new-feature
+   ```
+3. --- Implement your new feature---
+4. Verify nothing broke using **pytest**
+```
+  pytest
+```
+5. **Commit your changes** with a descriptive message
+```
+  git commit -m "#<number> <message>"
+```
+6. **Push your changes** to the github repo:
+   git push origin branch-name
+   
+7. **Create a pull-request**, with `base:develop`, to merge this feature branch
+8. Once the pull request has been accepted, **close the issue
+**
+
+## Citation
+If you use this project in your research, please consider citing it. Citation details can be found in the `CITATION.cff` file included in this repository.
 
 ## License
-
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ### Copyright
-
 Copyright (c) 2022 Oriol Cayon
+
+Copyright (c) 2024 Oriol Cayon, Jelle Poland, TU Delft
