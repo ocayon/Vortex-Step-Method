@@ -13,6 +13,8 @@ class WingAerodynamics:
 
     init inputs:
         wings (list): List of Wing object instances
+        aerodynamic_center_location (float): The location of the aerodynamic center (default is 0.25)
+        control_point_location (float): The location of the control point (default is 0.75)
 
     Properties:
         panels (list): List of Panel object instances

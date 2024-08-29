@@ -9,12 +9,63 @@ logging.basicConfig(level=logging.INFO)
 
 @dataclass
 class Wing:
+    """Class to define a wing object, to store the geometry
+
+    The Wing class is used to define a wing object, which is a collection of sections.
+
+    Args:
+        - n_panels (int): Number of panels to be used in the aerodynamic mesh
+        - spanwise_panel_distribution (str): Spanwise panel distribution type, options:
+            - "linear": Linear distribution
+            - "cosine": Cosine distribution
+            - "cosine_van_Garrel": Cosine distribution based on van Garrel method
+            - "split_provided": Split the provided sections into the desired number of panels
+            - "unchanged": Keep the provided sections unchanged
+        - spanwise_direction (np.ndarray): Spanwise direction of the wing (default [0, 1, 0])
+        - sections (List[Section]): List of Section objects that define the wing geometry
+
+    Returns:
+        - Wing object
+
+    Methods:
+        - add_section(LE_point, TE_point, aero_input): Add a section to the wing
+        - refine_aerodynamic_mesh(): Refine the aerodynamic mesh of the wing
+        - span(): Calculate the span of the wing along a given vector axis
+        - calculate_projected_area(z_plane_vector): Calculate the projected area of the wing onto a specified plane
+        - calculate_cosine_van_Garrel(new_sections): Calculate the van Garrel cosine distribution of sections
+        - calculate_new_aero_input(aero_input, section_index, left_weight, right_weight): Interpolates the aero_input of two sections
+        - refine_mesh_for_linear_cosine_distribution(spanwise_panel_distribution, n_sections, LE, TE, aero_input): Refine the aerodynamic mesh of the wing based on linear or cosine spacing
+        - refine_mesh_by_splitting_provided_sections(): Refine the aerodynamic mesh of the wing by splitting the provided sections
+        - flip_created_coord_in_pairs_if_needed(coord): Ensure the coordinates are ordered from positive to negative along the y-axis
+
+    """
+
     n_panels: int
     spanwise_panel_distribution: str = "linear"
     spanwise_direction: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
     sections: List["Section"] = field(default_factory=list)  # child-class
 
     def add_section(self, LE_point: np.array, TE_point: np.array, aero_input: str):
+        """
+        Add a section to the wing
+
+        Args:
+            LE_point (np.array): Leading edge point of the section
+            TE_point (np.array): Trailing edge point of the section
+            aero_input (str): Aerodynamic input for the section, options:
+                - ["inviscid"]: Inviscid aerodynamics
+                - ["polar_data",[alpha,CL,CD,CM]]: Polar data aerodynamics
+                    Where alpha, CL, CD, and CM are arrays of the same length
+                        - alpha: Angle of attack in radians
+                        - CL: Lift coefficient
+                        - CD: Drag coefficient
+                        - CM: Moment coefficient
+                - ["lei_airfoil_breukels",[d_tube,camber]]: LEI airfoil with Breukels parameters
+                    - d_tube: Diameter of the tube, non-dimensionalized by the chord (distance from the leading edge to the trailing edge)
+                    - camber: Camber height, non-dimensionalized by the chord (distance from the leading edge to the trailing edge)
+        Returns:
+            None
+        """
         self.sections.append(Section(LE_point, TE_point, aero_input))
 
     def refine_aerodynamic_mesh(self):

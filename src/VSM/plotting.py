@@ -296,7 +296,23 @@ def plot_geometry(
     view_elevation=15,
     view_azimuth=-120,
 ):
+    """plot_geometry function
 
+    Plots the wing panels and filaments in 3D.
+
+    Args:
+        wing_aero: WingAerodynamics object
+        title: title of the plot
+        data_type: type of the data to be saved | default: ".pdf"
+        save_path: path to save the plot | default: None
+        is_save: boolean to save the plot | default: False
+        is_show: boolean to show the plot | default: True
+        view_elevation: elevation of the view | default: 15
+        view_azimuth: azimuth of the view | default: -120
+
+    Returns:
+        None
+    """
     # saving plot
     if is_save:
         # plot top view
@@ -353,6 +369,7 @@ def plot_distribution(
     Plots the spanwise distribution of the results.
 
     Args:
+        y_coordinates_list: list of y coordinates
         results_list: list of results dictionaries
         label_list: list of labels for the results
         title: title of the plot
@@ -624,7 +641,9 @@ def plot_polars(
         label_list: list of labels for the results
         literature_path_list: list of paths to literature data | default: None
         angle_range: range of angles to be considered | default: np.linspace(0, 20, 2)
-        angle_type: type of the angle | default: "angle_of_attack"
+        angle_type: type of the angle | default: "angle_of_attack", options:
+              - `"angle_of_attack`: will loop over an angle_of_attack range
+              - `"side_slip"`: will loop over an side_slip range
         angle_of_attack: angle of attack | default: 0
         side_slip: side slip angle | default: 0
         yaw_rate: yaw rate | default: 0
@@ -639,10 +658,14 @@ def plot_polars(
         None
     """
 
-    if (len(wing_aero_list) + len(literature_path_list)) != len(label_list) or len(solver_list) != len(wing_aero_list):
+    if (len(wing_aero_list) + len(literature_path_list)) != len(label_list) or len(
+        solver_list
+    ) != len(wing_aero_list):
         raise ValueError(
             "The number of solvers, results and labels should be the same. Got {} solvers and {} results and {} labels".format(
-                (len(solver_list)+ len(literature_path_list)) ,(len(wing_aero_list) + len(literature_path_list)), len(label_list)
+                (len(solver_list) + len(literature_path_list)),
+                (len(wing_aero_list) + len(literature_path_list)),
+                len(label_list),
             )
         )
 

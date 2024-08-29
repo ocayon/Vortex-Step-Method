@@ -18,22 +18,28 @@ class Solver:
     It is used to solve the circulation distribution of the wing,
     and calculate the aerodynamic forces
 
-    init input:
-        aerodynamic_model_type (str): Type of aerodynamic model, VSM or LLT
-        density (float): = 1.225 | Air density
-        max_iterations (int): = 1000 | Maximum number of iterations
-        allowed_error (float): = 1e-5 | Allowed error
-        tol_reference_error (float): = 0.001 | Reference error
-        relaxation_factor (float): = 0.03 | Relaxation factor
-        artificial_damping (dict): = {"k2": 0.0, "k4": 0.0} | Artificial damping
-        type_initial_gamma_distribution (str): = "elliptic" | Type of initial gamma distribution
-        core_radius_fraction (float): = 1e-20 | Core radius fraction
-        is_only_f_distribution_output (bool): = False | True when speed is desired and only interest lies in distributed force
+    Args:
+        aerodynamic_model_type (str): Type of aerodynamic model to use, either 'VSM' or 'LLT' (default: 'VSM')
+        density (float): Air density (default: 1.225)
+        max_iterations (int): Maximum number of iterations (default: 1500)
+        allowed_error (float): Allowed error for convergence (default: 1e-5)
+        tol_reference_error (float): Tolerance for reference error (default: 0.001)
+        relaxation_factor (float): Relaxation factor for convergence (default: 0.01)
+        is_with_artificial_damping (bool): Whether to apply artificial damping (default: False)
+        artificial_damping (dict): Artificial damping parameters (default: {"k2": 0.1, "k4": 0.0})
+        type_initial_gamma_distribution (str): Type of initial gamma distribution (default: "elliptic")
+        core_radius_fraction (float): Core radius fraction (default: 1e-20)
+        mu (float): Dynamic viscosity (default: 1.81e-5)
+        is_only_f_and_gamma_output (bool): Whether to only output f and gamma (default: False)
+
+    Returns:
+        dict: Results of the aerodynamic model
 
     Methods:
-        solve: Solve the circulation distribution
-        solve_iterative_loop: Solve the circulation distribution using an iterative loop
-        calculate_artificial_damping: Calculate artificial damping
+        solve: Solve the aerodynamic model
+        gamma_loop: Loop to calculate the circulation distribution
+        calculate_artificial_damping: Calculate the artificial damping
+        smooth_circulation: Smooth the circulation
     """
 
     def __init__(
@@ -73,6 +79,14 @@ class Solver:
         self.is_only_f_and_gamma_output = is_only_f_and_gamma_output
 
     def solve(self, wing_aero, gamma_distribution=None):
+        """Solve the aerodynamic model
+
+        Args:
+            wing_aero (WingAerodynamics): WingAerodynamics object
+            gamma_distribution (np.array): Initial gamma distribution (default: None)
+
+        Returns:
+            dict: Results of the aerodynamic model"""
 
         if wing_aero.va is None:
             raise ValueError("Inflow conditions are not set")
