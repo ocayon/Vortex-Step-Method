@@ -231,6 +231,7 @@ class Solver:
             - np.array: Angle of attack array
             - np.array: Relative velocity magnitude array
         """
+
         # looping untill max_iterations
         converged = False
         for i in range(self.max_iterations):
@@ -280,6 +281,7 @@ class Solver:
             else:
                 damp = 0
                 is_damping_applied = False
+
             gamma_new = (
                 (1 - relaxation_factor) * gamma + relaxation_factor * gamma_new + damp
             )
@@ -409,7 +411,7 @@ class Solver:
         logging.debug("circulation_mean: %s, diff: %s", circulation_mean, differences)
 
         # Check if the curve is smooth based on the maximum difference
-        if len(differences) != 0:
+        if len(differences) == 0:
             is_smooth = True
         else:
             is_smooth = np.max(np.abs(differences)) <= smoothness_threshold
@@ -437,8 +439,3 @@ class Solver:
 
         damp = smoothed - circulation
         return damp, True
-
-
-# Example usage:
-# circulation = np.array([[10], [20], [15], [25], [20]])
-# smoothed_circulation, was_smooth = smooth_circulation(circulation, smoothness_threshold=5)
