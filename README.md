@@ -57,32 +57,24 @@ Implementation of the Vortex Step Method for a static wing shape.
 We welcome contributions to this project! Whether you're reporting a bug, suggesting a feature, or writing code, here’s how you can contribute:
 
 1. Create an issue on GitHub
-2. Create a branch from this issue and change the branch source to `develop`
-3. Use provided cmds to checkout this branch locally
-4. --- Implement your new feature---
-5. Verify nothing broke using pytest
+2. Create a branch from this issue
+   ```bash
+   git checkout -b issue_number-new-feature
+   ```
+3. --- Implement your new feature---
+4. Verify nothing broke using pytest
 ```
   pytest
 ```
-7. git add, git commit (with # to current Issue number), git push
+5. Commit your changes with a descriptive message
 ```
-  git add .
   git commit -m "#<number> <message>"
-  git push
 ```
-7. Create a pull-request, with `base:develop`, to merge this feature branch and close this issue
-9. Update branch information locally using `git fetch --prune`, pull in new info `git pull origin develop` and delete branch locally using `git branch -d <enter branch name>`
-```
-  git fetch --prune
-  git pull --all
-  git checkout develop
-  git pull
-```
-9. Once merged on the remote and locally, delete this feature branch on the remote (see pull-request) and locally using 
-```
-  git branch -d <branch name>
-```
-10. Close issue
+6. Push your changes to the github repo:
+   git push origin branch-name
+   
+7. Create a pull-request, with `base:develop`, to merge this feature branch
+8. Once the pull request has been accepted, close the issue
 
 
 ### Code Style and Guidelines
