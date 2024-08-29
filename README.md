@@ -98,7 +98,7 @@ We welcome contributions to this project! Whether you're reporting a bug, sugges
 
 ## Citation
 If you use this project in your research, please consider citing it. 
-Citation details can be found in the `CITATION.cff` file included in this repository.
+Citation details can be found in the [CITATION.cff](CITATION.cff) file included in this repository.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
