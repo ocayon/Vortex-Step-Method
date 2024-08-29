@@ -25,14 +25,38 @@ def test_add_section():
     assert section.aero_input == "inviscid"
 
 
+def test_robustness_left_to_right():
+    example_wing = Wing(n_panels=10)
+    # Test adding a section
+    example_wing.add_section(np.array([0, 1, 0]), np.array([0, 1, 0]), "inviscid")
+    example_wing.add_section(np.array([0, -1, 0]), np.array([0, -1, 0]), "inviscid")
+    example_wing.add_section(np.array([0, -1.5, 0]), np.array([0, -1.5, 0]), "inviscid")
+    example_wing.refine_aerodynamic_mesh()
+
+    example_wing_1 = Wing(n_panels=10)
+    # Test adding a section
+    example_wing_1.add_section(np.array([0, -1.5, 0]), np.array([0, -1.5, 0]), "inviscid")
+    example_wing_1.add_section(np.array([0, -1, 0]), np.array([0, -1, 0]), "inviscid")
+    example_wing_1.add_section(np.array([0, 1, 0]), np.array([0, 1, 0]), "inviscid")
+    example_wing_1.refine_aerodynamic_mesh()
+
+    for i in range(len(example_wing.sections)):
+        np.testing.assert_array_equal(
+            example_wing.sections[i].LE_point, example_wing_1.sections[i].LE_point
+        )
+        np.testing.assert_array_equal(
+            example_wing.sections[i].TE_point, example_wing_1.sections[i].TE_point
+        )
+
+
 def test_refine_aerodynamic_mesh():
     n_panels = 4
     span = 20
 
     ## Test linear distribution
     wing = Wing(n_panels, spanwise_panel_distribution="linear")
-    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
     wing.add_section([0, span / 2, 0], [-1, span / 2, 0], ["inviscid"])
+    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
     sections = wing.refine_aerodynamic_mesh()
 
     # Each panel has 2 corresponding sections, so we expect n_panels + 1 sections
@@ -42,8 +66,8 @@ def test_refine_aerodynamic_mesh():
     # Assuming linear interpolation, check specific points
     for i in range(len(sections)):
         # Calculate expected points for linear interpolation
-        expected_LE = np.array([0, -span / 2 + i * span / n_panels, 0])
-        expected_TE = np.array([-1, -span / 2 + i * span / n_panels, 0])
+        expected_LE = np.array([0, span / 2 - i * span / n_panels, 0])
+        expected_TE = np.array([-1, span / 2 - i * span / n_panels, 0])
 
         # Check interpolated points with adjusted tolerance
         np.testing.assert_allclose(sections[i].LE_point, expected_LE, rtol=1e-5)
@@ -51,10 +75,10 @@ def test_refine_aerodynamic_mesh():
 
     ## Test cosine distribution
     wing = Wing(n_panels, spanwise_panel_distribution="cosine")
-    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
     wing.add_section([0, span / 2, 0], [-1, span / 2, 0], ["inviscid"])
+    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
     sections = wing.refine_aerodynamic_mesh()
-
+    print(sections[0].LE_point)
     # Each panel has 2 corresponding sections, so we expect n_panels + 1 sections
     assert len(sections) == wing.n_panels + 1
 
@@ -62,7 +86,7 @@ def test_refine_aerodynamic_mesh():
     for i in range(len(sections)):
         # Cosine distribution formula for linear span
         theta = np.linspace(0, np.pi, n_panels + 1)
-        expected_LE_y = -span / 2 * np.cos(theta)
+        expected_LE_y = span / 2 * np.cos(theta)
         expected_LE = np.array([0, expected_LE_y[i], 0])
         expected_TE = np.array([-1, expected_LE_y[i], 0])
 
@@ -76,16 +100,16 @@ def test_refine_aerodynamic_mesh_1_panel():
     span = 20
 
     wing = Wing(n_panels, spanwise_panel_distribution="linear")
-    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
     wing.add_section([0, span / 2, 0], [-1, span / 2, 0], ["inviscid"])
+    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
 
     sections = wing.refine_aerodynamic_mesh()
 
     # Each panel has 2 corresponding sections, so we expect n_panels + 1 sections
     assert len(sections) == wing.n_panels + 1
 
-    np.testing.assert_array_equal(sections[0].LE_point, np.array([0, -span / 2, 0]))
-    np.testing.assert_array_equal(sections[0].TE_point, np.array([-1, -span / 2, 0]))
+    np.testing.assert_array_equal(sections[0].LE_point, np.array([0, span / 2, 0]))
+    np.testing.assert_array_equal(sections[0].TE_point, np.array([-1, span / 2, 0]))
 
 
 def test_refine_aeordynamic_mesh_2_panel():
@@ -93,17 +117,17 @@ def test_refine_aeordynamic_mesh_2_panel():
     span = 20
 
     wing = Wing(n_panels, spanwise_panel_distribution="linear")
-    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
     wing.add_section([0, span / 2, 0], [-1, span / 2, 0], ["inviscid"])
+    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
 
     sections = wing.refine_aerodynamic_mesh()
 
     # Each panel has 2 corresponding sections, so we expect n_panels + 1 sections
     assert len(sections) == wing.n_panels + 1
 
-    np.testing.assert_array_equal(sections[0].LE_point, np.array([0, -span / 2, 0]))
+    np.testing.assert_array_equal(sections[0].LE_point, np.array([0, span / 2, 0]))
     np.testing.assert_array_equal(sections[1].LE_point, np.array([0, 0, 0]))
-    np.testing.assert_array_equal(sections[2].LE_point, np.array([0, span / 2, 0]))
+    np.testing.assert_array_equal(sections[2].LE_point, np.array([0, -span / 2, 0]))
 
 
 def test_refine_aeordynamic_mesh_more_sections_than_panels():
@@ -111,12 +135,12 @@ def test_refine_aeordynamic_mesh_more_sections_than_panels():
     span = 20
 
     wing = Wing(n_panels, spanwise_panel_distribution="linear")
-    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
-    wing.add_section([0, -span / 3, 0], [-1, -span / 3, 0], ["inviscid"])
-    wing.add_section([0, -span / 4, 0], [-1, -span / 4, 0], ["inviscid"])
-    wing.add_section([0, 0, 0], [-1, 0, 0], ["inviscid"])
-    wing.add_section([0, span / 4, 0], [-1, span / 4, 0], ["inviscid"])
     wing.add_section([0, span / 2, 0], [-1, span / 2, 0], ["inviscid"])
+    wing.add_section([0, span / 4, 0], [-1, span / 4, 0], ["inviscid"])
+    wing.add_section([0, 0, 0], [-1, 0, 0], ["inviscid"])
+    wing.add_section([0, -span / 4, 0], [-1, -span / 4, 0], ["inviscid"])
+    wing.add_section([0, -span / 3, 0], [-1, -span / 3, 0], ["inviscid"])
+    wing.add_section([0, -span / 2, 0], [-1, -span / 2, 0], ["inviscid"])
 
     sections = wing.refine_aerodynamic_mesh()
 
@@ -125,8 +149,8 @@ def test_refine_aeordynamic_mesh_more_sections_than_panels():
 
     for i in range(len(sections)):
         # Calculate expected points for linear interpolation
-        expected_LE = np.array([0, -span / 2 + i * span / n_panels, 0])
-        expected_TE = np.array([-1, -span / 2 + i * span / n_panels, 0])
+        expected_LE = np.array([0, span / 2 - i * span / n_panels, 0])
+        expected_TE = np.array([-1, span / 2 - i * span / n_panels, 0])
 
         # Check interpolated points with adjusted tolerance
         np.testing.assert_allclose(sections[i].LE_point, expected_LE, rtol=1e-5)
@@ -138,14 +162,15 @@ def test_refine_aerodynamic_mesh_for_symmetrical_wing():
     span = 10  # Total span from -5 to 5
 
     wing = Wing(n_panels, spanwise_panel_distribution="linear")
-    wing.add_section([0, -5, 0], [-1, -5, 0], ["inviscid"])
     wing.add_section([0, 5, 0], [-1, 5, 0], ["inviscid"])
+    wing.add_section([0, -5, 0], [-1, -5, 0], ["inviscid"])
+
 
     sections = wing.refine_aerodynamic_mesh()
 
     # Calculate expected quarter-chord points
-    qc_start = np.array([0.25 * -1, -5, 0])
-    qc_end = np.array([0.25 * -1, 5, 0])
+    qc_start = np.array([0.25 * -1, 5, 0])
+    qc_end = np.array([0.25 * -1, -5, 0])
     expected_qc_y = np.linspace(qc_start[1], qc_end[1], n_panels + 1)
 
     for i, section in enumerate(sections):
@@ -153,8 +178,8 @@ def test_refine_aerodynamic_mesh_for_symmetrical_wing():
         expected_qc = np.array([0.25 * -1, expected_qc_y[i], 0])
 
         # Calculate expected chord vector
-        chord_start = np.array([-1, -5, 0]) - np.array([0, -5, 0])
-        chord_end = np.array([-1, 5, 0]) - np.array([0, 5, 0])
+        chord_start = np.array([-1, 5, 0]) - np.array([0, 5, 0])
+        chord_end = np.array([-1, -5, 0]) - np.array([0, -5, 0])
         t = (expected_qc_y[i] - qc_start[1]) / (qc_end[1] - qc_start[1])
 
         # Normalize chord vectors
@@ -190,10 +215,10 @@ def test_refine_aerodynamic_mesh_for_symmetrical_wing():
 
     # Additional checks
     assert len(sections) == n_panels + 1
-    assert sections[0].LE_point[1] == pytest.approx(-5, abs=1e-5)
-    assert sections[-1].LE_point[1] == pytest.approx(5, abs=1e-5)
-    assert sections[0].TE_point[1] == pytest.approx(-5, abs=1e-5)
-    assert sections[-1].TE_point[1] == pytest.approx(5, abs=1e-5)
+    assert sections[0].LE_point[1] == pytest.approx(5, abs=1e-5)
+    assert sections[-1].LE_point[1] == pytest.approx(-5, abs=1e-5)
+    assert sections[0].TE_point[1] == pytest.approx(5, abs=1e-5)
+    assert sections[-1].TE_point[1] == pytest.approx(-5, abs=1e-5)
 
 
 def test_refine_aeordynamic_mesh_lei_airfoil_interpolation():
@@ -202,11 +227,11 @@ def test_refine_aeordynamic_mesh_lei_airfoil_interpolation():
 
     wing = Wing(n_panels, spanwise_panel_distribution="linear")
     wing.add_section(
-        [0, -span / 2, 0], [-1, -span / 2, 0], ["lei_airfoil_breukels", [0, 0]]
+        [0, span / 2, 0], [-1, span / 2, 0], ["lei_airfoil_breukels", [0, 0]]
     )
     wing.add_section([0, 0, 0], [-1, 0, 0], ["lei_airfoil_breukels", [2, 0.5]])
     wing.add_section(
-        [0, span / 2, 0], [-1, span / 2, 0], ["lei_airfoil_breukels", [4, 1]]
+        [0, -span / 2, 0], [-1, -span / 2, 0], ["lei_airfoil_breukels", [4, 1]]
     )
 
     sections = wing.refine_aerodynamic_mesh()
@@ -221,8 +246,8 @@ def test_refine_aeordynamic_mesh_lei_airfoil_interpolation():
 
     for i, section in enumerate(sections):
         # Calculate expected points for linear interpolation
-        expected_LE = np.array([0, -span / 2 + i * span / n_panels, 0])
-        expected_TE = np.array([-1, -span / 2 + i * span / n_panels, 0])
+        expected_LE = np.array([0, span / 2 - i * span / n_panels, 0])
+        expected_TE = np.array([-1, span / 2 - i * span / n_panels, 0])
 
         # Check interpolated points with adjusted tolerance
         np.testing.assert_allclose(section.LE_point, expected_LE, rtol=1e-5)

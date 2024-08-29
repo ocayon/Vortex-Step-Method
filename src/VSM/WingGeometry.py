@@ -82,6 +82,8 @@ class Wing:
             new_sections (list): List of Section objects with refined aerodynamic mesh
         """
 
+        # Ensure that the sections are declared from left to right
+        self.sections = sorted(self.sections, key=lambda section: section.LE_point[1], reverse=True)
         # Ensure we get 1 section more than the desired number of panels
         n_sections = self.n_panels + 1
         logging.debug(f"n_panels: {self.n_panels}")
