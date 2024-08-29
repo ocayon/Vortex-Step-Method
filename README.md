@@ -56,26 +56,26 @@ Implementation of the Vortex Step Method for a static wing shape.
 ## Contributing Guide
 We welcome contributions to this project! Whether you're reporting a bug, suggesting a feature, or writing code, here’s how you can contribute:
 
-1. Create an issue on GitHub
-2. Create a branch from this issue
+1. **Create an issue** on GitHub
+2. **Create a branch** from this issue
    ```bash
    git checkout -b issue_number-new-feature
    ```
 3. --- Implement your new feature---
-4. Verify nothing broke using pytest
+4. Verify nothing broke using **pytest**
 ```
   pytest
 ```
-5. Commit your changes with a descriptive message
+5. **Commit your changes** with a descriptive message
 ```
   git commit -m "#<number> <message>"
 ```
-6. Push your changes to the github repo:
+6. **Push your changes** to the github repo:
    git push origin branch-name
    
-7. Create a pull-request, with `base:develop`, to merge this feature branch
-8. Once the pull request has been accepted, close the issue
-
+7. **Create a pull-request**, with `base:develop`, to merge this feature branch
+8. Once the pull request has been accepted, **close the issue
+**
 
 ### Code Style and Guidelines
 - Follow PEP 8 for Python code style.
