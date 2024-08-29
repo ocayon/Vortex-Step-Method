@@ -99,3 +99,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Copyright
 Copyright (c) 2022 Oriol Cayon
+Copyright (c) 2024 Oriol Cayon, Jelle Poland, TU Delft
