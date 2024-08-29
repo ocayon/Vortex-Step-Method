@@ -315,6 +315,15 @@ def plot_geometry(
     """
     # saving plot
     if is_save:
+        # plot angled view
+        fig = creating_geometry_plot(
+            wing_aero,
+            title=title + "_angled_view",
+            view_elevation=15,
+            view_azimuth=-120,
+        )
+        save_plot(fig, save_path, title + "_angled_view", data_type)
+        plt.close()
         # plot top view
         fig = creating_geometry_plot(
             wing_aero,

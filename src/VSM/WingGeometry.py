@@ -315,98 +315,93 @@ class Wing:
             raise NotImplementedError(f"Unsupported aero model: {aero_input[section_index][0]}")
 
 
-    # TODO: correct this function, not working
     def refine_mesh_by_splitting_provided_sections(self):
-        n_provided_sections = len(self.sections)
-        n_new_sections = self.n_panels + 1 - n_provided_sections
-        n_section_pairs = n_provided_sections - 1
+        """Refine the aerodynamic mesh of the wing by splitting the provided sections
+
+        Args:
+            - None
+
+        Returns:
+            - new_sections (list): List of Section objects with refined aerodynamic mesh
+        """
+
+        n_sections_provided = len(self.sections)
+        n_panels_provided = n_sections_provided - 1
+        n_panels_desired = self.n_panels
+        logging.debug(f"n_panels_provided: {n_panels_provided}")
+        logging.debug(f"n_panels_desired: {n_panels_desired}")
+        logging.debug(f"n_sections_provided: {n_sections_provided}")
+        logging.debug(
+            f"n_panels_provided % n_panels_desired: {n_panels_desired % n_panels_provided}"
+        )
+        if n_panels_provided == n_panels_desired:
+            return self.sections
+        if n_panels_desired % n_panels_provided != 0:
+            raise ValueError(
+                f"Desired n_panels: {n_panels_desired} is not a multiple of the {n_panels_provided} n_panels provided, choose: {n_panels_provided*2}, {n_panels_provided*3}, {n_panels_provided*4},{n_panels_provided*5},..."
+            )
+
+        n_new_sections = self.n_panels + 1 - n_sections_provided
+        n_section_pairs = n_sections_provided - 1
         new_sections_per_pair, remaining = divmod(n_new_sections, n_section_pairs)
-        n_new_panels = n_section_pairs * (new_sections_per_pair + 1)
-        indices_provided, indices_new = [], []
-        current_index = 0
-        for i in range(n_section_pairs):
-            indices_provided.append(current_index)
-            current_index += 1
-            new_sections = new_sections_per_pair + (i < remaining)
-            indices_new.extend(range(current_index, current_index + new_sections))
-            current_index += new_sections
-        indices_provided.append(current_index)
 
-        logging.debug(f"n_provided_sections: {n_provided_sections}")
-        logging.debug(f"n_new_sections: {n_new_sections}")
-        logging.debug(f"n_section_pairs: {n_section_pairs}")
-        logging.debug(f"new_sections_per_pair: {new_sections_per_pair}")
-        logging.debug(f"indices_of_provided_sections: {indices_provided}")
-        logging.debug(f"indices_of_new_sections: {indices_new}")
-
-        # Keep this
-        if n_new_panels != self.n_panels:
-            logging.info(
-                f" Number of new panels {n_new_panels} is NOT equal to the {self.n_panels} desired number of panels "
-                f" This because of the even split of the provided {n_section_pairs} section pairs"
-                f" Each getting {new_sections_per_pair} new sections, leading to {new_sections_per_pair+1} panels for each provided section."
-            )
-
-        ### Extracting the provided LE,TE, and aero_inputs
-        LE, TE, aero_input = [], [], []
-        for _, section in enumerate(self.sections):
-            LE.append(np.array(section.LE_point))
-            TE.append(np.array(section.TE_point))
-            aero_input.append(section.aero_input)
-
-        is_iterating_in_between_provided_sections = True
-        left_section_index = 0
+        # Lists to track the final sections
         new_sections = []
-        aero_input_pair_list = []
-        # looping over all the new sections
-        for i in range(0, n_new_panels + 1):
-            logging.debug(
-                f"---- i: {i}, is_iterating_in_between_provided_sections: {is_iterating_in_between_provided_sections}"
+
+        # Extract provided LE, TE, and aero_inputs for interpolation
+        LE = [np.array(section.LE_point) for section in self.sections]
+        TE = [np.array(section.TE_point) for section in self.sections]
+        aero_input = [section.aero_input for section in self.sections]
+
+        for left_section_index in range(n_section_pairs):
+            # Add the provided section at the start of this pair
+            new_sections.append(self.sections[left_section_index])
+
+            # Calculate the number of new sections for this pair
+            num_new_sections_this_pair = new_sections_per_pair + (
+                1 if left_section_index < remaining else 0
             )
-            # if a provided section
-            if i in indices_provided:
-                # appending the first provided section, as the first new section
-                new_sections.append(self.sections[left_section_index])
-                # setting the boolean to true, to indicate that we are iterating in between provided sections
-                is_iterating_in_between_provided_sections = True
-                logging.debug(
-                    f"i in indices_provided: {i}, left_section_index: {left_section_index}"
-                )
 
-            # if i is not a provided section, but a split section
-            elif i in indices_new and is_iterating_in_between_provided_sections:
-                logging.debug(
-                    f"i in indices_new: {i}, left_section_index: {left_section_index}"
-                )
-                ### Defining a new section list to feed
-                LE_pair_list = np.array(
-                    [LE[left_section_index], LE[left_section_index + 1]]
-                )
-                TE_pair_list = np.array(
-                    [TE[left_section_index], TE[left_section_index + 1]]
-                )
-                aero_input_pair_list = [
-                    aero_input[left_section_index],
-                    aero_input[left_section_index + 1],
-                ]
+            # Prepare inputs for the interpolation function
+            LE_pair_list = np.array(
+                [LE[left_section_index], LE[left_section_index + 1]]
+            )
+            TE_pair_list = np.array(
+                [TE[left_section_index], TE[left_section_index + 1]]
+            )
+            aero_input_pair_list = [
+                aero_input[left_section_index],
+                aero_input[left_section_index + 1],
+            ]
 
+            # Generate the new sections for this pair
+            if num_new_sections_this_pair > 0:
                 new_splitted_sections = self.refine_mesh_for_linear_cosine_distribution(
                     "linear",
-                    new_sections_per_pair + 2,
+                    num_new_sections_this_pair
+                    + 2,  # +2 because refine_mesh expects total sections, including endpoints
                     LE_pair_list,
                     TE_pair_list,
                     aero_input_pair_list,
                 )
-                # loop over the new sections, except the first and last one, those are provided and already appended
-                for i in range(1, len(new_splitted_sections) - 1):
-                    logging.debug(
-                        f"i:{i}, appending new_section: {new_splitted_sections[i]}"
-                    )
-                    new_sections.append(new_splitted_sections[i])
+                # Append only the new sections (excluding the endpoints, which are already in `new_sections`)
+                new_sections.extend(new_splitted_sections[1:-1])
 
-                # setting the boolean to false, untill the next provided section is hit
-                is_iterating_in_between_provided_sections = False
-                left_section_index += 1
+        # Finally, add the last provided section
+        new_sections.append(self.sections[-1])
+
+        # Debug logging
+        logging.debug(f"n_sections_provided: {n_sections_provided}")
+        logging.debug(f"n_new_sections: {n_new_sections}")
+        logging.debug(f"n_section_pairs: {n_section_pairs}")
+        logging.debug(f"new_sections_per_pair: {new_sections_per_pair}")
+        logging.debug(f"new_sections length: {len(new_sections)}")
+
+        if len(new_sections) != self.n_panels + 1:
+            logging.info(
+                f" Number of new panels {len(new_sections) - 1} is NOT equal to the {self.n_panels} desired number of panels."
+                f" This could be due to rounding or even splitting issues."
+            )
 
         return new_sections
 
@@ -555,7 +550,6 @@ class Wing:
         return projected_area
 
 
-# TODO: remove this, no need for inherance here, can be just a function :)
 @dataclass
 class Section:
     """Class to define a section object, to store the geometry of a wing section
