@@ -52,7 +52,15 @@ Implementation of the Vortex Step Method for a static wing shape.
     ```bash
     deactivate
     ```
-
+### Dependencies
+- numpy
+- matplotlib>=3.7.1
+- seaborn
+- scipy
+- numba
+- ipykernel
+- screeninfo
+- 
 ## Contributing Guide
 We welcome contributions to this project! Whether you're reporting a bug, suggesting a feature, or writing code, here’s how you can contribute:
 
@@ -76,11 +84,6 @@ We welcome contributions to this project! Whether you're reporting a bug, sugges
 7. **Create a pull-request**, with `base:develop`, to merge this feature branch
 8. Once the pull request has been accepted, **close the issue
 **
-
-### Code Style and Guidelines
-- Follow PEP 8 for Python code style.
-- Ensure that your code is well-documented.
-- Write unit tests for new features and bug fixes.
 
 ## Citation
 If you use this project in your research, please consider citing it. Citation details can be found in the `CITATION.cff` file included in this repository.
