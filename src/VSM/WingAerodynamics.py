@@ -491,27 +491,6 @@ class WingAerodynamics:
         va = self._va
         va_unit = va / va_mag
         q_inf = 0.5 * density * va_mag**2
-
-        # induced_va_airfoil_array = (
-        #     np.cos(alpha_corrected) * y_airf_array
-        #     + np.sin(alpha_corrected) * x_airf_array
-        # )
-        # dir_induced_va_airfoil_array = induced_va_airfoil_array / jit_norm(
-        #     induced_va_airfoil_array
-        # )
-
-        # # z_airf_array = np.array([panel.z_airf for panel in self.panels])
-        # dir_lift_induced_va_array = jit_cross(dir_induced_va_airfoil_array, z_airf_array)
-        # dir_lift_induced_va_array = dir_lift_induced_va_array / jit_norm(
-        #     dir_lift_induced_va_array
-        # )
-        # logging.info(f"induced_va_airfoil_array: {induced_va_airfoil_array.shape}")
-        # logging.info(
-        #     f"dir_induced_va_airfoil_array: {dir_induced_va_airfoil_array.shape}"
-        # )
-        # logging.info(f"dir_lift_induced_va_array: {dir_lift_induced_va_array.shape}")
-
-        # breakpoint()
         for i, panel_i in enumerate(self.panels):
 
             ### Defining panel_variables
@@ -544,39 +523,6 @@ class WingAerodynamics:
             dir_drag_induced_va = jit_cross(spanwise_direction, dir_lift_induced_va)
             dir_drag_induced_va = dir_drag_induced_va / jit_norm(dir_drag_induced_va)
 
-            # logging.info(f"----before")
-            # logging.info(f"shape induced_va_airfoil: {induced_va_airfoil.shape}")
-            # logging.info(
-            #     f"shape dir_induced_va_airfoil: {dir_induced_va_airfoil.shape}"
-            # )
-            # logging.info(f"shape dir_lift_induced_va: {dir_lift_induced_va.shape}")
-            # logging.info(f"shape dir_drag_induced_va: {dir_drag_induced_va.shape}")
-
-            # logging.info(f"---shape of arrays")
-            # logging.info(f"induced_va_airfoil_array: {induced_va_airfoil_array.shape}")
-            # # logging.info(
-            # #     f"dir_induced_va_airfoil_array: {dir_induced_va_airfoil_array.shape}"
-            # # )
-            # # logging.info(
-            # #     f"dir_lift_induced_va_array: {dir_lift_induced_va_array.shape}"
-            # # )
-            # # logging.info(
-            # #     f"dir_drag_induced_va_array: {dir_drag_induced_va_array.shape}"
-            # # )
-
-            # induced_va_airfoil = induced_va_airfoil_array[i, :]
-            # dir_induced_va_airfoil = dir_induced_va_airfoil_array[i, :]
-            # # dir_lift_induced_va = dir_lift_induced_va_array[i, :]
-            # # dir_drag_induced_va = dir_drag_induced_va_array[i, :]
-
-            # logging.info(f"----after")
-            # logging.info(f"shape induced_va_airfoil: {induced_va_airfoil.shape}")
-            # logging.info(
-            #     f"shape dir_induced_va_airfoil: {dir_induced_va_airfoil.shape}"
-            # )
-            # logging.info(f"shape dir_lift_induced_va: {dir_lift_induced_va.shape}")
-            # logging.info(f"shape dir_drag_induced_va: {dir_drag_induced_va.shape}")
-
             ### Calculating the MAGNITUDE of the lift and drag
             # The VSM and LTT methods do NOT differ here, both use the uncorrected angle of attack
             # i.e. evaluate the magnitude at the (3/4c) control point
@@ -605,13 +551,6 @@ class WingAerodynamics:
             side_prescribed_va = jit_dot(lift_induced_va, spanwise_direction) + jit_dot(
                 drag_induced_va, spanwise_direction
             )
-
-            # TODO: you can check: ftotal_prescribed_va = ftotal_induced_va
-            # if not np.allclose(ftotal_prescribed_va, ftotal_induced_va):
-            #     raise ValueError(
-            #         "Conversion of forces from induced_va to prescribed_va failed"
-            #     )
-            # The above conversion is merely one of references frames
 
             ### Converting forces to the global reference frame
             fx_global_2D = jit_dot(ftotal_induced_va, np.array([1, 0, 0]))
@@ -744,51 +683,6 @@ class WingAerodynamics:
     ###########################
     ## UPDATE FUNCTIONS
     ###########################
-
-    # def update_effective_angle_of_attack_if_VSM(
-    #     self, gamma, core_radius_fraction, va_norm_array, va_unit_array
-    # ):
-    #     """Updates the angle of attack at the aerodynamic center of each panel,
-    #         Calculated at the AERODYNAMIC CENTER, which needs an update for VSM
-    #         And can just use the old value for the LLT
-
-    #     Args:
-    #         None
-
-    #     Returns:
-    #         None
-    #     """
-    #     # The correction is done by calculating the alpha at the aerodynamic center,
-    #     # where as before the control_point was used in the VSM method
-    #     aerodynamic_model_type = "LLT"
-    #     AIC_x, AIC_y, AIC_z = self.calculate_AIC_matrices(
-    #         aerodynamic_model_type, core_radius_fraction, va_norm_array, va_unit_array
-    #     )
-    #     panels = self.panels
-    #     alpha_corrected = np.zeros(len(panels))
-    #     for icp, panel in enumerate(panels):
-    #         # Initialize induced velocity to 0
-    #         u = 0
-    #         v = 0
-    #         w = 0
-    #         # Compute induced velocities with previous gamma distribution
-    #         for jring, gamma_jring in enumerate(gamma):
-    #             u = u + AIC_x[icp][jring] * gamma_jring
-    #             # x-component of velocity
-    #             v = v + AIC_y[icp][jring] * gamma_jring
-    #             # y-component of velocity
-    #             w = w + AIC_z[icp][jring] * gamma_jring
-    #             # z-component of velocity
-
-    #         # TODO: shouldn't grab from different classes inside the solver for CPU-efficiency
-    #         induced_velocity = np.array([u, v, w])
-
-    #         # This is double checked
-    #         alpha_corrected[icp], _ = (
-    #             panel.calculate_relative_alpha_and_relative_velocity(induced_velocity)
-    #         )
-
-    #     return alpha_corrected
 
     def update_effective_angle_of_attack_if_VSM(
         self,
