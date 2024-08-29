@@ -88,11 +88,11 @@ We welcome contributions to this project! Whether you're reporting a bug, sugges
    git push origin branch-name
    
 7. **Create a pull-request**, with `base:develop`, to merge this feature branch
-8. Once the pull request has been accepted, **close the issue
-**
+8. Once the pull request has been accepted, **close the issue**
 
 ## Citation
-If you use this project in your research, please consider citing it. Citation details can be found in the `CITATION.cff` file included in this repository.
+If you use this project in your research, please consider citing it. 
+Citation details can be found in the `CITATION.cff` file included in this repository.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
