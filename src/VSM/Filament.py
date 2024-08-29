@@ -20,12 +20,7 @@ class Filament(ABC):
     @abstractmethod
     def __init__(self):
         pass
-
-    # TODO: could bring this back again, by renaming all the functions, eh?
-    # @abstractmethod
-    # def calculate_induced_velocity(self, point, gamma, core_radius_fraction):
-    #     pass
-
+        
 
 class BoundFilament(Filament):
     """
@@ -46,7 +41,6 @@ class BoundFilament(Filament):
 
     """
 
-    # TODO: --CPU-- could initialize more attributes here, such that a new calculation with an existing object will go faster?
     def __init__(self, x1, x2):
         self._x1 = np.array(x1)
         self._x2 = np.array(x2)

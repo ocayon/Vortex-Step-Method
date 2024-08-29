@@ -146,11 +146,6 @@ def thesis_induction_matrix_creation(
 
 def test_induction_matrix_creation():
 
-    # TODO: IMPORTANT, the AIC_y is opposite, due to the reversed ORDER
-    logging.info(
-        "IMPORTANT NOTE: AIC_y is set to -AIC_y, to compensate for reversed order comparison"
-    )
-
     n_panels = 3
     # N = number of SECTIONS
     N = n_panels + 1
