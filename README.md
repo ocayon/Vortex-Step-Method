@@ -60,7 +60,7 @@ Implementation of the Vortex Step Method for a static wing shape.
 - numba
 - ipykernel
 - screeninfo
-- 
+  
 ## Contributing Guide
 We welcome contributions to this project! Whether you're reporting a bug, suggesting a feature, or writing code, here’s how you can contribute:
 
