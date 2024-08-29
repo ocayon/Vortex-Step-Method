@@ -437,8 +437,7 @@ class Panel:
         """
         velind = [0, 0, 0]
 
-        # TODO: could remove the i checks, and write FIlament calculate_induced_velocity generic to work for each class.
-        # TODO: would need to split up the BoundFilament class
+        # TODO: ADD option for more wake filaments
         for i, filament in enumerate(self.filaments):
             # bound
             if i == 0:

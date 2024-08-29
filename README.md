@@ -66,7 +66,11 @@ Please look at the tutorial on a rectangular wing, where the code usage and sett
 You can find it in `examples/rectangular_wing/tutorial_rectangular_wing.ipynb`
 
 Another tutorial is present under `examples/TUDELFT_V3_LEI_KITE/tutorial_testing_stall_model.py` where a geometry is loaded from .csv, plotted, distributions are plotted and polars are created to demonstrate the effect of the stall model.
-  
+
+For more detailed information one is referred to:
+- [Aerodynamic model](docs/Aerodynamic_model.pdf)
+- [Paper: Fast Aero-Structural Model of a Leading-Edge Inflatable Kite](https://doi.org/10.3390/en16073061) 
+
 ## Contributing Guide
 We welcome contributions to this project! Whether you're reporting a bug, suggesting a feature, or writing code, here’s how you can contribute:
 
@@ -88,11 +92,11 @@ We welcome contributions to this project! Whether you're reporting a bug, sugges
    git push origin branch-name
    
 7. **Create a pull-request**, with `base:develop`, to merge this feature branch
-8. Once the pull request has been accepted, **close the issue
-**
+8. Once the pull request has been accepted, **close the issue**
 
 ## Citation
-If you use this project in your research, please consider citing it. Citation details can be found in the `CITATION.cff` file included in this repository.
+If you use this project in your research, please consider citing it. 
+Citation details can be found in the `CITATION.cff` file included in this repository.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

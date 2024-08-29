@@ -164,7 +164,6 @@ class WingAerodynamics:
         for i, panel in enumerate(self.panels):
             panel.va = va_distribution[i]
 
-        # TODO: later Wake should be a class
         # Add the frozen wake elements based on the va distribution
         self.panels = Wake.frozen_wake(va_distribution, self.panels)
 
@@ -172,7 +171,7 @@ class WingAerodynamics:
     ## CALCULATE FUNCTIONS
     ###########################
 
-    # TODO: could be CPU optimized
+
     def calculate_panel_properties(
         self,
         section_list,
@@ -500,7 +499,6 @@ class WingAerodynamics:
             x_airf_normal_to_chord = panel_i.x_airf  # normal to the chord
             # TODO: implement these
             alpha_corrected_i = alpha_corrected[i]
-            alpha_uncorrected_i = alpha_uncorrected[i]
             panel_chord = panel_i.chord
             panel_width = panel_i.width
             panel_area = panel_chord * panel_width
