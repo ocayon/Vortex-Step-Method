@@ -48,12 +48,13 @@ class Solver:
         aerodynamic_model_type: str = "VSM",
         density: float = 1.225,
         max_iterations: int = 1500,
-        allowed_error: float = 1e-5,  # 1e-5,
+        allowed_error: float = 1e-12,  # 1e-5,
         tol_reference_error: float = 0.001,
         relaxation_factor: float = 0.03,
         is_with_artificial_damping: bool = False,
         artificial_damping: dict = {"k2": 0.1, "k4": 0.0},
         type_initial_gamma_distribution: str = "elliptic",
+        is_with_gamma_feedback: bool = True,
         core_radius_fraction: float = 1e-20,
         mu: float = 1.81e-5,
         is_only_f_and_gamma_output: bool = False,
@@ -76,6 +77,7 @@ class Solver:
         self.core_radius_fraction = core_radius_fraction
         self.mu = mu
         self.is_only_f_and_gamma_output = is_only_f_and_gamma_output
+        self.is_with_gamma_feedback = is_with_gamma_feedback
 
     def solve(self, wing_aero, gamma_distribution=None):
         """Solve the aerodynamic model
@@ -130,14 +132,44 @@ class Solver:
         if (
             gamma_distribution is None
             and self.type_initial_gamma_distribution == "elliptic"
-        ):
+        ) or not self.is_with_gamma_feedback:
+            # v1_u = va_array[0] / np.linalg.norm(va_array[0])
+            # v2_u = np.array([1, 0, 0])
+            # angle_of_attack = np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+            # angle_of_attack_deg = np.rad2deg(angle_of_attack)
+            # print(f"va_array_norm: {v1_u}, angle_of_attack_deg: {angle_of_attack_deg}")
+            # gamma_initial = (
+            #     (wing_aero.calculate_circulation_distribution_elliptical_wing())
+            #     * 0.5
+            #     * angle_of_attack_deg
+            # )
+            # va_array = np.array([8, 0, 1])
+
+            ### IF NO initial gamma is provided, first run a linear case.
             gamma_initial = (
                 wing_aero.calculate_circulation_distribution_elliptical_wing()
             )
+            converged, gamma_new, alpha_array, Umag_array = self.gamma_loop(
+                gamma_initial,
+                AIC_x,
+                AIC_y,
+                AIC_z,
+                va_array,
+                chord_array,
+                x_airf_array,
+                y_airf_array,
+                z_airf_array,
+                panels,
+                relaxation_factor,
+            )
+            gamma_initial = gamma_new
+
         elif len(gamma_distribution) == n_panels:
             gamma_initial = gamma_distribution
 
-        logging.debug("Initial gamma_new: %s", gamma_initial)
+        logging.debug(
+            f"Initial gamma_new: {gamma_initial} . is_with_gamma_feedback: {self.is_with_gamma_feedback}",
+        )
 
         # Run the iterative loop
         converged, gamma_new, alpha_array, Umag_array = self.gamma_loop(
@@ -155,8 +187,8 @@ class Solver:
         )
         # run again with half the relaxation factor if not converged
         if not converged and relaxation_factor > 1e-3:
-            logging.warning(
-                f"Running again with half the relaxation_factor = {relaxation_factor / 2}"
+            logging.info(
+                f" ---> Running again with half the relaxation_factor = {relaxation_factor / 2}"
             )
             relaxation_factor = relaxation_factor / 2
             converged, gamma_new, alpha_array, Umag_array = self.gamma_loop(
