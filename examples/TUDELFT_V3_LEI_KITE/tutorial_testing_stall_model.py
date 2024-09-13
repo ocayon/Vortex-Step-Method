@@ -65,7 +65,7 @@ VSM_with_stall_correction = Solver(
 )
 
 # setting va
-Umag = 15
+Umag = 3.15
 aoa = 17
 side_slip = 0
 yaw_rate = 0
@@ -138,7 +138,7 @@ plot_polars(
     angle_of_attack=0,
     side_slip=0,
     yaw_rate=0,
-    Umag=10,
+    Umag=Umag,
     title=f"tutorial_testing_stall_model_n_panels_{int(n_panels):.0f}_distribution_{spanwise_panel_distribution}",
     data_type=".pdf",
     save_path=Path(save_folder) / "polars",
