@@ -133,36 +133,9 @@ class Solver:
             gamma_distribution is None
             and self.type_initial_gamma_distribution == "elliptic"
         ) or not self.is_with_gamma_feedback:
-            # v1_u = va_array[0] / np.linalg.norm(va_array[0])
-            # v2_u = np.array([1, 0, 0])
-            # angle_of_attack = np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
-            # angle_of_attack_deg = np.rad2deg(angle_of_attack)
-            # print(f"va_array_norm: {v1_u}, angle_of_attack_deg: {angle_of_attack_deg}")
-            # gamma_initial = (
-            #     (wing_aero.calculate_circulation_distribution_elliptical_wing())
-            #     * 0.5
-            #     * angle_of_attack_deg
-            # )
-            # va_array = np.array([8, 0, 1])
-
-            ### IF NO initial gamma is provided, first run a linear case.
             gamma_initial = (
                 wing_aero.calculate_circulation_distribution_elliptical_wing()
             )
-            converged, gamma_new, alpha_array, Umag_array = self.gamma_loop(
-                gamma_initial,
-                AIC_x,
-                AIC_y,
-                AIC_z,
-                va_array,
-                chord_array,
-                x_airf_array,
-                y_airf_array,
-                z_airf_array,
-                panels,
-                relaxation_factor,
-            )
-            gamma_initial = gamma_new
 
         elif len(gamma_distribution) == n_panels:
             gamma_initial = gamma_distribution
