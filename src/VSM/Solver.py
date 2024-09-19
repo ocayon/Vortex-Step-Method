@@ -58,6 +58,7 @@ class Solver:
         core_radius_fraction: float = 1e-20,
         mu: float = 1.81e-5,
         is_only_f_and_gamma_output: bool = False,
+        is_new_vector_definition: bool = True,
         ## TODO: would be nice to having these defined here instead of inside the panel class?
         # aerodynamic_center_location: float = 0.25,
         # control_point_location: float = 0.75,
@@ -78,6 +79,7 @@ class Solver:
         self.mu = mu
         self.is_only_f_and_gamma_output = is_only_f_and_gamma_output
         self.is_with_gamma_feedback = is_with_gamma_feedback
+        self.is_new_vector_definition = is_new_vector_definition
 
     def solve(self, wing_aero, gamma_distribution=None):
         """Solve the aerodynamic model
@@ -196,6 +198,7 @@ class Solver:
             va_unit_array,
             panels,
             self.is_only_f_and_gamma_output,
+            is_new_vector_definition=self.is_new_vector_definition,
         )
 
         return results
