@@ -57,6 +57,9 @@ class Solver:
         is_aoa_corrected: bool = False,
         is_with_artificial_viscosity: bool = False,
         artificial_viscosity_factor: float = 0.035,
+        anderson_depth: int = 5,
+        anderson_beta: float = 1.0,
+        anderson_max_iterations: int = 100,
     ):
         """Initialize solver with configuration parameters.
 
@@ -111,6 +114,16 @@ class Solver:
         # Parameter-free post-stall regularization; see gamma_loop.
         self.is_with_artificial_viscosity = is_with_artificial_viscosity
         self.artificial_viscosity_factor = artificial_viscosity_factor
+        # === Anderson-accelerated fixed-point loop (gamma_loop_type="anderson") ===
+        # Depth m = number of past residuals mixed per step; beta = mixing/damping.
+        # anderson_max_iterations bounds the accelerated attempt before solve()
+        # falls back to the base relaxed-Picard loop (deep post-stall / stall-knee
+        # safety net). Healthy Anderson converges in O(10s) of iterations, so a
+        # small cap keeps the wasted work minimal on the rare limit-cycling state
+        # (e.g. the stall knee) before the base loop takes over.
+        self.anderson_depth = int(anderson_depth)
+        self.anderson_beta = float(anderson_beta)
+        self.anderson_max_iterations = int(anderson_max_iterations)
 
         ## Initializing some empty properties
         self.panels = None
@@ -232,6 +245,29 @@ class Solver:
             converged, gamma_new, alpha_array, Umag_array = self.gamma_loop_non_linear(
                 gamma_initial
             )
+
+        elif self.gamma_loop_type == "anderson":
+            converged, gamma_new, alpha_array, Umag_array = self.gamma_loop_anderson(
+                gamma_initial
+            )
+            # Deep post-stall can trap Anderson in a limit cycle (the regime where
+            # VSM is unreliable anyway and only the base loop's viscosity /
+            # heavy relaxation converges). Fall back to the base loop — same
+            # fixed point, same two-stage half-relaxation retry — so the
+            # accelerated path is never less robust than ``base``.
+            if not converged:
+                logging.info(
+                    " ---> Anderson did not converge; falling back to base "
+                    "relaxed-Picard loop"
+                )
+                converged, gamma_new, alpha_array, Umag_array = self.gamma_loop(
+                    gamma_initial
+                )
+                if not converged:
+                    converged, gamma_new, alpha_array, Umag_array = self.gamma_loop(
+                        gamma_initial, extra_relaxation_factor=0.5
+                    )
+
         else:
             # Instiate the stall_solvers class
             import VSM.StallSolvers as StallSolvers
@@ -493,7 +529,180 @@ class Solver:
 
         if not converged:
             logging.warning(f"NOT Converged after {self.max_iterations} iterations")
+        self.last_iterations = i + 1  # diagnostic: iterations used this solve
         return converged, gamma_new, alpha_array, Umag_array
+
+    def _build_viscosity_ctx(self) -> dict | None:
+        """Pre-build the frozen-geometry objects the post-stall regularization
+        needs (spanwise Laplacian, identity, planform area, per-panel stall
+        onset), or ``None`` when artificial viscosity is disabled. Shared by the
+        accelerated loops so they target the same regularized fixed point as
+        :meth:`gamma_loop`.
+        """
+        if not self.is_with_artificial_viscosity:
+            return None
+        return {
+            "laplacian": self._build_spanwise_laplacian(),
+            "identity": np.eye(self.n_panels),
+            "planform_area": float(np.sum(self.width_array * self.chord_array)),
+            "stall_angles": self._panel_stall_angles(),
+        }
+
+    def _fixed_point_target(
+        self, gamma: np.ndarray, viscosity_ctx: dict | None = None
+    ) -> tuple:
+        """Single evaluation of the circulation fixed-point map ``G(gamma)``.
+
+        Returns ``(gamma_target, alpha_array, Umag_array)``. The fixed point
+        ``gamma*`` satisfies ``gamma* = G(gamma*)`` — the very quantity the base
+        :meth:`gamma_loop` relaxes toward with ``gamma_new = (1-w) gamma + w
+        G(gamma)``. Sharing this map lets the accelerated loops converge to the
+        identical solution. When artificial viscosity is active and any panel is
+        past stall, the post-stall regularization (Li, Gaunaa, Pirrung & Lønbæk,
+        TORQUE 2026) is folded into the target so ``base`` and ``anderson`` share
+        the same regularized fixed point.
+        """
+        alpha_array, Umag_array, cl_array, Umagw_array = (
+            self.compute_aerodynamic_quantities(gamma)
+        )
+        gamma_target = (
+            0.5 * ((Umag_array**2) / Umagw_array) * cl_array * self.chord_array
+        )
+        if viscosity_ctx is not None and np.any(
+            alpha_array > viscosity_ctx["stall_angles"]
+        ):
+            lift_slope = self._local_lift_slope(alpha_array)
+            mu_array = np.maximum(
+                0.0,
+                -self.artificial_viscosity_factor
+                * viscosity_ctx["planform_area"]
+                * lift_slope
+                / self.width_array**2,
+            )
+            gamma_target = np.linalg.solve(
+                viscosity_ctx["identity"]
+                - mu_array[:, None] * viscosity_ctx["laplacian"],
+                gamma_target,
+            )
+        return gamma_target, alpha_array, Umag_array
+
+    def gamma_loop_anderson(self, gamma_initial: np.ndarray) -> tuple:
+        """Anderson-accelerated fixed-point iteration for the circulation.
+
+        Anderson acceleration is applied to the *under-relaxed* Picard map
+
+            g(gamma) = (1 - w) gamma + w G(gamma),   w = relaxation_factor,
+
+        not to the raw ``G(gamma)``: the raw circulation map is expansive here
+        (hence the base loop under-relaxes heavily), and accelerating it
+        directly diverges. The relaxed map is a contraction with the *same*
+        fixed point, and each step mixes the last ``anderson_depth`` relaxed
+        residuals through a small (``m x m``) least-squares problem (Walker & Ni
+        2011, SIAM J. Numer. Anal. 49, 1715). This decouples ``w`` from the
+        convergence rate — a conservative, robust ``w`` still converges in
+        O(10s) of iterations instead of O(100s), removing the fragile speed/
+        stability trade-off of the bare relaxation factor. The stopping rule and
+        optional post-stall regularization are identical to ``base``, so the
+        returned circulation matches it to solver tolerance.
+
+        .. warning::
+            Anderson terminates on a *superlinear* (jumpy) residual, so near the
+            tolerance boundary a tiny change in the inflow can flip the returned
+            circulation by ~one convergence jump (e.g. from a 1e-3 to a 1e-8
+            residual). The converged gamma is therefore a slightly *non-smooth*
+            function of the inflow. This is invisible for a standalone solve, but
+            it corrupts any *outer* finite-difference Jacobian that differentiates
+            through this loop (e.g. the AWETrim quasi-steady trim solvers) unless
+            ``allowed_error`` is tight (~1e-8), which pushes the jump below the FD
+            step. The base loop's slow *linear* convergence keeps its
+            loosely-converged gamma smooth, so ``base`` is the safe choice for
+            FD-outer-loop use at loose tolerance.
+
+        Args:
+            gamma_initial (np.ndarray): Initial circulation distribution.
+
+        Returns:
+            tuple: ``(converged, gamma_new, alpha_array, Umag_array)`` matching
+            :meth:`gamma_loop`.
+        """
+        m = max(1, int(self.anderson_depth))
+        beta = float(self.anderson_beta)
+        w = self.relaxation_factor
+        # Relative Tikhonov regularization of the depth-m least-squares problem:
+        # damps the extrapolation when the residual-difference columns are
+        # near-linearly-dependent, biasing toward the safe relaxed-Picard step
+        # rather than an over-large quasi-Newton stride.
+        reg = 1e-10
+        # Anderson converges superlinearly here (O(10s) of iterations); if it has
+        # not converged within this budget it is in a limit cycle (deep post-stall,
+        # where VSM itself is unreliable and only the base loop's viscosity /
+        # relaxation tames it). The caller (:meth:`solve`) then falls back to the
+        # base relaxed-Picard loop, so this just bounds the wasted work.
+        max_it = min(self.max_iterations, int(self.anderson_max_iterations))
+        viscosity_ctx = self._build_viscosity_ctx()
+
+        def relaxed_step(x):
+            # One evaluation of the relaxed fixed-point map g(x) and its residual
+            # f(x) = g(x) - x = w (G(x) - x). Same fixed point as G, contractive.
+            target, alpha, umag = self._fixed_point_target(x, viscosity_ctx)
+            g = (1.0 - w) * x + w * target
+            return g, g - x, alpha, umag
+
+        x = np.array(gamma_initial, dtype=float)
+        g, f, alpha_array, Umag_array = relaxed_step(x)
+
+        x_hist: list[np.ndarray] = []  # window of iterates (current one included)
+        f_hist: list[np.ndarray] = []  # window of relaxed residuals g(x)-x
+        converged = False
+        last_k = 0
+
+        for k in range(max_it):
+            last_k = k
+            # Same normalized-error measure as the base loop: |g - gamma| over
+            # the peak circulation (g is the relaxed update, matching base's
+            # ``max|gamma_new - gamma| / max|gamma_new|``).
+            reference_error = np.amax(np.abs(g))
+            reference_error = reference_error if reference_error != 0 else 1e-4
+            normalized_error = np.amax(np.abs(f)) / reference_error
+            if normalized_error < self.allowed_error:
+                converged = True
+                break
+            logging.debug(
+                f"Anderson normalized error at iteration {k}: {normalized_error}"
+            )
+
+            x_hist.append(x)
+            f_hist.append(f)
+            if len(f_hist) > m + 1:
+                x_hist.pop(0)
+                f_hist.pop(0)
+
+            mk = len(f_hist) - 1
+            if mk == 0:
+                # No history yet: a single (damped) relaxed Picard step to seed.
+                x_new = x + beta * f
+            else:
+                dF = np.stack(
+                    [f_hist[j] - f_hist[j - 1] for j in range(1, len(f_hist))], axis=1
+                )  # (n_panels, mk)
+                dX = np.stack(
+                    [x_hist[j] - x_hist[j - 1] for j in range(1, len(x_hist))], axis=1
+                )  # (n_panels, mk)
+                gram = dF.T @ dF
+                lam = reg * float(np.trace(gram)) / dF.shape[1]
+                theta = np.linalg.solve(gram + lam * np.eye(dF.shape[1]), dF.T @ f)
+                x_new = x + beta * f - (dX + beta * dF) @ theta
+
+            x = x_new
+            g, f, alpha_array, Umag_array = relaxed_step(x)
+
+        self.last_iterations = last_k + 1  # diagnostic: iterations used
+        if not converged:
+            logging.info(
+                f"Anderson did not converge in {max_it} iterations "
+                "(deep post-stall limit cycle); caller falls back to base loop."
+            )
+        return converged, x, alpha_array, Umag_array
 
     def gamma_loop_non_linear(self, gamma_initial: np.ndarray) -> tuple:
         """Nonlinear solver using robust SciPy optimization methods.

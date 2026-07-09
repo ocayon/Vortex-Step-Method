@@ -528,5 +528,38 @@ def test_artificial_viscosity_stabilizes_post_stall():
     assert sawtooth < 0.02
 
 
+def test_gamma_loop_anderson_matches_base(body_aero):
+    """Opt-in Anderson inner loop converges to the SAME circulation as the base
+    relaxed-Picard loop (to solver tolerance), in far fewer inner iterations.
+
+    Anderson accelerates the under-relaxed fixed-point map, so it targets the
+    same fixed point as ``gamma_loop_type="base"``; here we confirm the two
+    agree on gamma / cl and that Anderson takes many fewer iterations.
+    """
+    base = Solver(gamma_loop_type="base", allowed_error=1e-8)
+    body_aero.va_initialize(Umag=10.0, angle_of_attack=5.0)
+    res_base = base.solve(body_aero)
+
+    anderson = Solver(gamma_loop_type="anderson", allowed_error=1e-8)
+    body_aero.va_initialize(Umag=10.0, angle_of_attack=5.0)
+    res_and = anderson.solve(body_aero)
+
+    assert res_and["gamma_converged"]
+    np.testing.assert_allclose(
+        res_and["gamma_distribution"],
+        res_base["gamma_distribution"],
+        atol=1e-5,
+    )
+    assert np.isclose(res_and["cl"], res_base["cl"], atol=1e-5)
+    # Superlinear acceleration: far fewer inner iterations than relaxed Picard.
+    assert anderson.last_iterations < base.last_iterations
+
+
+def test_gamma_loop_type_defaults_to_base():
+    """The inner-loop default is unchanged (base), so existing callers are
+    unaffected unless they explicitly opt into Anderson."""
+    assert Solver().gamma_loop_type == "base"
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

@@ -895,7 +895,7 @@ class BodyAerodynamics:
                 if point_in_quad(intersection, corner_points):
                     return intersection  # Found the intersection!
 
-        logging.warning(
+        logging.debug(
             "No intersection found with any panel, in the center_of_pressure calculation."
         )
         return None
