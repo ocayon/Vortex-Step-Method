@@ -172,18 +172,24 @@ def test_interactive_plot_fancy_traces():
     )
     n_struts = len(load_strut_span_fractions(ensure_surfplan_processed(SURFPLAN_DIR)))
 
-    # Fancy plot with canopy: surfaces = canopy + LE tube + struts, no flat panels.
+    # Fancy plot with canopy (panels default off): surfaces = canopy + LE + struts.
     fig = interactive_plot(body, surfplan_dir=SURFPLAN_DIR, is_show=False)
     surfaces = [t for t in fig.data if isinstance(t, go.Surface)]
     flat_panels = [
         t for t in fig.data if isinstance(t, go.Mesh3d) and t.name == "Panel Surface"
     ]
+    le_outline = [t for t in fig.data if getattr(t, "name", None) == "Leading Edge"]
     assert len(surfaces) == 1 + 1 + n_struts
     assert len(flat_panels) == 0
+    assert len(le_outline) == 0  # panel outlines hidden by default in fancy mode
 
-    # Tubes only: flat panels kept, no canopy surface.
+    # Tubes only with panels explicitly on: flat panels kept, no canopy surface.
     fig2 = interactive_plot(
-        body, surfplan_dir=SURFPLAN_DIR, is_with_canopy=False, is_show=False
+        body,
+        surfplan_dir=SURFPLAN_DIR,
+        is_with_canopy=False,
+        is_with_panels=True,
+        is_show=False,
     )
     surfaces2 = [t for t in fig2.data if isinstance(t, go.Surface)]
     flat_panels2 = [
@@ -192,6 +198,7 @@ def test_interactive_plot_fancy_traces():
     assert len(surfaces2) == 1 + n_struts
     assert len(flat_panels2) == len(body.panels)
 
-    # Plain plot is unchanged: no surfaces at all.
+    # Plain plot is unchanged: panels shown, no surfaces at all.
     fig3 = interactive_plot(body, is_show=False)
     assert not [t for t in fig3.data if isinstance(t, go.Surface)]
+    assert [t for t in fig3.data if getattr(t, "name", None) == "Leading Edge"]

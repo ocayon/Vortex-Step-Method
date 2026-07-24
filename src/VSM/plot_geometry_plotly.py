@@ -7,41 +7,56 @@ from VSM.core.Solver import Solver
 import yaml
 
 
-def add_panel_edges(fig: go.Figure, panel: Any, is_first: bool, is_last: bool) -> None:
-    """Add panel edges to the figure with different thicknesses."""
-    leadinge_edge_line_color = "black"
-    leadinge_edge_line_width = 15
-    # Leading edge
-    if is_first:
-        # Include 1-side edge
-        fig.add_trace(
-            go.Scatter3d(
-                x=[panel.LE_point_1[0], panel.TE_point_1[0]],
-                y=[panel.LE_point_1[1], panel.TE_point_1[1]],
-                z=[panel.LE_point_1[2], panel.TE_point_1[2]],
-                mode="lines",
-                line=dict(
-                    color=leadinge_edge_line_color, width=leadinge_edge_line_width
-                ),
-                name="Leading Edge",
-                showlegend=False,
+def add_panel_edges(
+    fig: go.Figure,
+    panel: Any,
+    is_first: bool,
+    is_last: bool,
+    is_thin_outline: bool = False,
+) -> None:
+    """Add panel edges to the figure.
+
+    By default the leading edge is drawn as a thick black line. With
+    ``is_thin_outline`` (used by the fancy plot, where the inflatable leading-edge
+    tube already marks the leading edge) all panel edges are thin grey outlines
+    and the thick leading-edge line is omitted.
+    """
+    edge_color = "blue" if is_thin_outline else "black"
+    if is_thin_outline:
+        leadinge_edge_line_color = "blue"
+        leadinge_edge_line_width = 1.5
+    else:
+        leadinge_edge_line_color = "black"
+        leadinge_edge_line_width = 15
+        # Thick tip edges only make sense for the thick leading-edge style.
+        if is_first:
+            fig.add_trace(
+                go.Scatter3d(
+                    x=[panel.LE_point_1[0], panel.TE_point_1[0]],
+                    y=[panel.LE_point_1[1], panel.TE_point_1[1]],
+                    z=[panel.LE_point_1[2], panel.TE_point_1[2]],
+                    mode="lines",
+                    line=dict(
+                        color=leadinge_edge_line_color, width=leadinge_edge_line_width
+                    ),
+                    name="Leading Edge",
+                    showlegend=False,
+                )
             )
-        )
-    elif is_last:
-        # Include 1-side edge
-        fig.add_trace(
-            go.Scatter3d(
-                x=[panel.LE_point_2[0], panel.TE_point_2[0]],
-                y=[panel.LE_point_2[1], panel.TE_point_2[1]],
-                z=[panel.LE_point_2[2], panel.TE_point_2[2]],
-                mode="lines",
-                line=dict(
-                    color=leadinge_edge_line_color, width=leadinge_edge_line_width
-                ),
-                name="Leading Edge",
-                showlegend=False,
+        elif is_last:
+            fig.add_trace(
+                go.Scatter3d(
+                    x=[panel.LE_point_2[0], panel.TE_point_2[0]],
+                    y=[panel.LE_point_2[1], panel.TE_point_2[1]],
+                    z=[panel.LE_point_2[2], panel.TE_point_2[2]],
+                    mode="lines",
+                    line=dict(
+                        color=leadinge_edge_line_color, width=leadinge_edge_line_width
+                    ),
+                    name="Leading Edge",
+                    showlegend=False,
+                )
             )
-        )
     # Standard leading edge
     fig.add_trace(
         go.Scatter3d(
@@ -62,7 +77,7 @@ def add_panel_edges(fig: go.Figure, panel: Any, is_first: bool, is_last: bool) -
             y=[panel.TE_point_1[1], panel.TE_point_2[1]],
             z=[panel.TE_point_1[2], panel.TE_point_2[2]],
             mode="lines",
-            line=dict(color="black", width=2),
+            line=dict(color=edge_color, width=2),
             name="Trailing Edge",
             showlegend=is_first,
         )
@@ -78,7 +93,7 @@ def add_panel_edges(fig: go.Figure, panel: Any, is_first: bool, is_last: bool) -
                 y=[points[0][1], points[1][1]],
                 z=[points[0][2], points[1][2]],
                 mode="lines",
-                line=dict(color="black", width=0.8),
+                line=dict(color=edge_color, width=0.8),
                 name=(
                     "Side Edge" if is_first and i == 0 else None
                 ),  # Legend only for the first side edge
@@ -176,6 +191,7 @@ def add_aerodynamic_vectors(
     force_vector: np.ndarray,
     scale: float = 0.5,
     max_force: float = 1.0,
+    origin: np.ndarray = None,
 ):
     """
     Add aerodynamic force vectors to a given panel on the plot.
@@ -185,9 +201,12 @@ def add_aerodynamic_vectors(
         panel: Panel object
         force_of_panel: Aerodynamic force vector
         scale: Scaling factor for the force vector
+        origin: Optional vector origin. Defaults to the panel aerodynamic centre;
+            pass a point on the canopy surface to make the vectors emanate from
+            the surface when the panels are hidden.
     """
     # Compute vector endpoint
-    aerodynamic_center = panel.aerodynamic_center
+    aerodynamic_center = panel.aerodynamic_center if origin is None else origin
     vector = (force_vector / max_force) * scale * 0.5
     vector_endpoint = aerodynamic_center + vector
 
@@ -439,6 +458,7 @@ def create_3D_plot(
     tube_data: Optional[Dict[str, Any]] = None,
     canopy_grid: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None,
     is_with_tube_rings: bool = False,
+    is_with_panels: bool = True,
 ) -> go.Figure:
     """
     Creates an interactive 3D plot of wing geometry using Plotly.
@@ -455,11 +475,18 @@ def create_3D_plot(
             ``VSM.plotly.build_canopy_grid``; when given, it replaces the flat
             panel surfaces.
         is_with_tube_rings: Also draw the tube construction rings (for inspection).
+        is_with_panels: Draw the panel outlines. When ``False`` and a canopy is
+            present, the force vectors are lifted onto the canopy surface instead
+            of starting at the flat panel aerodynamic centres.
 
     Returns:
         plotly.graph_objects.Figure
     """
-    from VSM.plotly.tube_geometry import add_tube_surfaces, add_tube_rings
+    from VSM.plotly.tube_geometry import (
+        add_strut_surfaces,
+        add_le_tube_surface,
+        add_tube_rings,
+    )
 
     panels = wing_aero.panels
 
@@ -474,6 +501,12 @@ def create_3D_plot(
         add_bridle_system(fig, wing_aero, is_first=True)
 
     draw_flat_surface = canopy_grid is None
+    # In the fancy plot the inflatable LE tube marks the leading edge, so draw the
+    # panels as thin grey outlines instead of the thick black leading-edge line.
+    is_thin_outline = tube_data is not None
+    # On the canopy the per-panel force vectors are replaced by a set of equal,
+    # surface-normal vectors distributed across the span (see below).
+    use_distributed_vectors = canopy_grid is not None
 
     # Add geometric elements
     for i, panel in enumerate(panels):
@@ -487,25 +520,39 @@ def create_3D_plot(
         if is_with_aerodynamic_details:
             add_filaments(fig, panel, is_first)
 
-        add_panel_edges(fig, panel, is_first, is_last)
-        if draw_flat_surface:
+        if is_with_panels:
+            add_panel_edges(
+                fig, panel, is_first, is_last, is_thin_outline=is_thin_outline
+            )
+        if draw_flat_surface and is_with_panels:
             add_panel_surface(fig, panel, is_first)
-        add_aerodynamic_vectors(
-            fig,
-            panel,
-            is_first,
-            np.array(forces_of_panels[i]),
-            scale=chord_average,
-            max_force=max_force,
-        )
 
-    # Curved single-skin canopy replaces the flat panel surfaces.
+        if not use_distributed_vectors:
+            add_aerodynamic_vectors(
+                fig,
+                panel,
+                is_first,
+                np.array(forces_of_panels[i]),
+                scale=chord_average,
+                max_force=max_force,
+            )
+
+    # Draw order (so the leading-edge tube ends up rendered on top): struts sit
+    # under the canopy, then the canopy, then the force vectors, and finally the
+    # leading-edge tube last so it is never occluded by the semi-transparent canopy.
+    if tube_data is not None:
+        add_strut_surfaces(fig, tube_data)
+
     if canopy_grid is not None:
         add_canopy_surface(fig, canopy_grid)
 
-    # Inflatable tubes (leading-edge tube + struts).
+    if use_distributed_vectors:
+        add_distributed_surface_vectors(
+            fig, canopy_grid, forces_of_panels, scale=chord_average
+        )
+
     if tube_data is not None:
-        add_tube_surfaces(fig, tube_data)
+        add_le_tube_surface(fig, tube_data)
         if is_with_tube_rings:
             add_tube_rings(fig, tube_data)
 
@@ -516,6 +563,7 @@ def add_canopy_surface(
     fig: go.Figure, canopy_grid: Tuple[np.ndarray, np.ndarray, np.ndarray]
 ) -> None:
     """Add the curved single-skin canopy as a uniformly coloured surface."""
+    canopy_color = "lightgrey"
     x, y, z = canopy_grid
     fig.add_trace(
         go.Surface(
@@ -523,11 +571,138 @@ def add_canopy_surface(
             y=y,
             z=z,
             surfacecolor=np.zeros_like(z),
-            colorscale=[[0, "lightgrey"], [1, "lightgrey"]],
+            colorscale=[[0, canopy_color], [1, canopy_color]],
             showscale=False,
             opacity=0.85,
             name="Canopy",
             showlegend=True,
+            lighting=dict(ambient=0.75, diffuse=0.8, specular=0.05, roughness=0.9),
+        )
+    )
+
+
+def add_distributed_surface_vectors(
+    fig: go.Figure,
+    canopy_grid: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    forces_of_panels: List[np.ndarray],
+    scale: float,
+    n_chord: int = 10,
+    n_span: int = None,
+) -> None:
+    """Draw a grid of equal, surface-normal force vectors on the canopy.
+
+    One row of ``n_chord`` nodes is placed at each panel centre (uniformly over
+    the chord); every node carries one equal-length arrow oriented along the local
+    canopy surface normal (the outward/suction side). This gives a regular
+    ``n_span x n_chord`` grid of vectors covering the whole canopy.
+
+    Args:
+        fig: Plotly figure.
+        canopy_grid: ``(X, Y, Z)`` canopy surface arrays, each ``(S, P)`` with
+            ``S`` spanwise stations and ``P`` chordwise points.
+        forces_of_panels: Per-panel aerodynamic force vectors (used only to skip
+            drawing when there is no force).
+        scale: Length scale (typically the average chord).
+        n_chord: Nodes per row, distributed over the chord. Defaults to 10.
+        n_span: Number of spanwise rows. Defaults to one row per panel (the
+            midpoints between the ``S`` canopy stations, i.e. ``S - 1`` rows).
+    """
+    x, y, z = canopy_grid
+    grid = np.stack([x, y, z], axis=-1)  # (S, P, 3)
+
+    force_magnitudes = np.linalg.norm(np.asarray(forces_of_panels), axis=1)
+    if force_magnitudes.size == 0 or np.max(force_magnitudes) <= 0:
+        return
+
+    # One row per panel: use the midpoints between adjacent canopy stations.
+    panel_grid = 0.5 * (grid[:-1] + grid[1:])  # (S - 1, P, 3)
+    n_rows, n_points, _ = panel_grid.shape
+
+    if n_span is None:
+        n_span = n_rows
+    span_rows = np.unique(
+        np.clip(np.round(np.linspace(0, n_rows - 1, n_span)), 0, n_rows - 1).astype(int)
+    )
+
+    # Surface-normal field over the panel-centre grid.
+    d_chord = np.gradient(panel_grid, axis=1)
+    d_span = np.gradient(panel_grid, axis=0)
+    normal_field = np.cross(d_chord, d_span)
+    normal_field /= np.linalg.norm(normal_field, axis=-1, keepdims=True).clip(1e-12)
+    normal_field[normal_field[:, :, 2] < 0] *= -1  # outward (suction) side
+
+    # Sample each row at the exact target chord fractions (5%-95%). The grid
+    # columns are arc-length spaced, so interpolate by true chord fraction rather
+    # than snapping to columns -- this keeps vectors clear of the leading-edge
+    # tube (near 0%) and the trailing edge (near 100%).
+    targets = np.linspace(0.05, 0.95, n_chord)
+    origins = []
+    normals = []
+    for row in span_rows:
+        pts = panel_grid[row]  # (P, 3)
+        chord_vector = pts[-1] - pts[0]
+        chord_length = np.linalg.norm(chord_vector)
+        chord_hat = chord_vector / max(chord_length, 1e-12)
+        chord_fraction = ((pts - pts[0]) @ chord_hat) / max(chord_length, 1e-12)
+        order = np.argsort(chord_fraction)
+        frac_sorted = chord_fraction[order]
+        pts_sorted = pts[order]
+        nrm_sorted = normal_field[row][order]
+        for target in targets:
+            point = np.array(
+                [np.interp(target, frac_sorted, pts_sorted[:, k]) for k in range(3)]
+            )
+            normal = np.array(
+                [np.interp(target, frac_sorted, nrm_sorted[:, k]) for k in range(3)]
+            )
+            norm = np.linalg.norm(normal)
+            if norm < 1e-9:
+                continue
+            origins.append(point)
+            normals.append(normal / norm)
+
+    if not origins:
+        return
+    origins = np.array(origins)
+    normals = np.array(normals)
+
+    # Equal arrow length, scaled to the chordwise node spacing so the grid reads
+    # cleanly without the arrows overlapping badly.
+    length = 0.9 * scale / max(n_chord, 1)
+    endpoints = origins + normals * length
+
+    # All stems as one trace (None-separated segments), all heads as one cone trace.
+    stem_x, stem_y, stem_z = [], [], []
+    for start, end in zip(origins, endpoints):
+        stem_x += [start[0], end[0], None]
+        stem_y += [start[1], end[1], None]
+        stem_z += [start[2], end[2], None]
+    fig.add_trace(
+        go.Scatter3d(
+            x=stem_x,
+            y=stem_y,
+            z=stem_z,
+            mode="lines",
+            line=dict(color="red", width=3),
+            name="Aerodynamic Vectors",
+            showlegend=True,
+        )
+    )
+    fig.add_trace(
+        go.Cone(
+            x=endpoints[:, 0],
+            y=endpoints[:, 1],
+            z=endpoints[:, 2],
+            u=normals[:, 0] * length,
+            v=normals[:, 1] * length,
+            w=normals[:, 2] * length,
+            sizemode="absolute",
+            sizeref=length / 3,
+            anchor="tip",
+            colorscale=[[0, "red"], [1, "red"]],
+            showscale=False,
+            name="Arrowheads",
+            showlegend=False,
         )
     )
 
@@ -553,14 +728,18 @@ def compute_axis_parameters_from_fig(
     fig: go.Figure,
 ) -> Tuple[Dict[str, float], float]:
     """Calculate axis ranges and tick spacing based on the figure's data."""
-    # Extract all data points from the figure traces
+    # Extract all data points from the figure traces, skipping gap separators
+    # (``None``/NaN) that traces may use to draw multiple segments at once.
     all_points = []
     for trace in fig.data:
         if isinstance(trace, go.Scatter3d):
-            all_points.extend(zip(trace.x, trace.y, trace.z))
+            for px, py, pz in zip(trace.x, trace.y, trace.z):
+                if px is None or py is None or pz is None:
+                    continue
+                all_points.append((px, py, pz))
 
     # Convert to numpy array for calculations
-    all_points = np.array(all_points)
+    all_points = np.array(all_points, dtype=float)
 
     # Calculate ranges for each axis
     ranges = {
@@ -803,6 +982,7 @@ def update_plot(
     tube_data: Optional[Dict[str, Any]] = None,
     canopy_grid: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None,
     is_with_tube_rings: bool = False,
+    is_with_panels: bool = True,
 ):
     # Update AoA and rerun VSM
     results = running_VSM(
@@ -825,6 +1005,7 @@ def update_plot(
         tube_data=tube_data,
         canopy_grid=canopy_grid,
         is_with_tube_rings=is_with_tube_rings,
+        is_with_panels=is_with_panels,
     )
     fig = add_case_information(
         fig,
@@ -859,6 +1040,7 @@ def interactive_plot(
     surfplan_dir: Optional[Path] = None,
     is_with_canopy: bool = True,
     is_with_tube_rings: bool = False,
+    is_with_panels: Optional[bool] = None,
 ):
     """
     Creates and optionally saves multiple views of the wing geometry with interactive AoA slider.
@@ -887,10 +1069,16 @@ def interactive_plot(
         is_with_canopy: When a Surfplan export is given, draw the curved canopy
             (lofted airfoil top-surfaces) in place of the flat panel surfaces.
         is_with_tube_rings: Also draw the tube construction rings (for inspection).
+        is_with_panels: Draw the panel outlines. Defaults to ``False`` for the
+            fancy plot (a Surfplan export is given) and ``True`` otherwise. When
+            off, the force vectors are lifted onto the canopy surface.
 
     Returns:
         plotly.graph_objects.Figure: The created figure.
     """
+    # Default: hide the panel outlines for the fancy plot, show them otherwise.
+    if is_with_panels is None:
+        is_with_panels = surfplan_dir is None
 
     # Build the optional fancy-plot geometry once (reused on every slider update).
     tube_data = None
@@ -932,6 +1120,7 @@ def interactive_plot(
         tube_data=tube_data,
         canopy_grid=canopy_grid,
         is_with_tube_rings=is_with_tube_rings,
+        is_with_panels=is_with_panels,
     )
 
     # Save or show the plot if requested
