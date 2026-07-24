@@ -143,7 +143,8 @@ def test_build_tube_and_canopy_shapes():
 
     tube = build_tube_data(panels, processed)
     n_struts = len(load_strut_span_fractions(processed))
-    assert len(tube["le"]) == n_panels + 1
+    # LE tube has one ring per panel edge, plus the wrap-around tip extensions.
+    assert len(tube["le"]) >= n_panels + 1
     assert len(tube["struts"]) == n_struts
 
     x, y, z = build_canopy_grid(panels, load_contour_table(processed))

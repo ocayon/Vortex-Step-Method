@@ -29,13 +29,17 @@ import yaml
 
 from VSM.plotly.canopy_geometry import interpolate_contour_at, load_contour_table
 
-TUBE_COLOR = "#2c7fb8"
-TUBE_OPACITY = 0.5
+TUBE_COLOR = "black"
+TUBE_OPACITY = 1.0
 RING_COLOR = "#08306b"
 
 
 def circle_points(
-    center: np.ndarray, axis: np.ndarray, diameter: float, n: int = 24
+    center: np.ndarray,
+    axis: np.ndarray,
+    diameter: float,
+    n: int = 24,
+    ref: np.ndarray = None,
 ) -> np.ndarray:
     """Ring of ``n`` points of the given diameter, perpendicular to ``axis``.
 
@@ -45,15 +49,27 @@ def circle_points(
             normal to it.
         diameter (float): Ring diameter.
         n (int): Number of points around the ring. Defaults to 24.
+        ref (np.ndarray): Optional reference vector fixing the azimuthal origin of
+            the ring. Passing the *same* ``ref`` for every ring of a tube keeps
+            consecutive rings consistently oriented, which avoids the surface
+            twisting where the tube tangent swings (e.g. at a wingtip). Falls back
+            to an automatic helper when ``ref`` is parallel to the axis.
 
     Returns:
         np.ndarray: ``(n, 3)`` ring points, closed (first point repeated at end).
     """
     axis = np.asarray(axis, dtype=float)
     axis = axis / max(np.linalg.norm(axis), 1e-12)
-    helper = np.array([0.0, 0.0, 1.0])
-    if abs(axis @ helper) > 0.9:
-        helper = np.array([0.0, 1.0, 0.0])
+    if ref is not None:
+        helper = np.asarray(ref, dtype=float)
+        if abs(axis @ (helper / max(np.linalg.norm(helper), 1e-12))) > 0.98:
+            helper = np.array([0.0, 0.0, 1.0])
+            if abs(axis @ helper) > 0.9:
+                helper = np.array([0.0, 1.0, 0.0])
+    else:
+        helper = np.array([0.0, 0.0, 1.0])
+        if abs(axis @ helper) > 0.9:
+            helper = np.array([0.0, 1.0, 0.0])
     e1 = np.cross(axis, helper)
     e1 = e1 / max(np.linalg.norm(e1), 1e-12)
     e2 = np.cross(axis, e1)
@@ -64,6 +80,61 @@ def circle_points(
         + radius * np.cos(theta)[:, None] * e1[None, :]
         + radius * np.sin(theta)[:, None] * e2[None, :]
     )
+
+
+def rings_along_centerline(
+    centers: np.ndarray, diameters: np.ndarray, n: int = 24
+) -> List[np.ndarray]:
+    """Sweep circular rings along a centreline with twist-free framing.
+
+    The ring frame is parallel-transported from one station to the next (the
+    previous in-plane axis is projected onto the new normal plane) instead of
+    being chosen independently per ring. This keeps the swept surface from
+    twisting or pinching where the centreline curves sharply -- e.g. where the
+    leading-edge tube turns chordwise at a wingtip.
+
+    Args:
+        centers (np.ndarray): ``(m, 3)`` centreline points.
+        diameters (np.ndarray): ``(m,)`` local tube diameters.
+        n (int): Number of points around each ring. Defaults to 24.
+
+    Returns:
+        List[np.ndarray]: One ``(n, 3)`` ring per centreline station.
+    """
+    centers = np.asarray(centers, dtype=float)
+    diameters = np.asarray(diameters, dtype=float)
+    m = len(centers)
+
+    tangents = np.zeros_like(centers)
+    tangents[1:-1] = centers[2:] - centers[:-2]
+    tangents[0] = centers[1] - centers[0]
+    tangents[-1] = centers[-1] - centers[-2]
+    tangents /= np.linalg.norm(tangents, axis=1, keepdims=True).clip(1e-12)
+
+    def _seed_axis(tangent):
+        ref = np.array([0.0, 0.0, 1.0])
+        if abs(tangent @ ref) > 0.9:
+            ref = np.array([0.0, 1.0, 0.0])
+        axis = ref - (ref @ tangent) * tangent
+        return axis / max(np.linalg.norm(axis), 1e-12)
+
+    theta = np.linspace(0.0, 2.0 * np.pi, n)
+    e1 = _seed_axis(tangents[0])
+    rings = []
+    for index in range(m):
+        # Parallel-transport the previous in-plane axis onto this normal plane.
+        e1 = e1 - (e1 @ tangents[index]) * tangents[index]
+        if np.linalg.norm(e1) < 1e-8:
+            e1 = _seed_axis(tangents[index])
+        e1 /= max(np.linalg.norm(e1), 1e-12)
+        e2 = np.cross(tangents[index], e1)
+        radius = 0.5 * diameters[index]
+        rings.append(
+            centers[index][None, :]
+            + radius * np.cos(theta)[:, None] * e1[None, :]
+            + radius * np.sin(theta)[:, None] * e2[None, :]
+        )
+    return rings
 
 
 def load_le_diameter_interp(processed_dir: Path) -> Callable[[float], float]:
@@ -234,36 +305,59 @@ def _station_at(stations: Dict[str, np.ndarray], signed_fraction: float) -> dict
     }
 
 
+def _tip_extension(le_center, te_point, le_diameter, n=8, taper=1.0):
+    """Centreline points + diameters continuing from a tip LE to the TE.
+
+    Extends the leading-edge tube at the wingtip so it runs on to the trailing
+    edge of the outer panel, at (by default) constant diameter for a clean tube.
+    """
+    ts = np.linspace(0.0, 1.0, n + 1)[1:]  # exclude 0 (the LE centre already exists)
+    le_center = np.asarray(le_center, dtype=float)
+    te_point = np.asarray(te_point, dtype=float)
+    points = [le_center + t * (te_point - le_center) for t in ts]
+    diams = [le_diameter * (1.0 - (1.0 - taper) * t) for t in ts]
+    return points, diams
+
+
 def build_le_tube(
-    panels: List[Any], le_diameter_interp: Callable[[float], float]
+    panels: List[Any],
+    le_diameter_interp: Callable[[float], float],
+    extend_tips: bool = True,
 ) -> List[np.ndarray]:
     """Build the leading-edge tube as a list of cross-section rings.
 
     The tube runs spanwise along the drawn LE polyline; each ring is centred just
     aft of the LE point (so the tube front touches the drawn leading edge) and its
-    diameter is looked up from the LE table at the local span fraction.
+    diameter is looked up from the LE table at the local span fraction. With
+    ``extend_tips`` the tube wraps around each wingtip and continues toward the
+    trailing edge, tapering closed.
 
     Args:
         panels (List[Any]): Drawn ``Panel`` objects, ordered tip to tip.
         le_diameter_interp (Callable[[float], float]): Output of
             :func:`load_le_diameter_interp`.
+        extend_tips (bool): Wrap the tube from each tip toward the trailing edge.
 
     Returns:
-        List[np.ndarray]: One ``(n, 3)`` ring per spanwise station.
+        List[np.ndarray]: One ``(n, 3)`` ring per centreline station.
     """
     stations = _drawn_stations(panels)
     le = stations["le"]
+    te = stations["te"]
     fraction = np.abs(stations["fraction"])
     diameters = np.array([le_diameter_interp(f) for f in fraction])
     centers = le + 0.5 * diameters[:, None] * stations["chord_hat"]
 
-    rings = []
-    for index in range(len(centers)):
-        lo = max(index - 1, 0)
-        hi = min(index + 1, len(centers) - 1)
-        tangent = centers[hi] - centers[lo]
-        rings.append(circle_points(centers[index], tangent, diameters[index]))
-    return rings
+    center_list = list(centers)
+    diam_list = list(diameters)
+    if extend_tips:
+        neg_pts, neg_d = _tip_extension(centers[0], te[0], diameters[0])
+        pos_pts, pos_d = _tip_extension(centers[-1], te[-1], diameters[-1])
+        # Prepend the -tip wrap (reversed: TE -> LE) and append the +tip wrap.
+        center_list = neg_pts[::-1] + center_list + pos_pts
+        diam_list = neg_d[::-1] + diam_list + pos_d
+
+    return rings_along_centerline(np.array(center_list), np.array(diam_list))
 
 
 def build_strut(
@@ -272,6 +366,7 @@ def build_strut(
     signed_fraction: float,
     diam_le: float,
     diam_te: float,
+    le_tube_diameter: float = 0.0,
 ) -> List[np.ndarray]:
     """Build one chordwise strut tube hugging the canopy underside.
 
@@ -280,12 +375,19 @@ def build_strut(
     tube top touches the canopy. Diameter tapers linearly from ``diam_le`` at the
     leading edge to ``diam_te`` at the trailing edge.
 
+    The strut starts at the aft edge of the leading-edge tube (chord fraction
+    ``le_tube_diameter / chord`` -- the LE tube spans that far back from the drawn
+    LE) rather than at the leading edge, so it butts against the LE tube instead
+    of passing straight through it.
+
     Args:
         stations (Dict[str, np.ndarray]): Output of :func:`_drawn_stations`.
         contour_table: Output of ``canopy_geometry.load_contour_table``.
         signed_fraction (float): Signed span fraction of the strut rib.
         diam_le (float): Strut-tube diameter at the leading edge, metres.
         diam_te (float): Strut-tube diameter at the trailing edge, metres.
+        le_tube_diameter (float): Local leading-edge tube diameter, metres; sets
+            where the strut starts. Zero means start at the leading edge.
 
     Returns:
         List[np.ndarray]: One ``(n, 3)`` ring per chordwise station.
@@ -294,22 +396,27 @@ def build_strut(
     contour = interpolate_contour_at(abs(signed_fraction), contour_table)
     chord_len = station["chord_len"]
 
+    # Start the strut partway into the leading-edge tube (half its depth) so the
+    # forward cap is buried inside the LE tube -- no gap, no through-poke.
+    le_tube_depth_fraction = le_tube_diameter / max(chord_len, 1e-12)
+    start_fraction = min(0.5 * le_tube_depth_fraction, 0.9)
+    cx = contour[:, 0]
+    cy = contour[:, 1]
+    keep = cx > start_fraction
+    if start_fraction > 0 and keep.any():
+        cx = np.concatenate([[start_fraction], cx[keep]])
+        cy = np.concatenate(
+            [[float(np.interp(start_fraction, contour[:, 0], cy))], cy[keep]]
+        )
+
     canopy_points = (
         station["le"][None, :]
-        + contour[:, 0:1] * chord_len * station["chord_hat"][None, :]
-        + contour[:, 1:2] * chord_len * station["up"][None, :]
+        + cx[:, None] * chord_len * station["chord_hat"][None, :]
+        + cy[:, None] * chord_len * station["up"][None, :]
     )
-    chord_fraction = contour[:, 0]
-    diameters = diam_le + (diam_te - diam_le) * chord_fraction
+    diameters = diam_le + (diam_te - diam_le) * cx
     centers = canopy_points - 0.5 * diameters[:, None] * station["up"][None, :]
-
-    rings = []
-    for index in range(len(centers)):
-        lo = max(index - 1, 0)
-        hi = min(index + 1, len(centers) - 1)
-        tangent = centers[hi] - centers[lo]
-        rings.append(circle_points(centers[index], tangent, diameters[index]))
-    return rings
+    return rings_along_centerline(centers, diameters)
 
 
 def build_tube_data(panels: List[Any], processed_dir: Path) -> Dict[str, Any]:
@@ -339,8 +446,16 @@ def build_tube_data(panels: List[Any], processed_dir: Path) -> Dict[str, Any]:
             # Fallback: size the strut from the local LE tube diameter.
             diam_le = le_interp(abs(signed_fraction))
             diam_te = 0.6 * diam_le
+        le_tube_diameter = le_interp(abs(signed_fraction))
         struts.append(
-            build_strut(stations, contour_table, signed_fraction, diam_le, diam_te)
+            build_strut(
+                stations,
+                contour_table,
+                signed_fraction,
+                diam_le,
+                diam_te,
+                le_tube_diameter=le_tube_diameter,
+            )
         )
     return {"le": le_rings, "struts": struts}
 
@@ -367,15 +482,26 @@ def _add_surface(fig: go.Figure, rings: List[np.ndarray], name: str, show_legend
             opacity=TUBE_OPACITY,
             name=name,
             showlegend=show_legend,
+            lighting=dict(ambient=0.75, diffuse=0.8, specular=0.05, roughness=0.9),
         )
     )
 
 
-def add_tube_surfaces(fig: go.Figure, tube_data: Dict[str, Any]) -> None:
-    """Add the leading-edge and strut tube surfaces to the figure."""
-    _add_surface(fig, tube_data["le"], "Leading-edge tube", show_legend=True)
+def add_strut_surfaces(fig: go.Figure, tube_data: Dict[str, Any]) -> None:
+    """Add the strut tube surfaces to the figure."""
     for index, strut in enumerate(tube_data["struts"]):
         _add_surface(fig, strut, "Strut tube", show_legend=(index == 0))
+
+
+def add_le_tube_surface(fig: go.Figure, tube_data: Dict[str, Any]) -> None:
+    """Add the leading-edge tube surface to the figure."""
+    _add_surface(fig, tube_data["le"], "Leading-edge tube", show_legend=True)
+
+
+def add_tube_surfaces(fig: go.Figure, tube_data: Dict[str, Any]) -> None:
+    """Add the leading-edge and strut tube surfaces to the figure."""
+    add_le_tube_surface(fig, tube_data)
+    add_strut_surfaces(fig, tube_data)
 
 
 def add_tube_rings(fig: go.Figure, tube_data: Dict[str, Any]) -> None:
