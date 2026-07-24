@@ -411,7 +411,7 @@ def add_bridle_system(fig: go.Figure, wing_aero: object, is_first: bool = True) 
     elif hasattr(wing_aero, "_bridle_line_system") and wing_aero._bridle_line_system:
         # Handle basic bridle line system (backward compatibility)
         for i, bridle_line in enumerate(wing_aero._bridle_line_system):
-            p1, p2, _, _, diameter, _ = bridle_line
+            p1, p2, diameter = bridle_line
 
             # Calculate thickness based on diameter (simple scaling)
             thickness = max(2, min(12, diameter * 1000))  # Assume diameter in meters
@@ -859,4 +859,13 @@ def interactive_plot(
         fig.write_html(save_path)
 
     if is_show:
-        fig.show()
+        import tempfile
+        import webbrowser
+
+        with tempfile.NamedTemporaryFile(
+            suffix=".html", delete=False, mode="w", encoding="utf-8"
+        ) as f:
+            tmp_path = f.name
+            fig.write_html(f, include_plotlyjs=True, full_html=True)
+        print(f"Interactive plot saved to: {tmp_path}")
+        webbrowser.open(f"file://{tmp_path}")
