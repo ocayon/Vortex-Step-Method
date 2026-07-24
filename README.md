@@ -5,9 +5,6 @@ A Julia version of this project is available at [VortexStepMethod.jl](https://gi
 
 
 ## Key Features
-<!-- ![](docs/TUDELFT_V3_KITE_plotly.gif) -->
-![](docs/plotly_render.png)
-
 - **Accurate low-aspect-ratio wing modeling** with enhanced lifting line theory
 - **Viscous-inviscid coupling** using 2D airfoil polars (inviscid, CFD, ML-based)
 - **Complex geometry support**: sweep, dihedral, anhedral, leading-edge inflatable (LEI) kites
@@ -16,6 +13,8 @@ A Julia version of this project is available at [VortexStepMethod.jl](https://gi
 - **Non-dimensional rate derivatives**: controls-friendly output (hat_p, hat_q, hat_r)
 - **Reference point flexibility**: correctly handles moment reference point for rotational velocities
 - **Interactive visualization**: Plotly and Matplotlib geometry and results plotting
+<!-- ![](docs/TUDELFT_V3_KITE_plotly.gif) -->
+![](docs/plotly_render.png)
 
 ## Reference Frame
 
