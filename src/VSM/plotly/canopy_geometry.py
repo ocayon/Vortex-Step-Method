@@ -228,3 +228,105 @@ def build_canopy_grid(
 
     grid = np.stack(rows, axis=0)  # (n_stations, n_points, 3)
     return grid[:, :, 0], grid[:, :, 1], grid[:, :, 2]
+
+
+def distributed_surface_vector_field(
+    canopy_grid: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    forces_of_panels: List[np.ndarray],
+    scale: float,
+    n_chord: int = 10,
+    n_span: int = None,
+    cp_magnitude_fn=None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Chord-normal force-vector field over the canopy (origins, directions, lengths).
+
+    One row of ``n_chord`` nodes is placed at each panel centre, uniformly over
+    the chord (at the true 5%-95% chord fractions). Every node's arrow points
+    normal to the local chord line (the flat-panel "up", outward/suction side).
+    Each panel's VSM force is distributed over its chord nodes, weighted by the
+    ``|Cp|`` chordwise loading (an even split without a Cp distribution) and
+    normalised to length so the largest panel force plots at the maximum chord
+    length (``scale``).
+
+    Args:
+        canopy_grid: ``(X, Y, Z)`` canopy arrays, each ``(S, P)``.
+        forces_of_panels: Per-panel VSM force vectors.
+        scale: Length scale (typically the maximum chord); the largest panel
+            force plots at this length.
+        n_chord: Nodes per row over the chord. Defaults to 10.
+        n_span: Number of spanwise rows. Defaults to one per panel (``S - 1``).
+        cp_magnitude_fn: Optional ``x/c -> |Cp|`` weighting callable.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, np.ndarray]: ``origins`` ``(N, 3)``,
+            unit ``directions`` ``(N, 3)`` and ``lengths`` ``(N,)``. Empty arrays
+            if there is no force.
+    """
+    x, y, z = canopy_grid
+    grid = np.stack([x, y, z], axis=-1)  # (S, P, 3)
+
+    force_magnitudes = np.linalg.norm(np.asarray(forces_of_panels), axis=1)
+    if force_magnitudes.size == 0 or np.max(force_magnitudes) <= 0:
+        return np.empty((0, 3)), np.empty((0, 3)), np.empty((0,))
+
+    panel_grid = 0.5 * (grid[:-1] + grid[1:])  # (S - 1, P, 3), one row per panel
+    n_rows, n_points, _ = panel_grid.shape
+
+    if n_span is None:
+        n_span = n_rows
+    span_rows = np.unique(
+        np.clip(np.round(np.linspace(0, n_rows - 1, n_span)), 0, n_rows - 1).astype(int)
+    )
+    d_span = np.gradient(panel_grid, axis=0)  # (R, P, 3)
+
+    targets = np.linspace(0.05, 0.95, n_chord)
+    if cp_magnitude_fn is not None:
+        chord_weights = np.asarray(cp_magnitude_fn(targets), dtype=float)
+    else:
+        chord_weights = np.ones(n_chord)
+    chord_weights = chord_weights / max(chord_weights.sum(), 1e-12)
+
+    origins = []
+    directions = []
+    node_forces = []
+    for row in span_rows:
+        pts = panel_grid[row]
+        chord_vector = pts[-1] - pts[0]
+        chord_length = np.linalg.norm(chord_vector)
+        chord_hat = chord_vector / max(chord_length, 1e-12)
+
+        span_vector = d_span[row].mean(axis=0)
+        chord_normal = np.cross(chord_vector, span_vector)
+        cn = np.linalg.norm(chord_normal)
+        if cn < 1e-9:
+            continue
+        chord_normal = chord_normal / cn
+        if chord_normal[2] < 0:  # outward (suction) side
+            chord_normal = -chord_normal
+
+        panel_force = force_magnitudes[row] if row < len(force_magnitudes) else 0.0
+
+        chord_fraction = ((pts - pts[0]) @ chord_hat) / max(chord_length, 1e-12)
+        order = np.argsort(chord_fraction)
+        frac_sorted = chord_fraction[order]
+        pts_sorted = pts[order]
+        for k, target in enumerate(targets):
+            point = np.array(
+                [np.interp(target, frac_sorted, pts_sorted[:, j]) for j in range(3)]
+            )
+            origins.append(point)
+            directions.append(chord_normal)
+            node_forces.append(panel_force * chord_weights[k])
+
+    if not origins:
+        return np.empty((0, 3)), np.empty((0, 3)), np.empty((0,))
+
+    origins = np.array(origins)
+    directions = np.array(directions)
+    node_forces = np.array(node_forces)
+    newton_to_metre = scale / max(float(force_magnitudes.max()), 1e-12)
+    # Anchor the per-vector size to a base of 10 chordwise nodes, so adding more
+    # nodes makes the field denser without shrinking each arrow (at n_chord=10 the
+    # factor is 1 and the largest panel's arrows still sum to the max chord).
+    lengths = node_forces * newton_to_metre * (n_chord / 10.0)
+    return origins, directions, lengths

@@ -487,15 +487,49 @@ def _add_surface(fig: go.Figure, rings: List[np.ndarray], name: str, show_legend
     )
 
 
+def _add_ring_cap(fig: go.Figure, ring: np.ndarray) -> None:
+    """Close an open tube end with a filled (fan-triangulated) cap disc."""
+    ring = np.asarray(ring)[:-1]  # drop the duplicated closing point
+    n = len(ring)
+    center = ring.mean(axis=0)
+    verts = np.vstack([center[None, :], ring])  # index 0 is the centre
+    i = [0] * n
+    j = [1 + t for t in range(n)]
+    k = [1 + (t + 1) % n for t in range(n)]
+    fig.add_trace(
+        go.Mesh3d(
+            x=verts[:, 0],
+            y=verts[:, 1],
+            z=verts[:, 2],
+            i=i,
+            j=j,
+            k=k,
+            color=TUBE_COLOR,
+            opacity=TUBE_OPACITY,
+            name="Tube cap",
+            showlegend=False,
+        )
+    )
+
+
+def _add_tube_with_caps(
+    fig: go.Figure, rings: List[np.ndarray], name: str, show_legend: bool
+):
+    """Add a tube surface and close both open ends with caps."""
+    _add_surface(fig, rings, name, show_legend)
+    _add_ring_cap(fig, rings[0])
+    _add_ring_cap(fig, rings[-1])
+
+
 def add_strut_surfaces(fig: go.Figure, tube_data: Dict[str, Any]) -> None:
-    """Add the strut tube surfaces to the figure."""
+    """Add the strut tube surfaces (with end caps) to the figure."""
     for index, strut in enumerate(tube_data["struts"]):
-        _add_surface(fig, strut, "Strut tube", show_legend=(index == 0))
+        _add_tube_with_caps(fig, strut, "Strut tube", show_legend=(index == 0))
 
 
 def add_le_tube_surface(fig: go.Figure, tube_data: Dict[str, Any]) -> None:
-    """Add the leading-edge tube surface to the figure."""
-    _add_surface(fig, tube_data["le"], "Leading-edge tube", show_legend=True)
+    """Add the leading-edge tube surface (with end caps) to the figure."""
+    _add_tube_with_caps(fig, tube_data["le"], "Leading-edge tube", show_legend=True)
 
 
 def add_tube_surfaces(fig: go.Figure, tube_data: Dict[str, Any]) -> None:

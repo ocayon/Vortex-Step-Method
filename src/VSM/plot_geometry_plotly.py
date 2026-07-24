@@ -622,91 +622,19 @@ def add_distributed_surface_vectors(
             (positive) pressure-coefficient magnitude, used as the chordwise
             weighting of each panel's force. Without it the force is spread evenly.
     """
-    x, y, z = canopy_grid
-    grid = np.stack([x, y, z], axis=-1)  # (S, P, 3)
+    from VSM.plotly.canopy_geometry import distributed_surface_vector_field
 
-    force_magnitudes = np.linalg.norm(np.asarray(forces_of_panels), axis=1)
-    if force_magnitudes.size == 0 or np.max(force_magnitudes) <= 0:
-        return
-
-    # One row per panel: use the midpoints between adjacent canopy stations.
-    panel_grid = 0.5 * (grid[:-1] + grid[1:])  # (S - 1, P, 3)
-    n_rows, n_points, _ = panel_grid.shape
-
-    if n_span is None:
-        n_span = n_rows
-    span_rows = np.unique(
-        np.clip(np.round(np.linspace(0, n_rows - 1, n_span)), 0, n_rows - 1).astype(int)
+    origins, normals, lengths_1d = distributed_surface_vector_field(
+        canopy_grid,
+        forces_of_panels,
+        scale,
+        n_chord=n_chord,
+        n_span=n_span,
+        cp_magnitude_fn=cp_magnitude_fn,
     )
-
-    # Spanwise direction field, used to build the per-row chord-normal.
-    d_span = np.gradient(panel_grid, axis=0)  # (R, P, 3)
-
-    # Chordwise weights: how each panel's force is spread over its nodes. With a
-    # Cp distribution the weights follow the local |Cp| loading; otherwise the
-    # force is spread evenly. Normalised so the weights sum to one (the node
-    # forces of a panel add back up to that panel's VSM force).
-    targets = np.linspace(0.05, 0.95, n_chord)
-    if cp_magnitude_fn is not None:
-        chord_weights = np.asarray(cp_magnitude_fn(targets), dtype=float)
-    else:
-        chord_weights = np.ones(n_chord)
-    chord_weights = chord_weights / max(chord_weights.sum(), 1e-12)
-
-    # Sample each row at the exact target chord fractions (5%-95%). The grid
-    # columns are arc-length spaced, so interpolate by true chord fraction rather
-    # than snapping to columns -- this keeps vectors clear of the leading-edge
-    # tube (near 0%) and the trailing edge (near 100%).
-    origins = []
-    normals = []
-    node_forces = []  # per-node share of the panel's VSM force magnitude
-    for row in span_rows:
-        pts = panel_grid[row]  # (P, 3)
-        chord_vector = pts[-1] - pts[0]
-        chord_length = np.linalg.norm(chord_vector)
-        chord_hat = chord_vector / max(chord_length, 1e-12)
-
-        # Chord-normal: perpendicular to the chord line and the span, in the
-        # airfoil plane (the flat-panel "up"). Constant along the chord, so every
-        # vector in this row points the same way rather than following the local
-        # surface curvature.
-        span_vector = d_span[row].mean(axis=0)
-        chord_normal = np.cross(chord_vector, span_vector)
-        cn = np.linalg.norm(chord_normal)
-        if cn < 1e-9:
-            continue
-        chord_normal = chord_normal / cn
-        if chord_normal[2] < 0:  # orient toward the outward (suction) side
-            chord_normal = -chord_normal
-
-        # Row r is the centre of panel r, so its total is that panel's force.
-        panel_force = force_magnitudes[row] if row < len(force_magnitudes) else 0.0
-
-        chord_fraction = ((pts - pts[0]) @ chord_hat) / max(chord_length, 1e-12)
-        order = np.argsort(chord_fraction)
-        frac_sorted = chord_fraction[order]
-        pts_sorted = pts[order]
-        for k, target in enumerate(targets):
-            point = np.array(
-                [np.interp(target, frac_sorted, pts_sorted[:, j]) for j in range(3)]
-            )
-            origins.append(point)
-            normals.append(chord_normal)
-            node_forces.append(panel_force * chord_weights[k])
-
-    if not origins:
+    if len(origins) == 0:
         return
-    origins = np.array(origins)
-    normals = np.array(normals)
-    node_forces = np.array(node_forces)
-
-    # Normalise force (N) to plotted length (m): the largest panel force over all
-    # panels plots at the maximum chord length (``scale``). Each panel's total
-    # plotted length is then this per-panel length spread across the chord, so a
-    # panel's node lengths add up to ``|F_panel| / max_force * max_chord``.
-    max_force = float(force_magnitudes.max())
-    newton_to_metre = scale / max(max_force, 1e-12)
-    lengths = (node_forces * newton_to_metre)[:, None]
+    lengths = lengths_1d[:, None]
     endpoints = origins + normals * lengths
 
     # All stems as one trace (None-separated segments), all heads as one cone trace.
@@ -721,7 +649,7 @@ def add_distributed_surface_vectors(
             y=stem_y,
             z=stem_z,
             mode="lines",
-            line=dict(color="red", width=3),
+            line=dict(color="red", width=3.9),
             name="Aerodynamic Vectors",
             showlegend=True,
         )
@@ -735,7 +663,7 @@ def add_distributed_surface_vectors(
             v=normals[:, 1] * lengths[:, 0],
             w=normals[:, 2] * lengths[:, 0],
             sizemode="absolute",
-            sizeref=0.06 * scale,
+            sizeref=0.048 * scale,
             anchor="tip",
             colorscale=[[0, "red"], [1, "red"]],
             showscale=False,
@@ -861,12 +789,15 @@ def update_fig_layout(
                     f"{kite_geometry_ranges['z'][1]:.2f}",
                 ],  # Label for the ticks
             ),
-            aspectmode="data",  # Allow different axis lengths
-            aspectratio=dict(x=1, y=1, z=1),  # Keep aspect ratio 1:1:1
+            # "data" keeps the scene true-to-scale (equal units on every axis);
+            # do NOT force a cube aspectratio here, that squeezes the wide wing.
+            aspectmode="data",
             camera=dict(
                 up=dict(x=0, y=0, z=1),
                 center=dict(x=0, y=0, z=0),
-                eye=dict(x=1.5, y=1.5, z=1.5),
+                eye=dict(
+                    x=-1.92, y=-1.44, z=0.30
+                ),  # rotated ~180 deg, low and further out
             ),
             bgcolor="white",
         ),
@@ -1204,3 +1135,83 @@ def interactive_plot(
         webbrowser.open(f"file://{tmp_path}")
 
     return fig
+
+
+def save_high_res_render(
+    fig: go.Figure,
+    save_path,
+    base_size: int = 2000,
+    scale: int = 4,
+    show_legend: bool = False,
+    show_axes: bool = False,
+    show_annotations: bool = False,
+    transparent_background: bool = False,
+    pad_frac: float = 0.02,
+) -> str:
+    """Export a clean, to-scale high-resolution PNG of the kite.
+
+    A Plotly 3D scene is only rendered undistorted on a **square** canvas (on a
+    non-square canvas Plotly stretches it, which squeezes the kite). So this
+    renders on a square canvas -- guaranteeing correct proportions -- then crops
+    tightly to the drawn content. The legend, axes and annotations are removed by
+    default for a clean figure.
+
+    Args:
+        fig: The Plotly figure (e.g. from :func:`interactive_plot`).
+        save_path: Output ``.png`` path; parent directories are created.
+        base_size: Square canvas size in pixels before supersampling.
+        scale: Supersampling factor (final render is ``base_size * scale`` square,
+            then cropped). Defaults to 4.
+        show_legend: Keep the trace legend. Defaults to False.
+        show_axes: Keep the 3D axes. Defaults to False.
+        show_annotations: Keep the corner case-info text. Defaults to False.
+        transparent_background: Transparent instead of white background.
+        pad_frac: Padding around the cropped content, as a fraction of its size.
+
+    Returns:
+        str: The path the PNG was written to.
+    """
+    import io
+    from PIL import Image
+
+    render_fig = go.Figure(fig)
+    render_fig.update_layout(showlegend=show_legend, margin=dict(l=0, r=0, t=0, b=0))
+    if not show_annotations:
+        render_fig.layout.annotations = ()
+        render_fig.layout.title = None
+    if not show_axes:
+        render_fig.update_scenes(
+            xaxis_visible=False, yaxis_visible=False, zaxis_visible=False
+        )
+    bg = "rgba(0,0,0,0)" if transparent_background else "white"
+    render_fig.update_layout(paper_bgcolor=bg, plot_bgcolor=bg)
+
+    # Square canvas => Plotly does not distort the 3D scene.
+    png = render_fig.to_image(
+        format="png", width=base_size, height=base_size, scale=scale
+    )
+    image = Image.open(io.BytesIO(png)).convert("RGBA")
+
+    # Crop tightly to the drawn content (non-background pixels).
+    rgb = np.asarray(image)[:, :, :3].astype(int)
+    alpha = np.asarray(image)[:, :, 3]
+    if transparent_background:
+        content = alpha > 0
+    else:
+        content = rgb.sum(axis=2) < 3 * 250  # anything not near-white
+    ys, xs = np.where(content)
+    if len(xs):
+        pad = int(pad_frac * max(xs.max() - xs.min(), ys.max() - ys.min()))
+        left = max(xs.min() - pad, 0)
+        right = min(xs.max() + pad, image.width)
+        top = max(ys.min() - pad, 0)
+        bottom = min(ys.max() + pad, image.height)
+        image = image.crop((left, top, right, bottom))
+
+    save_path = Path(save_path)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(str(save_path))
+    print(
+        f"High-resolution render saved to: {save_path} ({image.width} x {image.height} px)"
+    )
+    return str(save_path)

@@ -3,6 +3,8 @@ The Vortex Step Method (VSM) is an enhanced lifting line method that improves up
 
 A Julia version of this project is available at [VortexStepMethod.jl](https://github.com/Albatross-Kite-Transport/VortexStepMethod.jl)
 
+<!-- ![](docs/TUDELFT_V3_KITE_plotly.gif) -->
+![](docs/plotly_render.png)
 
 ## Reference Frame
 
