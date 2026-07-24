@@ -459,6 +459,7 @@ def create_3D_plot(
     canopy_grid: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None,
     is_with_tube_rings: bool = False,
     is_with_panels: bool = True,
+    cp_magnitude_fn=None,
 ) -> go.Figure:
     """
     Creates an interactive 3D plot of wing geometry using Plotly.
@@ -548,7 +549,11 @@ def create_3D_plot(
 
     if use_distributed_vectors:
         add_distributed_surface_vectors(
-            fig, canopy_grid, forces_of_panels, scale=chord_average
+            fig,
+            canopy_grid,
+            forces_of_panels,
+            scale=chord_average,
+            cp_magnitude_fn=cp_magnitude_fn,
         )
 
     if tube_data is not None:
@@ -588,24 +593,34 @@ def add_distributed_surface_vectors(
     scale: float,
     n_chord: int = 10,
     n_span: int = None,
+    cp_magnitude_fn=None,
 ) -> None:
-    """Draw a grid of equal, surface-normal force vectors on the canopy.
+    """Draw a grid of chord-normal force vectors on the canopy.
 
     One row of ``n_chord`` nodes is placed at each panel centre (uniformly over
-    the chord); every node carries one equal-length arrow oriented along the local
-    canopy surface normal (the outward/suction side). This gives a regular
-    ``n_span x n_chord`` grid of vectors covering the whole canopy.
+    the chord); every node carries one arrow oriented normal to the local chord
+    line (the flat-panel "up", perpendicular to chord and span), pointing to the
+    outward/suction side. This gives a regular ``n_span x n_chord`` grid of
+    vectors covering the whole canopy.
+
+    Each panel's VSM force is distributed over its chord nodes: the arrow lengths
+    reflect both the spanwise loading (the panel force from VSM) and the chordwise
+    shape (the ``|Cp|`` weighting, or an even split without a Cp distribution).
+    The node forces of a panel sum back to that panel's force.
 
     Args:
         fig: Plotly figure.
         canopy_grid: ``(X, Y, Z)`` canopy surface arrays, each ``(S, P)`` with
             ``S`` spanwise stations and ``P`` chordwise points.
-        forces_of_panels: Per-panel aerodynamic force vectors (used only to skip
-            drawing when there is no force).
+        forces_of_panels: Per-panel aerodynamic force vectors from VSM; their
+            magnitudes set the total per panel that is distributed chordwise.
         scale: Length scale (typically the average chord).
         n_chord: Nodes per row, distributed over the chord. Defaults to 10.
         n_span: Number of spanwise rows. Defaults to one row per panel (the
             midpoints between the ``S`` canopy stations, i.e. ``S - 1`` rows).
+        cp_magnitude_fn: Optional callable mapping chord fraction ``x/c`` to a
+            (positive) pressure-coefficient magnitude, used as the chordwise
+            weighting of each panel's force. Without it the force is spread evenly.
     """
     x, y, z = canopy_grid
     grid = np.stack([x, y, z], axis=-1)  # (S, P, 3)
@@ -624,52 +639,75 @@ def add_distributed_surface_vectors(
         np.clip(np.round(np.linspace(0, n_rows - 1, n_span)), 0, n_rows - 1).astype(int)
     )
 
-    # Surface-normal field over the panel-centre grid.
-    d_chord = np.gradient(panel_grid, axis=1)
-    d_span = np.gradient(panel_grid, axis=0)
-    normal_field = np.cross(d_chord, d_span)
-    normal_field /= np.linalg.norm(normal_field, axis=-1, keepdims=True).clip(1e-12)
-    normal_field[normal_field[:, :, 2] < 0] *= -1  # outward (suction) side
+    # Spanwise direction field, used to build the per-row chord-normal.
+    d_span = np.gradient(panel_grid, axis=0)  # (R, P, 3)
+
+    # Chordwise weights: how each panel's force is spread over its nodes. With a
+    # Cp distribution the weights follow the local |Cp| loading; otherwise the
+    # force is spread evenly. Normalised so the weights sum to one (the node
+    # forces of a panel add back up to that panel's VSM force).
+    targets = np.linspace(0.05, 0.95, n_chord)
+    if cp_magnitude_fn is not None:
+        chord_weights = np.asarray(cp_magnitude_fn(targets), dtype=float)
+    else:
+        chord_weights = np.ones(n_chord)
+    chord_weights = chord_weights / max(chord_weights.sum(), 1e-12)
 
     # Sample each row at the exact target chord fractions (5%-95%). The grid
     # columns are arc-length spaced, so interpolate by true chord fraction rather
     # than snapping to columns -- this keeps vectors clear of the leading-edge
     # tube (near 0%) and the trailing edge (near 100%).
-    targets = np.linspace(0.05, 0.95, n_chord)
     origins = []
     normals = []
+    node_forces = []  # per-node share of the panel's VSM force magnitude
     for row in span_rows:
         pts = panel_grid[row]  # (P, 3)
         chord_vector = pts[-1] - pts[0]
         chord_length = np.linalg.norm(chord_vector)
         chord_hat = chord_vector / max(chord_length, 1e-12)
+
+        # Chord-normal: perpendicular to the chord line and the span, in the
+        # airfoil plane (the flat-panel "up"). Constant along the chord, so every
+        # vector in this row points the same way rather than following the local
+        # surface curvature.
+        span_vector = d_span[row].mean(axis=0)
+        chord_normal = np.cross(chord_vector, span_vector)
+        cn = np.linalg.norm(chord_normal)
+        if cn < 1e-9:
+            continue
+        chord_normal = chord_normal / cn
+        if chord_normal[2] < 0:  # orient toward the outward (suction) side
+            chord_normal = -chord_normal
+
+        # Row r is the centre of panel r, so its total is that panel's force.
+        panel_force = force_magnitudes[row] if row < len(force_magnitudes) else 0.0
+
         chord_fraction = ((pts - pts[0]) @ chord_hat) / max(chord_length, 1e-12)
         order = np.argsort(chord_fraction)
         frac_sorted = chord_fraction[order]
         pts_sorted = pts[order]
-        nrm_sorted = normal_field[row][order]
-        for target in targets:
+        for k, target in enumerate(targets):
             point = np.array(
-                [np.interp(target, frac_sorted, pts_sorted[:, k]) for k in range(3)]
+                [np.interp(target, frac_sorted, pts_sorted[:, j]) for j in range(3)]
             )
-            normal = np.array(
-                [np.interp(target, frac_sorted, nrm_sorted[:, k]) for k in range(3)]
-            )
-            norm = np.linalg.norm(normal)
-            if norm < 1e-9:
-                continue
             origins.append(point)
-            normals.append(normal / norm)
+            normals.append(chord_normal)
+            node_forces.append(panel_force * chord_weights[k])
 
     if not origins:
         return
     origins = np.array(origins)
     normals = np.array(normals)
+    node_forces = np.array(node_forces)
 
-    # Equal arrow length, scaled to the chordwise node spacing so the grid reads
-    # cleanly without the arrows overlapping badly.
-    length = 0.9 * scale / max(n_chord, 1)
-    endpoints = origins + normals * length
+    # Normalise force (N) to plotted length (m): the largest panel force over all
+    # panels plots at the maximum chord length (``scale``). Each panel's total
+    # plotted length is then this per-panel length spread across the chord, so a
+    # panel's node lengths add up to ``|F_panel| / max_force * max_chord``.
+    max_force = float(force_magnitudes.max())
+    newton_to_metre = scale / max(max_force, 1e-12)
+    lengths = (node_forces * newton_to_metre)[:, None]
+    endpoints = origins + normals * lengths
 
     # All stems as one trace (None-separated segments), all heads as one cone trace.
     stem_x, stem_y, stem_z = [], [], []
@@ -693,11 +731,11 @@ def add_distributed_surface_vectors(
             x=endpoints[:, 0],
             y=endpoints[:, 1],
             z=endpoints[:, 2],
-            u=normals[:, 0] * length,
-            v=normals[:, 1] * length,
-            w=normals[:, 2] * length,
+            u=normals[:, 0] * lengths[:, 0],
+            v=normals[:, 1] * lengths[:, 0],
+            w=normals[:, 2] * lengths[:, 0],
             sizemode="absolute",
-            sizeref=length / 3,
+            sizeref=0.06 * scale,
             anchor="tip",
             colorscale=[[0, "red"], [1, "red"]],
             showscale=False,
@@ -983,6 +1021,7 @@ def update_plot(
     canopy_grid: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None,
     is_with_tube_rings: bool = False,
     is_with_panels: bool = True,
+    cp_magnitude_fn=None,
 ):
     # Update AoA and rerun VSM
     results = running_VSM(
@@ -1006,6 +1045,7 @@ def update_plot(
         canopy_grid=canopy_grid,
         is_with_tube_rings=is_with_tube_rings,
         is_with_panels=is_with_panels,
+        cp_magnitude_fn=cp_magnitude_fn,
     )
     fig = add_case_information(
         fig,
@@ -1041,6 +1081,7 @@ def interactive_plot(
     is_with_canopy: bool = True,
     is_with_tube_rings: bool = False,
     is_with_panels: Optional[bool] = None,
+    cp_distributions_dir: Optional[Path] = None,
 ):
     """
     Creates and optionally saves multiple views of the wing geometry with interactive AoA slider.
@@ -1072,6 +1113,11 @@ def interactive_plot(
         is_with_panels: Draw the panel outlines. Defaults to ``False`` for the
             fancy plot (a Surfplan export is given) and ``True`` otherwise. When
             off, the force vectors are lifted onto the canopy surface.
+        cp_distributions_dir: Optional directory of ``cp_AOA_<deg>.dat`` chordwise
+            pressure-coefficient files. When given, the closest available angle of
+            attack is selected and its ``|Cp|(x/c)`` scales the chordwise force
+            vector magnitudes (the single mid-span distribution is applied at
+            every span station).
 
     Returns:
         plotly.graph_objects.Figure: The created figure.
@@ -1093,6 +1139,19 @@ def interactive_plot(
         if is_with_canopy:
             contour_table = load_contour_table(processed_dir)
             canopy_grid = build_canopy_grid(wing_aero.panels, contour_table)
+
+    # Optional Cp-based scaling of the chordwise force vectors.
+    cp_magnitude_fn = None
+    if cp_distributions_dir is not None:
+        from VSM.plotly.cp_distributions import build_cp_magnitude_fn
+
+        cp_magnitude_fn, matched_aoa = build_cp_magnitude_fn(
+            Path(cp_distributions_dir), angle_of_attack
+        )
+        print(
+            f"Cp loading from closest available AoA = {matched_aoa:g} deg "
+            f"(operating AoA = {angle_of_attack:g} deg)"
+        )
 
     # Create the figure with a default orientation
     fig = go.Figure()
@@ -1121,6 +1180,7 @@ def interactive_plot(
         canopy_grid=canopy_grid,
         is_with_tube_rings=is_with_tube_rings,
         is_with_panels=is_with_panels,
+        cp_magnitude_fn=cp_magnitude_fn,
     )
 
     # Save or show the plot if requested

@@ -20,6 +20,7 @@ from VSM.plotly.tube_geometry import circle_points
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SURFPLAN_DIR = REPO_ROOT / "data" / "TUDELFT_V3_KITE" / "Surfplan_export"
+CP_DIR = REPO_ROOT / "data" / "TUDELFT_V3_KITE" / "cpx_distributions"
 DRAWN_YAML = (
     REPO_ROOT
     / "data"
@@ -202,3 +203,59 @@ def test_interactive_plot_fancy_traces():
     fig3 = interactive_plot(body, is_show=False)
     assert not [t for t in fig3.data if isinstance(t, go.Surface)]
     assert [t for t in fig3.data if getattr(t, "name", None) == "Leading Edge"]
+
+
+# --------------------------------------------------------------------------- #
+# Cp distribution database
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.skipif(not CP_DIR.is_dir(), reason="Cp distributions unavailable")
+def test_load_upper_surface_cp_ordering():
+    from VSM.plotly.cp_distributions import load_upper_surface_cp
+
+    x, cp = load_upper_surface_cp(CP_DIR / "cp_AOA_8.dat")
+    assert np.all(np.diff(x) >= 0)  # ascending x/c
+    assert x.min() >= 0.0 and x.max() <= 1.01  # normalised chord (small CFD overshoot)
+    assert cp.min() < 0  # suction side has negative Cp
+
+
+@pytest.mark.skipif(not CP_DIR.is_dir(), reason="Cp distributions unavailable")
+def test_build_cp_magnitude_fn_closest_aoa():
+    from VSM.plotly.cp_distributions import build_cp_magnitude_fn
+
+    # Exact and nearest matches over the available {2, 6, 8} degrees.
+    assert build_cp_magnitude_fn(CP_DIR, 8)[1] == 8
+    assert build_cp_magnitude_fn(CP_DIR, 5)[1] == 6
+    assert build_cp_magnitude_fn(CP_DIR, 3)[1] == 2
+    assert build_cp_magnitude_fn(CP_DIR, 100)[1] == 8
+
+    magnitude, _ = build_cp_magnitude_fn(CP_DIR, 8)
+    values = magnitude(np.array([0.05, 0.5, 0.95]))
+    assert np.all(values >= 0)
+    # Loading is front-heavy: near-LE |Cp| exceeds near-TE |Cp|.
+    assert values[0] > values[-1]
+
+
+@pytest.mark.skipif(
+    not (_has_surfplan() and CP_DIR.is_dir()),
+    reason="SurfplanAdapter or data unavailable",
+)
+def test_interactive_plot_cp_scaled_vectors_run():
+    from VSM.core.BodyAerodynamics import BodyAerodynamics
+    from VSM.plot_geometry_plotly import interactive_plot
+
+    body = BodyAerodynamics.instantiate(
+        n_panels=36,
+        file_path=DRAWN_YAML,
+        spanwise_panel_distribution="uniform",
+    )
+    fig = interactive_plot(
+        body,
+        angle_of_attack=8,
+        surfplan_dir=SURFPLAN_DIR,
+        cp_distributions_dir=CP_DIR,
+        is_show=False,
+    )
+    # The vector grid is still drawn (stems + arrowheads present).
+    assert [t for t in fig.data if getattr(t, "name", None) == "Aerodynamic Vectors"]
