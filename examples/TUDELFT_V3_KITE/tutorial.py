@@ -156,6 +156,29 @@ def main():
         # / "interactive_plot.html",
     )
 
+    # Step 4b: "Fancy" plot -- render the inflatable leading-edge and strut tubes
+    # and the curved single-skin canopy from a raw Surfplan export.
+    """
+    Passing ``surfplan_dir`` (a directory holding the Surfplan '<name>.txt' export
+    and its 'profiles/' directory) switches on the physically-detailed plot. The
+    export is converted with SurfplanAdapter (cached under the export directory),
+    and the tube diameters + airfoil top-surfaces are drawn on the wing. The plain
+    plot above is unaffected when ``surfplan_dir`` is omitted.
+    """
+    # interactive_plot(
+    #     body_aero_CAD_CFD_polars,
+    #     vel=Umag,
+    #     angle_of_attack=angle_of_attack,
+    #     side_slip=side_slip,
+    #     title="TUDELFT_V3_KITE (inflatable tubes + canopy)",
+    #     surfplan_dir=Path(PROJECT_DIR)
+    #     / "data"
+    #     / "TUDELFT_V3_KITE"
+    #     / "Surfplan_export",
+    #     is_with_canopy=True,  # curved canopy over the tubes; False -> tubes only
+    #     is_with_tube_rings=False,  # True -> also show tube construction rings
+    # )
+
     # # Step 5: Plot polar curves for different angles of attack and side slip angles, and save results
     # """
     # Compare the aerodynamic performance of different models by plotting lift, drag, and side force coefficients

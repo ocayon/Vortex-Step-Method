@@ -1,5 +1,6 @@
 import os
-from typing import List, Tuple, Dict, Any
+from pathlib import Path
+from typing import List, Tuple, Dict, Any, Optional
 import numpy as np
 import plotly.graph_objects as go
 from VSM.core.Solver import Solver
@@ -435,6 +436,9 @@ def create_3D_plot(
     forces_of_panels: List[np.ndarray],
     is_with_aerodynamic_details: bool,
     is_with_bridles: bool = False,
+    tube_data: Optional[Dict[str, Any]] = None,
+    canopy_grid: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None,
+    is_with_tube_rings: bool = False,
 ) -> go.Figure:
     """
     Creates an interactive 3D plot of wing geometry using Plotly.
@@ -444,10 +448,19 @@ def create_3D_plot(
         forces_of_panels: List of force vectors for each panel
         is_with_aerodynamic_details: Boolean to show/hide aerodynamic visualization details
         is_with_bridles: Boolean to show/hide bridle system visualization
+        tube_data: Optional inflatable-tube geometry from
+            ``VSM.plotly.build_tube_data``; when given, the leading-edge and strut
+            tubes are drawn as surfaces.
+        canopy_grid: Optional ``(X, Y, Z)`` curved-canopy surface from
+            ``VSM.plotly.build_canopy_grid``; when given, it replaces the flat
+            panel surfaces.
+        is_with_tube_rings: Also draw the tube construction rings (for inspection).
 
     Returns:
         plotly.graph_objects.Figure
     """
+    from VSM.plotly.tube_geometry import add_tube_surfaces, add_tube_rings
+
     panels = wing_aero.panels
 
     chord_average = np.max([panel.chord for panel in panels])
@@ -459,6 +472,8 @@ def create_3D_plot(
     # Add bridle system if requested
     if is_with_bridles:
         add_bridle_system(fig, wing_aero, is_first=True)
+
+    draw_flat_surface = canopy_grid is None
 
     # Add geometric elements
     for i, panel in enumerate(panels):
@@ -473,7 +488,8 @@ def create_3D_plot(
             add_filaments(fig, panel, is_first)
 
         add_panel_edges(fig, panel, is_first, is_last)
-        add_panel_surface(fig, panel, is_first)
+        if draw_flat_surface:
+            add_panel_surface(fig, panel, is_first)
         add_aerodynamic_vectors(
             fig,
             panel,
@@ -483,7 +499,37 @@ def create_3D_plot(
             max_force=max_force,
         )
 
+    # Curved single-skin canopy replaces the flat panel surfaces.
+    if canopy_grid is not None:
+        add_canopy_surface(fig, canopy_grid)
+
+    # Inflatable tubes (leading-edge tube + struts).
+    if tube_data is not None:
+        add_tube_surfaces(fig, tube_data)
+        if is_with_tube_rings:
+            add_tube_rings(fig, tube_data)
+
     return fig
+
+
+def add_canopy_surface(
+    fig: go.Figure, canopy_grid: Tuple[np.ndarray, np.ndarray, np.ndarray]
+) -> None:
+    """Add the curved single-skin canopy as a uniformly coloured surface."""
+    x, y, z = canopy_grid
+    fig.add_trace(
+        go.Surface(
+            x=x,
+            y=y,
+            z=z,
+            surfacecolor=np.zeros_like(z),
+            colorscale=[[0, "lightgrey"], [1, "lightgrey"]],
+            showscale=False,
+            opacity=0.85,
+            name="Canopy",
+            showlegend=True,
+        )
+    )
 
 
 def compute_kite_geometry_ranges(panels: List[Any]) -> Tuple[Dict[str, float], float]:
@@ -754,6 +800,9 @@ def update_plot(
     is_with_aerodynamic_details: bool,
     is_with_bridles: bool,
     title: str,
+    tube_data: Optional[Dict[str, Any]] = None,
+    canopy_grid: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None,
+    is_with_tube_rings: bool = False,
 ):
     # Update AoA and rerun VSM
     results = running_VSM(
@@ -773,6 +822,9 @@ def update_plot(
         results["F_distribution"],
         is_with_aerodynamic_details,
         is_with_bridles,
+        tube_data=tube_data,
+        canopy_grid=canopy_grid,
+        is_with_tube_rings=is_with_tube_rings,
     )
     fig = add_case_information(
         fig,
@@ -804,6 +856,9 @@ def interactive_plot(
     is_save: bool = False,
     filename="wing_geometry",
     is_show: bool = True,
+    surfplan_dir: Optional[Path] = None,
+    is_with_canopy: bool = True,
+    is_with_tube_rings: bool = False,
 ):
     """
     Creates and optionally saves multiple views of the wing geometry with interactive AoA slider.
@@ -823,7 +878,33 @@ def interactive_plot(
         is_save: Whether to save the plot
         filename: Base filename for saved files
         is_show: Whether to display the plot
+        surfplan_dir: Optional path to a raw Surfplan export (a ``<name>.txt`` plus
+            a ``profiles/`` directory). When given, the "fancy" plot is drawn: the
+            export is converted with SurfplanAdapter (cached) and the inflatable
+            leading-edge and strut tubes -- and, by default, the curved single-skin
+            canopy -- are rendered on the wing. Leaving it ``None`` keeps the plain
+            plot unchanged.
+        is_with_canopy: When a Surfplan export is given, draw the curved canopy
+            (lofted airfoil top-surfaces) in place of the flat panel surfaces.
+        is_with_tube_rings: Also draw the tube construction rings (for inspection).
+
+    Returns:
+        plotly.graph_objects.Figure: The created figure.
     """
+
+    # Build the optional fancy-plot geometry once (reused on every slider update).
+    tube_data = None
+    canopy_grid = None
+    if surfplan_dir is not None:
+        from VSM.plotly.surfplan_runner import ensure_surfplan_processed
+        from VSM.plotly.tube_geometry import build_tube_data
+        from VSM.plotly.canopy_geometry import load_contour_table, build_canopy_grid
+
+        processed_dir = ensure_surfplan_processed(Path(surfplan_dir))
+        tube_data = build_tube_data(wing_aero.panels, processed_dir)
+        if is_with_canopy:
+            contour_table = load_contour_table(processed_dir)
+            canopy_grid = build_canopy_grid(wing_aero.panels, contour_table)
 
     # Create the figure with a default orientation
     fig = go.Figure()
@@ -848,6 +929,9 @@ def interactive_plot(
         is_with_aerodynamic_details,
         is_with_bridles,
         title,
+        tube_data=tube_data,
+        canopy_grid=canopy_grid,
+        is_with_tube_rings=is_with_tube_rings,
     )
 
     # Save or show the plot if requested
@@ -869,3 +953,5 @@ def interactive_plot(
             fig.write_html(f, include_plotlyjs=True, full_html=True)
         print(f"Interactive plot saved to: {tmp_path}")
         webbrowser.open(f"file://{tmp_path}")
+
+    return fig
