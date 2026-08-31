@@ -1,5 +1,6 @@
 import numpy as np
 import logging
+from scipy.linalg import solve_banded
 from . import jit_cross
 
 
@@ -401,6 +402,10 @@ class Solver:
         Evaluated from each panel's own 2-D polar at the current effective angle
         of attack. The slope is negative in post-stall, which is what activates
         the artificial-viscosity regularization in :meth:`gamma_loop`.
+
+        Readable reference implementation and test oracle; the iteration hot
+        path uses the vectorized :meth:`_lift_slope_from_ctx`, which evaluates
+        the identical central difference from tables prepared once per solve.
         """
         slopes = np.empty(self.n_panels)
         for i, (panel, alpha) in enumerate(zip(self.panels, alpha_array)):
@@ -457,17 +462,11 @@ class Solver:
         # Spanwise artificial-viscosity regularization (Li, Gaunaa, Pirrung &
         # Lønbæk, TORQUE 2026). Stabilizes post-stall (negative lift-slope)
         # circulation distributions that otherwise develop non-physical sawtooth
-        # oscillations and never converge. The discrete Laplacian and planform
-        # area are built once since the geometry is frozen during the iteration.
-        use_viscosity = self.is_with_artificial_viscosity
-        if use_viscosity:
-            laplacian = self._build_spanwise_laplacian()
-            identity = np.eye(self.n_panels)
-            planform_area = float(np.sum(self.width_array * self.chord_array))
-            # Cheap gate (computed once): the regularization is a no-op unless a
-            # panel is past its stall onset, so we skip the slope evaluation and
-            # the linear solve entirely while the wing is attached.
-            stall_angles = self._panel_stall_angles()
+        # oscillations and never converge. The context (tridiagonal Laplacian
+        # diagonals, polar slope tables, planform area, stall-onset gate) is
+        # built once since geometry and polars are frozen during the iteration.
+        viscosity_ctx = self._build_viscosity_ctx()
+        use_viscosity = viscosity_ctx is not None
 
         relaxation = self.relaxation_factor * extra_relaxation_factor
         for i in range(self.max_iterations):
@@ -478,27 +477,11 @@ class Solver:
             gamma_target = (
                 0.5 * ((Umag_array**2) / Umagw_array) * cl_array * self.chord_array
             )
-            if use_viscosity and np.any(alpha_array > stall_angles):
-                # Implicit fixed point (I - diag(mu) L) gamma = F(gamma): same
-                # steady solution as the explicit scheme but stable at relaxation
-                # factors of order one, whereas the explicit stable step shrinks
-                # like N^-2 in post-stall. The coefficient
-                # mu_i = max(0, -k S Cl'_i / dz_i^2) with k = 0.035 reduces to
-                # mu = max(0, -k N^2/AR Cl') for a uniformly spaced wing (Eq. 16).
-                lift_slope = self._local_lift_slope(alpha_array)
-                mu_array = np.maximum(
-                    0.0,
-                    -self.artificial_viscosity_factor
-                    * planform_area
-                    * lift_slope
-                    / self.width_array**2,
+            if use_viscosity:
+                gamma_target = self._regularize_gamma_target(
+                    gamma_target, alpha_array, viscosity_ctx
                 )
-                gamma_regularized = np.linalg.solve(
-                    identity - mu_array[:, None] * laplacian, gamma_target
-                )
-                gamma_new = (1 - relaxation) * gamma + relaxation * gamma_regularized
-            else:
-                gamma_new = (1 - relaxation) * gamma + relaxation * gamma_target
+            gamma_new = (1 - relaxation) * gamma + relaxation * gamma_target
 
             # Checking convergence using normalized error
             reference_error = (
@@ -534,19 +517,130 @@ class Solver:
 
     def _build_viscosity_ctx(self) -> dict | None:
         """Pre-build the frozen-geometry objects the post-stall regularization
-        needs (spanwise Laplacian, identity, planform area, per-panel stall
-        onset), or ``None`` when artificial viscosity is disabled. Shared by the
-        accelerated loops so they target the same regularized fixed point as
-        :meth:`gamma_loop`.
+        needs, or ``None`` when artificial viscosity is disabled. Shared by the
+        base and accelerated loops so they target the same regularized fixed
+        point.
+
+        Contents: per-panel stall onset (the cheap gate), planform area, the
+        three diagonals of the tridiagonal spanwise Laplacian (the dense matrix
+        of :meth:`_build_spanwise_laplacian` is tridiagonal, so the implicit
+        solve is done banded), and each panel's polar table for the vectorized
+        lift-slope evaluation. When all panels share one alpha grid (the normal
+        outcome of batch polar generation) the cl columns are stacked into a
+        single matrix so the slope evaluation needs no per-panel Python loop.
         """
         if not self.is_with_artificial_viscosity:
             return None
+        laplacian = self._build_spanwise_laplacian()
+        alpha_tables = [
+            np.asarray(panel.panel_polar_data, dtype=float)[:, 0]
+            for panel in self.panels
+        ]
+        cl_tables = [
+            np.asarray(panel.panel_polar_data, dtype=float)[:, 1]
+            for panel in self.panels
+        ]
+        shared_grid = all(
+            table.shape == alpha_tables[0].shape
+            and np.array_equal(table, alpha_tables[0])
+            for table in alpha_tables[1:]
+        )
         return {
-            "laplacian": self._build_spanwise_laplacian(),
-            "identity": np.eye(self.n_panels),
-            "planform_area": float(np.sum(self.width_array * self.chord_array)),
             "stall_angles": self._panel_stall_angles(),
+            "planform_area": float(np.sum(self.width_array * self.chord_array)),
+            "L_diag": np.diag(laplacian).copy(),
+            "L_super": np.diag(laplacian, 1).copy(),
+            "L_sub": np.diag(laplacian, -1).copy(),
+            "alpha_grid": alpha_tables[0] if shared_grid else None,
+            "cl_matrix": np.vstack(cl_tables) if shared_grid else None,
+            "alpha_tables": alpha_tables,
+            "cl_tables": cl_tables,
         }
+
+    @staticmethod
+    def _interp_rows(
+        query: np.ndarray, grid: np.ndarray, values: np.ndarray
+    ) -> np.ndarray:
+        """Linear interpolation of ``values[i, :]`` at ``query[i]`` on a shared
+        ``grid``, matching ``np.interp`` semantics (clamped at both grid ends).
+        """
+        idx = np.clip(np.searchsorted(grid, query), 1, grid.size - 1)
+        x0 = grid[idx - 1]
+        x1 = grid[idx]
+        weight = np.clip((query - x0) / (x1 - x0), 0.0, 1.0)
+        rows = np.arange(values.shape[0])
+        y0 = values[rows, idx - 1]
+        y1 = values[rows, idx]
+        return y0 + weight * (y1 - y0)
+
+    def _lift_slope_from_ctx(
+        self,
+        alpha_array: np.ndarray,
+        viscosity_ctx: dict,
+        delta: float = np.deg2rad(0.5),
+    ) -> np.ndarray:
+        """Vectorized equivalent of :meth:`_local_lift_slope`, evaluating the
+        same central difference of each panel's piecewise-linear polar from the
+        tables prepared in :meth:`_build_viscosity_ctx` (shared-grid fast path,
+        per-panel fallback when panels carry different alpha grids).
+        """
+        grid = viscosity_ctx["alpha_grid"]
+        if grid is not None and grid.size >= 2:
+            cl_matrix = viscosity_ctx["cl_matrix"]
+            cl_plus = self._interp_rows(alpha_array + delta, grid, cl_matrix)
+            cl_minus = self._interp_rows(alpha_array - delta, grid, cl_matrix)
+            return (cl_plus - cl_minus) / (2.0 * delta)
+        slopes = np.empty(self.n_panels)
+        for i, (alpha_table, cl_table) in enumerate(
+            zip(viscosity_ctx["alpha_tables"], viscosity_ctx["cl_tables"])
+        ):
+            cl_plus = np.interp(alpha_array[i] + delta, alpha_table, cl_table)
+            cl_minus = np.interp(alpha_array[i] - delta, alpha_table, cl_table)
+            slopes[i] = (cl_plus - cl_minus) / (2.0 * delta)
+        return slopes
+
+    def _regularize_gamma_target(
+        self,
+        gamma_target: np.ndarray,
+        alpha_array: np.ndarray,
+        viscosity_ctx: dict | None,
+    ) -> np.ndarray:
+        """Apply the Li/Gaunaa implicit spanwise viscosity to the fixed-point
+        target: solve ``(I - diag(mu) L) gamma = gamma_target``.
+
+        Implicit fixed point (I - diag(mu) L) gamma = F(gamma): same steady
+        solution as the explicit scheme but stable at relaxation factors of
+        order one, whereas the explicit stable step shrinks like N^-2 in
+        post-stall. The coefficient ``mu_i = max(0, -k S Cl'_i / dz_i^2)`` with
+        k = 0.035 reduces to ``mu = max(0, -k N^2/AR Cl')`` for a uniformly
+        spaced wing (Eq. 16).
+
+        Returns ``gamma_target`` unchanged (same object, no solve) while no
+        panel is past its stall onset or every ``mu`` is zero — the exact no-op
+        that keeps attached-flow iterations as cheap as the unregularized loop.
+        The system is tridiagonal, so the solve is banded, not dense.
+        """
+        if viscosity_ctx is None or not np.any(
+            alpha_array > viscosity_ctx["stall_angles"]
+        ):
+            return gamma_target
+        lift_slope = self._lift_slope_from_ctx(alpha_array, viscosity_ctx)
+        mu_array = np.maximum(
+            0.0,
+            -self.artificial_viscosity_factor
+            * viscosity_ctx["planform_area"]
+            * lift_slope
+            / self.width_array**2,
+        )
+        if not np.any(mu_array > 0.0):
+            return gamma_target
+        n = gamma_target.size
+        # Banded storage of (I - diag(mu) L): row i couples only i-1, i, i+1.
+        ab = np.zeros((3, n))
+        ab[1] = 1.0 - mu_array * viscosity_ctx["L_diag"]
+        ab[0, 1:] = -mu_array[:-1] * viscosity_ctx["L_super"]
+        ab[2, :-1] = -mu_array[1:] * viscosity_ctx["L_sub"]
+        return solve_banded((1, 1), ab, gamma_target)
 
     def _fixed_point_target(
         self, gamma: np.ndarray, viscosity_ctx: dict | None = None
@@ -568,22 +662,9 @@ class Solver:
         gamma_target = (
             0.5 * ((Umag_array**2) / Umagw_array) * cl_array * self.chord_array
         )
-        if viscosity_ctx is not None and np.any(
-            alpha_array > viscosity_ctx["stall_angles"]
-        ):
-            lift_slope = self._local_lift_slope(alpha_array)
-            mu_array = np.maximum(
-                0.0,
-                -self.artificial_viscosity_factor
-                * viscosity_ctx["planform_area"]
-                * lift_slope
-                / self.width_array**2,
-            )
-            gamma_target = np.linalg.solve(
-                viscosity_ctx["identity"]
-                - mu_array[:, None] * viscosity_ctx["laplacian"],
-                gamma_target,
-            )
+        gamma_target = self._regularize_gamma_target(
+            gamma_target, alpha_array, viscosity_ctx
+        )
         return gamma_target, alpha_array, Umag_array
 
     def gamma_loop_anderson(self, gamma_initial: np.ndarray) -> tuple:

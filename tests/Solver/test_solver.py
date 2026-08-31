@@ -561,5 +561,153 @@ def test_gamma_loop_type_defaults_to_base():
     assert Solver().gamma_loop_type == "base"
 
 
+def _stalled_polar_data():
+    """Synthetic polar with a genuine stall: thin-airfoil slope up to 10 deg,
+    then a constant negative post-stall slope (-2 /rad). Constant small cd."""
+    alpha_rad = np.deg2rad(np.arange(-10.0, 41.0, 1.0))
+    alpha_stall = np.deg2rad(10.0)
+    cl = np.where(
+        alpha_rad <= alpha_stall,
+        2 * np.pi * alpha_rad,
+        2 * np.pi * alpha_stall - 2.0 * (alpha_rad - alpha_stall),
+    )
+    cd = np.full_like(alpha_rad, 0.01)
+    cm = np.zeros_like(alpha_rad)
+    return np.column_stack((alpha_rad, cl, cd, cm))
+
+
+def _rectangular_body(n_panels, polar_data, span=8.0, chord=1.0):
+    """Uniform rectangular wing where every section carries polar_data."""
+    wing = Wing(n_panels=n_panels, spanwise_panel_distribution="uniform")
+    for y in np.linspace(-span / 2, span / 2, n_panels + 1):
+        wing.add_section(np.array([0.0, y, 0.0]), np.array([chord, y, 0.0]), polar_data)
+    return BodyAerodynamics([wing])
+
+
+def _solver_with_viscosity_ctx(body_aero, angle_of_attack):
+    """Solve once so the Solver holds panel/geometry arrays, return solver+ctx."""
+    body_aero.va_initialize(Umag=10.0, angle_of_attack=angle_of_attack)
+    solver = Solver(is_with_artificial_viscosity=True)
+    solver.solve(body_aero)
+    return solver, solver._build_viscosity_ctx()
+
+
+def test_lift_slope_from_ctx_matches_reference():
+    """The vectorized shared-grid lift-slope evaluation must reproduce the
+    per-panel np.interp central difference exactly, including the clamped
+    behaviour beyond both ends of the polar table."""
+    body_aero = _rectangular_body(12, _stalled_polar_data())
+    solver, ctx = _solver_with_viscosity_ctx(body_aero, angle_of_attack=5.0)
+    assert ctx["alpha_grid"] is not None  # identical polars -> shared-grid path
+
+    rng = np.random.default_rng(7)
+    # Beyond-table queries included on purpose to exercise the clamping.
+    alpha_array = rng.uniform(np.deg2rad(-15.0), np.deg2rad(45.0), solver.n_panels)
+    np.testing.assert_allclose(
+        solver._lift_slope_from_ctx(alpha_array, ctx),
+        solver._local_lift_slope(alpha_array),
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+
+def test_regularize_gamma_target_matches_dense_solve():
+    """The banded solve of (I - diag(mu) L) must match the dense formulation it
+    replaced to numerical precision when the regularization is active."""
+    body_aero = _rectangular_body(12, _stalled_polar_data())
+    solver, ctx = _solver_with_viscosity_ctx(body_aero, angle_of_attack=18.0)
+
+    rng = np.random.default_rng(3)
+    gamma_target = rng.normal(size=solver.n_panels)
+    alpha_array = np.full(solver.n_panels, np.deg2rad(18.0))  # all post-stall
+
+    lift_slope = solver._local_lift_slope(alpha_array)
+    mu_array = np.maximum(
+        0.0,
+        -solver.artificial_viscosity_factor
+        * ctx["planform_area"]
+        * lift_slope
+        / solver.width_array**2,
+    )
+    assert np.all(mu_array > 0.0)  # deep post-stall: viscosity active everywhere
+
+    dense_reference = np.linalg.solve(
+        np.eye(solver.n_panels)
+        - mu_array[:, None] * solver._build_spanwise_laplacian(),
+        gamma_target,
+    )
+    regularized = solver._regularize_gamma_target(gamma_target, alpha_array, ctx)
+    assert regularized is not gamma_target
+    np.testing.assert_allclose(regularized, dense_reference, rtol=1e-10, atol=1e-12)
+
+
+def test_regularize_gamma_target_exact_noop_when_attached():
+    """Below stall onset the regularization must return the target object
+    unchanged (no solve at all), so attached-flow iterations cost the same as
+    the unregularized loop."""
+    body_aero = _rectangular_body(12, _stalled_polar_data())
+    solver, ctx = _solver_with_viscosity_ctx(body_aero, angle_of_attack=5.0)
+
+    gamma_target = np.linspace(0.0, 1.0, solver.n_panels)
+    alpha_array = np.full(solver.n_panels, np.deg2rad(3.0))
+    assert (
+        solver._regularize_gamma_target(gamma_target, alpha_array, ctx) is gamma_target
+    )
+
+
+def test_regularize_gamma_target_exact_noop_for_spurious_polar_bump():
+    """A small local Cl peak below the real stall (typical of bumpy ML/CFD
+    polars) opens the cheap stall-onset gate permanently, but with positive
+    local lift slope every mu is zero and the solve must still be skipped
+    exactly — this is the case that made the regularization needlessly slow."""
+    alpha_rad = np.deg2rad(np.arange(-10.0, 31.0, 1.0))
+    cl = 2 * np.pi * alpha_rad
+    bump_index = np.argmin(np.abs(alpha_rad - np.deg2rad(5.0)))
+    cl[bump_index] += 0.2  # spurious local max at alpha = 5 deg
+    polar_data = np.column_stack(
+        (alpha_rad, cl, np.full_like(alpha_rad, 0.01), np.zeros_like(alpha_rad))
+    )
+    body_aero = _rectangular_body(8, polar_data)
+    solver, ctx = _solver_with_viscosity_ctx(body_aero, angle_of_attack=3.0)
+    assert np.all(np.isfinite(ctx["stall_angles"]))  # gate sees the bump...
+
+    gamma_target = np.linspace(0.0, 1.0, solver.n_panels)
+    alpha_array = np.full(solver.n_panels, np.deg2rad(8.0))  # past the bump
+    assert np.all(alpha_array > ctx["stall_angles"])  # ...and it is open
+    # ...but the slope is positive there, so the exact no-op must kick in.
+    assert (
+        solver._regularize_gamma_target(gamma_target, alpha_array, ctx) is gamma_target
+    )
+
+
+def test_artificial_viscosity_end_to_end_attached_identical_and_post_stall_smooth():
+    """End-to-end guarantees of the optimized regularization: attached-flow
+    solves are unchanged by enabling artificial viscosity, and a genuinely
+    post-stall solve converges to a smooth (sawtooth-free) distribution."""
+    body_aero = _rectangular_body(20, _stalled_polar_data())
+
+    # Attached: enabling the viscosity must not change the converged gamma.
+    body_aero.va_initialize(Umag=10.0, angle_of_attack=5.0)
+    res_base = Solver().solve(body_aero)
+    body_aero.va_initialize(Umag=10.0, angle_of_attack=5.0)
+    res_av = Solver(is_with_artificial_viscosity=True).solve(body_aero)
+    assert res_base["gamma_converged"] and res_av["gamma_converged"]
+    np.testing.assert_allclose(
+        res_av["gamma_distribution"],
+        res_base["gamma_distribution"],
+        rtol=0.0,
+        atol=1e-12,
+    )
+
+    # Post-stall: converges and the distribution is smooth.
+    body_aero.va_initialize(Umag=10.0, angle_of_attack=18.0)
+    res_av_stalled = Solver(is_with_artificial_viscosity=True).solve(body_aero)
+    assert res_av_stalled["gamma_converged"]
+    gamma = np.asarray(res_av_stalled["gamma_distribution"], dtype=float)
+    peak = np.max(np.abs(gamma))
+    sawtooth = np.mean(np.abs(gamma[:-2] - 2 * gamma[1:-1] + gamma[2:])) / peak
+    assert sawtooth < 0.05
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
