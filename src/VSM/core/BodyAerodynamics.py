@@ -7,7 +7,11 @@ from VSM.core.WingGeometry import Wing
 from VSM.core.Panel import Panel
 from VSM.core.Wake import Wake
 from VSM.core.AirfoilAerodynamics import AirfoilAerodynamics
-from VSM.core.utils import intersect_line_with_plane, point_in_quad
+from VSM.core.utils import (
+    intersect_line_with_plane,
+    point_in_quad,
+    assemble_AIC_matrices,
+)
 from . import jit_cross, jit_norm, jit_dot
 
 
@@ -735,6 +739,64 @@ class BodyAerodynamics:
 
         Returns:
             Tuple[np.array, np.array, np.array]: The x, y, and z components of the AIC matrix
+        """
+        if aerodynamic_model_type not in ["VSM", "LLT"]:
+            raise ValueError("Invalid aerodynamic model type, should be VSM or LLT")
+
+        evaluation_point = (
+            "control_point" if aerodynamic_model_type == "VSM" else "aerodynamic_center"
+        )
+        evaluation_point_on_bound = aerodynamic_model_type == "LLT"
+        panel_areas = np.array([panel.chord * panel.width for panel in self.panels])
+        wake_velocity = self._compute_reference_velocity_from_distribution(
+            self._va, self.n_panels, panel_areas
+        )
+        wake_speed = jit_norm(wake_velocity)
+        if wake_speed <= 0.0:
+            raise ValueError("Wake reference speed must be positive.")
+        wake_unit = wake_velocity / wake_speed
+
+        # Assembled in one numba-compiled double loop (utils.assemble_AIC_matrices)
+        # over packed filament geometry; per-filament kernels are jit ports of
+        # Filament.py, matching it to floating-point round-off. The per-panel
+        # Python loop is kept verbatim in _compute_AIC_matrices_reference as the
+        # readable reference and regression oracle.
+        eval_points = np.ascontiguousarray(
+            [getattr(panel, evaluation_point) for panel in self.panels], dtype=float
+        )
+        bound_point_1 = np.ascontiguousarray(
+            [panel.bound_point_1 for panel in self.panels], dtype=float
+        )
+        bound_point_2 = np.ascontiguousarray(
+            [panel.bound_point_2 for panel in self.panels], dtype=float
+        )
+        TE_point_1 = np.ascontiguousarray(
+            [panel.TE_point_1 for panel in self.panels], dtype=float
+        )
+        TE_point_2 = np.ascontiguousarray(
+            [panel.TE_point_2 for panel in self.panels], dtype=float
+        )
+        AIC = assemble_AIC_matrices(
+            eval_points,
+            bound_point_1,
+            bound_point_2,
+            TE_point_1,
+            TE_point_2,
+            np.ascontiguousarray(wake_unit, dtype=float),
+            float(wake_speed),
+            float(core_radius_fraction),
+            evaluation_point_on_bound,
+            aerodynamic_model_type == "VSM",
+        )
+        return AIC[0], AIC[1], AIC[2]
+
+    def _compute_AIC_matrices_reference(
+        self, aerodynamic_model_type, core_radius_fraction, va_norm_array, va_unit_array
+    ):
+        """Reference (pure-Python) AIC assembly: the original per-panel loop over
+        Panel.compute_velocity_induced_single_ring_semiinfinite. Kept as the
+        readable formulation and as the oracle for regression-testing the
+        numba-compiled fast path in :meth:`compute_AIC_matrices`.
         """
         if aerodynamic_model_type not in ["VSM", "LLT"]:
             raise ValueError("Invalid aerodynamic model type, should be VSM or LLT")
