@@ -483,6 +483,21 @@ class Solver:
                 )
             gamma_new = (1 - relaxation) * gamma + relaxation * gamma_target
 
+            if not np.all(np.isfinite(gamma_new)):
+                # A non-finite circulation never recovers: every later
+                # iterate is NaN. Return the last finite one, not converged,
+                # instead of grinding max_iterations on NaN and handing the
+                # caller NaN forces (seen on a doubled-back lifting line,
+                # WingGeometry._warn_if_sections_double_back).
+                logging.warning(
+                    "Circulation loop produced non-finite gamma at iteration "
+                    "%s -- stopping (degenerate mesh or expansive map); "
+                    "returning the last finite circulation, not converged.",
+                    i,
+                )
+                gamma_new = gamma
+                break
+
             # Checking convergence using normalized error
             reference_error = (
                 np.amax(np.abs(gamma_new)) if np.amax(np.abs(gamma_new)) != 0 else 1e-4
@@ -776,6 +791,18 @@ class Solver:
 
             x = x_new
             g, f, alpha_array, Umag_array = relaxed_step(x)
+            if not (np.all(np.isfinite(x)) and np.all(np.isfinite(g))):
+                # Same guard as the base loop: fall back to the last finite
+                # iterate and let the caller's base-loop fallback / failure
+                # handling take over.
+                logging.warning(
+                    "Anderson circulation loop produced non-finite gamma at "
+                    "iteration %s -- stopping on the last finite iterate.",
+                    k,
+                )
+                x = x_hist[-1] if x_hist else np.array(gamma_initial, dtype=float)
+                g, f, alpha_array, Umag_array = relaxed_step(x)
+                break
 
         self.last_iterations = last_k + 1  # diagnostic: iterations used
         if not converged:

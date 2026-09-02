@@ -19,12 +19,25 @@ class Wing:
         spanwise_panel_distribution (str): Panel distribution strategy.
         spanwise_direction (np.ndarray): Wing spanwise unit vector.
         sections (List[Section]): Ordered list of wing sections.
+        preserve_section_order (bool): When True the sections are taken in
+            the order they were given and ``refine_aerodynamic_mesh`` does
+            NOT re-order them with the nearest-neighbour sort. Set by
+            :meth:`update_wing_from_points`, whose point arrays already run
+            along the wing's arc (a structural solver's section sequence).
+            The sort exists for unordered user input; applied to an already
+            ordered but strongly deformed wing it can chain the sections
+            wrongly -- on a curled LEI tip whose outermost section sits
+            inboard of its neighbour it produces a lifting line that doubles
+            back on itself, with near-coincident control points, a
+            circulation map with an eigenvalue above 1 and a gamma loop that
+            runs off to NaN (AWETrim steering continuation, 2026-09-01).
     """
 
     n_panels: int
     spanwise_panel_distribution: str = "uniform"
     spanwise_direction: np.ndarray = field(default_factory=lambda: np.array([0, 1, 0]))
     sections: List["Section"] = field(default_factory=list)
+    preserve_section_order: bool = False
 
     def update_wing_from_points(
         self,
@@ -48,6 +61,9 @@ class Wing:
             self.sections.clear()
             for le, te, polar_data in zip(le_arr, te_arr, polar_data_arr):
                 self.add_section(le, te, polar_data)
+            # The arrays define the order along the wing; never re-sort them
+            # (see ``preserve_section_order``).
+            self.preserve_section_order = True
         else:
             raise ValueError(
                 f"Unsupported aero model: {aero_input_type}. Supported: reuse_initial_polar_data"
@@ -199,8 +215,10 @@ class Wing:
         # self.sections = sorted(
         #     self.sections, key=lambda section: section.LE_point[1], reverse=True
         # )
-        # Perform additional sorting
-        self.sections = self.find_farthest_point_and_sort(self.sections)
+        # Perform additional sorting -- only for sections whose order is not
+        # already known (see ``preserve_section_order``).
+        if not self.preserve_section_order:
+            self.sections = self.find_farthest_point_and_sort(self.sections)
 
         # Ensure we get 1 section more than the desired number of panels
         n_sections = self.n_panels + 1
@@ -218,6 +236,7 @@ class Wing:
             LE[i] = section.LE_point
             TE[i] = section.TE_point
             polar_data.append(section.polar_data)
+        self._warn_if_sections_double_back(LE, TE)
 
         # refine the mesh
         if self.spanwise_panel_distribution in [
@@ -237,6 +256,30 @@ class Wing:
         else:
             raise ValueError(
                 f"Unsupported spanwise panel distribution: {self.spanwise_panel_distribution}, choose: uniform, unchanged, cosine, cosine_van_Garrel"
+            )
+
+    @staticmethod
+    def _warn_if_sections_double_back(LE: np.ndarray, TE: np.ndarray) -> None:
+        """Warn when the quarter-chord polyline reverses direction between
+        consecutive sections: the lifting line then folds over itself and
+        the circulation fixed point is repelling (an eigenvalue of the
+        circulation map above 1), so no relaxation or acceleration converges
+        the gamma loop. A geometry problem, not a solver problem -- either
+        the sections were handed over in the wrong order or the deformed
+        wing has genuinely folded.
+        """
+        if len(LE) < 3:
+            return
+        quarter_chord = LE + 0.25 * (TE - LE)
+        steps = np.diff(quarter_chord, axis=0)
+        dots = np.sum(steps[1:] * steps[:-1], axis=1)
+        reversed_at = np.where(dots < 0.0)[0]
+        if reversed_at.size:
+            logging.warning(
+                "Wing sections double back between sections %s: the lifting "
+                "line reverses direction there (folded tip or wrong section "
+                "order); the circulation loop will not converge on this mesh.",
+                [(int(i), int(i) + 2) for i in reversed_at],
             )
 
     def refine_mesh_for_uniform_or_cosine_distribution(
