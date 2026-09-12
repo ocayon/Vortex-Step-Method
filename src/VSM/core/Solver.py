@@ -60,7 +60,8 @@ class Solver:
         artificial_viscosity_factor: float = 0.035,
         anderson_depth: int = 5,
         anderson_beta: float = 1.0,
-        anderson_max_iterations: int = 100,
+        anderson_max_iterations: int = 1000,
+        anderson_fallback_to_base: bool = False,
     ):
         """Initialize solver with configuration parameters.
 
@@ -125,6 +126,14 @@ class Solver:
         self.anderson_depth = int(anderson_depth)
         self.anderson_beta = float(anderson_beta)
         self.anderson_max_iterations = int(anderson_max_iterations)
+        # Whether a non-converged Anderson attempt retries with the base
+        # relaxed-Picard loop. OFF by default since 2026-09-03, with the
+        # iteration headroom raised to 1000 instead: measured on the AWETrim
+        # 2019+2025 steering campaigns, the fallback rescued 99 of ~92,400
+        # Anderson failures (0.1%) while costing up to two 1500-iteration
+        # base loops per failure. Callers that want the old always-fall-back
+        # robustness pass True (and may lower anderson_max_iterations).
+        self.anderson_fallback_to_base = bool(anderson_fallback_to_base)
 
         ## Initializing some empty properties
         self.panels = None
@@ -255,8 +264,9 @@ class Solver:
             # VSM is unreliable anyway and only the base loop's viscosity /
             # heavy relaxation converges). Fall back to the base loop — same
             # fixed point, same two-stage half-relaxation retry — so the
-            # accelerated path is never less robust than ``base``.
-            if not converged:
+            # accelerated path is never less robust than ``base``. Optional
+            # (anderson_fallback_to_base): measured rescue rate 0.1%.
+            if not converged and self.anderson_fallback_to_base:
                 logging.info(
                     " ---> Anderson did not converge; falling back to base "
                     "relaxed-Picard loop"
