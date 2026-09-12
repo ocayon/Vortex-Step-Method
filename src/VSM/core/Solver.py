@@ -62,6 +62,8 @@ class Solver:
         anderson_beta: float = 1.0,
         anderson_max_iterations: int = 1000,
         anderson_fallback_to_base: bool = False,
+        stagnation_patience: int = 0,
+        stagnation_rtol: float = 0.05,
     ):
         """Initialize solver with configuration parameters.
 
@@ -134,6 +136,23 @@ class Solver:
         # base loops per failure. Callers that want the old always-fall-back
         # robustness pass True (and may lower anderson_max_iterations).
         self.anderson_fallback_to_base = bool(anderson_fallback_to_base)
+
+        # Give up on a circulation solve that has stopped improving, rather
+        # than grinding out ``max_iterations``. OFF by default (patience 0):
+        # a plain solve should keep its full budget, since a slow solve and a
+        # hopeless one are only distinguishable by PROGRESS, never by an
+        # iteration count -- shrinking a cap to bound the hopeless case kills
+        # the slow-but-converging one too.
+        #
+        # The caller that wants this is a two-stage scheme whose first stage is
+        # a PREDICTOR it may throw away (AWETrim's attached-branch finder): on a
+        # genuinely stalled state that predictor exhausts the cap and is then
+        # rejected regardless, so the whole budget is waste. ``patience``
+        # iterations with no improvement better than ``rtol`` ends it.
+        self.stagnation_patience = int(stagnation_patience)
+        self.stagnation_rtol = float(stagnation_rtol)
+        #: Diagnostic: did the last circulation solve stop on stagnation?
+        self.last_stagnated = False
 
         ## Initializing some empty properties
         self.panels = None
@@ -479,6 +498,7 @@ class Solver:
         use_viscosity = viscosity_ctx is not None
 
         relaxation = self.relaxation_factor * extra_relaxation_factor
+        self.last_stagnated = False
         for i in range(self.max_iterations):
             gamma = gamma_new
             alpha_array, Umag_array, cl_array, Umagw_array = (
@@ -521,6 +541,16 @@ class Solver:
             # Store error for oscillation detection
             error_history.append(normalized_error)
 
+            if self._stagnated(error_history):
+                logging.debug(
+                    "Circulation loop stagnated at iteration %s "
+                    "(no improvement in %s iterations); stopping.",
+                    i,
+                    self.stagnation_patience,
+                )
+                self.last_stagnated = True
+                break
+
             # Simple oscillation detection and handling. Skipped when artificial
             # viscosity is active, since the regularization already suppresses the
             # sawtooth oscillations this heuristic targets.
@@ -539,6 +569,22 @@ class Solver:
             logging.warning(f"NOT Converged after {self.max_iterations} iterations")
         self.last_iterations = i + 1  # diagnostic: iterations used this solve
         return converged, gamma_new, alpha_array, Umag_array
+
+    def _stagnated(self, error_history: list) -> bool:
+        """True when the normalized error has stopped improving.
+
+        Compares the best error of the last ``stagnation_patience`` iterations
+        against the best of everything before them: if the recent window has
+        not beaten the earlier best by at least ``stagnation_rtol``, the
+        iteration is not going anywhere. Uses running minima rather than the
+        latest value so an oscillating-but-descending solve is not cut off.
+        """
+        patience = int(getattr(self, "stagnation_patience", 0) or 0)
+        if patience <= 0 or len(error_history) <= patience:
+            return False
+        recent_best = min(error_history[-patience:])
+        prior_best = min(error_history[:-patience])
+        return recent_best > prior_best * (1.0 - float(self.stagnation_rtol))
 
     def _build_viscosity_ctx(self) -> dict | None:
         """Pre-build the frozen-geometry objects the post-stall regularization
@@ -761,6 +807,8 @@ class Solver:
         f_hist: list[np.ndarray] = []  # window of relaxed residuals g(x)-x
         converged = False
         last_k = 0
+        error_history: list[float] = []
+        self.last_stagnated = False
 
         for k in range(max_it):
             last_k = k
@@ -776,6 +824,17 @@ class Solver:
             logging.debug(
                 f"Anderson normalized error at iteration {k}: {normalized_error}"
             )
+
+            error_history.append(normalized_error)
+            if self._stagnated(error_history):
+                logging.debug(
+                    "Anderson loop stagnated at iteration %s "
+                    "(no improvement in %s iterations); stopping.",
+                    k,
+                    self.stagnation_patience,
+                )
+                self.last_stagnated = True
+                break
 
             x_hist.append(x)
             f_hist.append(f)
