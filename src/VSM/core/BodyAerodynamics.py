@@ -63,6 +63,7 @@ class BodyAerodynamics:
         self._control_point_location = control_point_location
 
         self._bridle_line_system = bridle_line_system
+        self._reference_point = np.zeros(3, dtype=float)
         self.cd_cable = 1.1
         self.cf_cable = 0.01
 
@@ -429,6 +430,16 @@ class BodyAerodynamics:
         return self._body_rates
 
     @property
+    def reference_point(self):
+        """``r0`` of the rotational inflow, as last given to the ``va`` setter.
+
+        Paired with :attr:`body_rates` and :attr:`va` (the freestream) this is
+        everything a consumer needs to evaluate the inflow at its own station,
+        ``va(r) = va_free - omega x (r - r0)``, instead of borrowing the wing's.
+        """
+        return self._reference_point
+
+    @property
     def gamma_distribution(self):
         return self._gamma_distribution
 
@@ -523,15 +534,24 @@ class BodyAerodynamics:
         self._body_rates = omega_vec
         if not rates_in_body_frame:
             self._body_rates = self.geometry_rotation @ self._body_rates
+
+        # r0 is stored unconditionally, not just on the rotating branch: the
+        # pair (body_rates, reference_point) is what any consumer needs to
+        # evaluate va(r) = va_free - omega x (r - r0) at a station of its own
+        # -- a bridle segment, a KCU, a tether attachment. Leaving it on the
+        # stack meant such a consumer could only guess the origin, and guessing
+        # right is indistinguishable from guessing wrong until r0 moves.
+        r0 = (
+            np.zeros(3, dtype=float)
+            if reference_point is None
+            else np.asarray(reference_point, dtype=float)
+        )
+        if r0.shape != (3,):
+            raise ValueError(f"reference_point must be shape (3,), got {r0.shape}")
+        self._reference_point = r0
+
         # add rotational inflow only if any rate is nonzero
         if np.any(self._body_rates != 0.0):
-            r0 = (
-                np.zeros(3, dtype=float)
-                if reference_point is None
-                else np.asarray(reference_point, dtype=float)
-            )
-            if r0.shape != (3,):
-                raise ValueError(f"reference_point must be shape (3,), got {r0.shape}")
             control_points = np.array(
                 [p.control_point for p in self.panels], dtype=float
             )
@@ -1448,13 +1468,50 @@ class BodyAerodynamics:
         max_chord = max(np.array([panel.chord for panel in self.panels]))
         reynolds_number = rho * va_ref_mag * max_chord / mu
 
+        bridle_line_force_list = []
+        bridle_line_midpoint_list = []
         if self._bridle_line_system is not None:
+            # Each segment is charged at its OWN inflow, not the wing's.
+            # The panel inflow this class builds is
+            #     va(r) = va_free - omega x (r - r0)        (see the va setter)
+            # so the rotational term belongs to the station it is evaluated at.
+            # ``va_ref_vector`` is the area-weighted mean over the PANELS, i.e.
+            # that term evaluated at the WING -- and the bridle is not at the
+            # wing. Charging it to every segment misstates both the force and
+            # its moment about the reference point, which is the balance a
+            # caller's trim is solved against. With no body rates the two are
+            # identical, so only turning/steered cases move.
+            #
+            # ``self._va`` is the freestream exactly as handed to the setter. A
+            # caller who supplied a full per-panel distribution has no single
+            # freestream to extrapolate from, so that case keeps the reference
+            # vector.
+            omega_body = np.asarray(self._body_rates, dtype=float).ravel()
+            va_freestream = np.asarray(self._va, dtype=float)
+            is_per_segment_inflow = (
+                va_freestream.shape == (3,)
+                and omega_body.shape == (3,)
+                and np.any(omega_body)
+            )
+
             # Calculate forces and moments for each bridle line individually
             for bridle_line in self._bridle_line_system:
+                # Bridle line midpoint: both the inflow station and the moment
+                # application point.
+                bridle_midpoint = 0.5 * (bridle_line[0] + bridle_line[1])
+
                 # Calculate force for this individual bridle line
-                fa_bridle_line = self.compute_line_aerodynamic_force(
-                    va_ref_vector, bridle_line
+                va_bridle_line = (
+                    va_freestream
+                    - np.cross(omega_body, bridle_midpoint - reference_point)
+                    if is_per_segment_inflow
+                    else va_ref_vector
                 )
+                fa_bridle_line = self.compute_line_aerodynamic_force(
+                    va_bridle_line, bridle_line, rho=rho
+                )
+                bridle_line_force_list.append(fa_bridle_line)
+                bridle_line_midpoint_list.append(bridle_midpoint)
 
                 # Add bridle forces to global force totals
                 fx_global_3D_sum += fa_bridle_line[0]
@@ -1463,10 +1520,6 @@ class BodyAerodynamics:
                 lift_wing_3D_sum += jit_dot(fa_bridle_line, dir_lift_ref)
                 drag_wing_3D_sum += jit_dot(fa_bridle_line, va_ref_unit)
                 side_wing_3D_sum += jit_dot(fa_bridle_line, dir_side_ref)
-
-                # Calculate moment for this bridle line
-                # Bridle line midpoint as moment application point
-                bridle_midpoint = 0.5 * (bridle_line[0] + bridle_line[1])
 
                 # Vector from reference point to bridle midpoint
                 r_bridle = bridle_midpoint - np.array(reference_point)
@@ -1516,6 +1569,14 @@ class BodyAerodynamics:
         results_dict.update([("cs_distribution", cs_prescribed_va_list)])
         results_dict.update([("F_distribution", f_global_3D_list)])
         results_dict.update([("M_distribution", m_global_3D_list)])
+        # Bridle-line loads exactly as charged above: one row per segment of
+        # ``bridle_line_system``, each force paired with the midpoint it acts
+        # at. Published so a coupled solver can hand the STRUCTURE the same
+        # load the trim balanced, rather than recomputing it and drifting.
+        results_dict.update([("bridle_line_forces", np.array(bridle_line_force_list))])
+        results_dict.update(
+            [("bridle_line_midpoints", np.array(bridle_line_midpoint_list))]
+        )
 
         # Additional info
         results_dict.update(
