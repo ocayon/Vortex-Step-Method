@@ -1471,13 +1471,18 @@ class BodyAerodynamics:
         bridle_line_force_list = []
         bridle_line_midpoint_list = []
         if self._bridle_line_system is not None:
-            # Each segment is charged at its OWN inflow, not the wing's.
-            # The panel inflow this class builds is
+            # Each segment is charged at its OWN inflow, rather than one
+            # vector standing in for the whole bridle. The panel inflow this
+            # class builds is
             #     va(r) = va_free - omega x (r - r0)        (see the va setter)
-            # so the rotational term belongs to the station it is evaluated at.
-            # ``va_ref_vector`` is the area-weighted mean over the PANELS, i.e.
-            # that term evaluated at the WING -- and the bridle is not at the
-            # wing. Charging it to every segment misstates both the force and
+            # but ``va_ref_vector`` carries NO rotational term at all: it is
+            # ``_compute_reference_velocity_from_distribution(self._va, ...)``
+            # and ``self._va`` is the inflow exactly as HANDED to the setter,
+            # before v_rot is added. For the usual uniform case that IS the
+            # freestream. So every bridle segment used to be charged va_free --
+            # the inflow at the reference point -- wherever the segment
+            # actually sits. On a rotating body that is the wrong dynamic
+            # pressure on every segment except those at r0, in the force and in
             # its moment about the reference point, which is the balance a
             # caller's trim is solved against. With no body rates the two are
             # identical, so only turning/steered cases move.

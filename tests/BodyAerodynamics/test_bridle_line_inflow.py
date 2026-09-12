@@ -1,10 +1,12 @@
-"""Bridle segments are charged at their OWN station, not the wing's.
+"""Bridle segments are charged at their OWN station.
 
-``compute_results`` used to hand every bridle line ``va_ref_vector`` -- the
-area-weighted mean PANEL inflow, i.e. the rotational term ``-omega x (r - r0)``
-evaluated at the WING. A bridle is not at the wing, so on any rotating body
-that is the wrong dynamic pressure, in the force AND in its moment about the
-reference point. With ``omega = 0`` the two are identical, which is why only
+``compute_results`` used to hand every bridle line ``va_ref_vector``. That is
+built from ``self._va`` -- the inflow as handed to the ``va`` setter, BEFORE
+the rotational term is added -- so for the usual uniform case it is exactly the
+freestream, and the bridle carried no ``-omega x (r - r0)`` at all. Every
+segment was charged the inflow at the reference point no matter where it sat,
+which on a rotating body is the wrong dynamic pressure in the force AND in its
+moment about that point. With ``omega = 0`` the two coincide, which is why only
 turning cases move.
 """
 
@@ -101,18 +103,33 @@ def test_each_segment_is_charged_at_its_own_midpoint_inflow():
     assert np.allclose(results["bridle_line_forces"], expected)
 
 
-def test_the_wing_mean_inflow_would_give_a_different_answer():
+def test_va_ref_vector_is_the_freestream_not_the_panel_mean():
+    """The premise of the fix, pinned so it cannot be misread again.
+
+    ``va_ref_vector`` is computed from ``self._va``, which never has the
+    rotational term subtracted into it -- it is NOT the area-weighted mean of
+    the PANEL inflows, which does carry ``-omega x (r - r0)``.
+    """
+    body, _ = _solved(np.array([0.0, 0.1, -0.6]))
+    areas = np.array([p.chord * p.width for p in body.panels], dtype=float)
+    as_coded = body._compute_reference_velocity_from_distribution(
+        body._va, len(body.panels), areas
+    )
+    panel_mean = body._compute_reference_velocity_from_distribution(
+        np.array([p.va for p in body.panels], dtype=float), len(body.panels), areas
+    )
+    assert np.allclose(as_coded, np.asarray(body.va, dtype=float))
+    assert not np.allclose(as_coded, panel_mean, rtol=1e-3)
+
+
+def test_the_old_single_freestream_would_give_a_different_answer():
     """Guards the regression rather than just asserting the new formula."""
     omega = np.array([0.0, 0.1, -0.6])
     body, results = _solved(omega)
-    va_wing_mean = body._compute_reference_velocity_from_distribution(
-        np.array([p.va for p in body.panels], dtype=float),
-        len(body.panels),
-        np.array([p.chord * p.width for p in body.panels], dtype=float),
-    )
+    va_free = np.asarray(body.va, dtype=float)
     old = np.array(
         [
-            body.compute_line_aerodynamic_force(va_wing_mean, line, rho=1.225)
+            body.compute_line_aerodynamic_force(va_free, line, rho=1.225)
             for line in body._bridle_line_system
         ]
     )
